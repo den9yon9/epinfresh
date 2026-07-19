@@ -1,2 +1,4 @@
-// Domain tables will be defined here as domain packages are created
-export {}
+export { users } from './users'
+export { categories } from './categories'
+export { products } from './products'
+export { productSkus } from './product-skus'

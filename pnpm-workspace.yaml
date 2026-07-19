@@ -1,6 +1,7 @@
 packages:
   - config/*
   - packages/*
+  - domains/*
   - apps/*
 onlyBuiltDependencies:
   - esbuild

@@ -1,1 +1,1 @@
-export const sayHello = (name: string) => `Hello, ${name}!`
+export type { InferModel, InferModelsMap } from './InferModel'

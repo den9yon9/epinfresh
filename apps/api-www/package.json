@@ -1,5 +1,5 @@
 {
-  "name": "@epinfresh/api-storefront",
+  "name": "@epinfresh/api-www",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@epinfresh/database": "workspace:*",
+    "@epinfresh/product": "workspace:*",
     "@epinfresh/shared": "workspace:*",
+    "@epinfresh/user": "workspace:*",
     "elysia": "^1.2.0"
   }
 }
