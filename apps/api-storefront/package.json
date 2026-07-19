@@ -1,0 +1,16 @@
+{
+  "name": "@epinfresh/api-storefront",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@epinfresh/database": "workspace:*",
+    "@epinfresh/shared": "workspace:*",
+    "elysia": "^1.2.0"
+  }
+}
