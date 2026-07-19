@@ -48,7 +48,7 @@ importers:
         specifier: ^1.2.0
         version: 1.4.29(@sinclair/typebox@0.34.52)(@types/bun@1.3.14)(exact-mirror@1.2.2)(file-type@22.0.1)(openapi-types@12.1.3)(typescript@5.9.3)
 
-  apps/api-storefront:
+  apps/api-www:
     dependencies:
       '@epinfresh/database':
         specifier: workspace:*
@@ -106,6 +106,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@epinfresh/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@sinclair/typebox':
         specifier: ^0.34.0
         version: 0.34.52
@@ -125,6 +128,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@sinclair/typebox':
+        specifier: ^0.34.0
+        version: 0.34.52
       elysia:
         specifier: ^1.2.0
         version: 1.4.29(@sinclair/typebox@0.34.52)(@types/bun@1.3.14)(exact-mirror@1.2.2)(file-type@22.0.1)(openapi-types@12.1.3)(typescript@5.9.3)

@@ -1,9 +1,10 @@
 import { productWWWPlugin } from '@epinfresh/product'
+import { env } from '@epinfresh/shared'
 import type { InferModelsMap } from '@epinfresh/shared'
 import { userWWWPlugin } from '@epinfresh/user'
 import { Elysia } from 'elysia'
 
-const port = Number(process.env.WWW_PORT) || 3000
+const port = Number(env.WWW_PORT)
 
 const app = new Elysia()
   .get('/health', () => ({ status: 'ok', service: 'www' }))

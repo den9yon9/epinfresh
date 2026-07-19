@@ -1,9 +1,10 @@
 import { productAdminPlugin } from '@epinfresh/product'
+import { env } from '@epinfresh/shared'
 import type { InferModelsMap } from '@epinfresh/shared'
 import { userAdminPlugin } from '@epinfresh/user'
 import { Elysia } from 'elysia'
 
-const port = Number(process.env.ADMIN_PORT) || 3001
+const port = Number(env.ADMIN_PORT)
 
 const app = new Elysia()
   .get('/health', () => ({ status: 'ok', service: 'admin' }))

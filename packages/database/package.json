@@ -12,6 +12,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@epinfresh/shared": "workspace:*",
     "@sinclair/typebox": "^0.34.0",
     "drizzle-orm": "^0.40.0",
     "drizzle-typebox": "^0.3.0",
