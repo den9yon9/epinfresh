@@ -8,7 +8,10 @@ export const userAdminPlugin = new Elysia({ name: 'user-admin', prefix: '/api/v1
     '/',
     ({ query }) =>
       UserService.list({ page: Number(query.page) || 1, pageSize: Number(query.pageSize) || 20 }),
-    { query: t.Object({ page: t.Optional(t.String()), pageSize: t.Optional(t.String()) }) },
+    {
+      query: t.Object({ page: t.Optional(t.String()), pageSize: t.Optional(t.String()) }),
+      response: { 200: 'UserListResponse' },
+    },
   )
   .get(
     '/:id',
@@ -19,5 +22,8 @@ export const userAdminPlugin = new Elysia({ name: 'user-admin', prefix: '/api/v1
         () => status(404, { error: 'USER_NOT_FOUND', message: 'User not found' }),
       )
     },
-    { params: t.Object({ id: t.String({ format: 'uuid' }) }) },
+    {
+      params: t.Object({ id: t.String({ format: 'uuid' }) }),
+      response: { 200: 'UserResponse', 404: 'ErrorResponse' },
+    },
   )

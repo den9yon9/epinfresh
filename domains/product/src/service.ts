@@ -3,39 +3,6 @@ import type { ProductStatus } from '@epinfresh/shared'
 import { type Result, err, ok } from '@epinfresh/shared'
 import { and, count, eq } from 'drizzle-orm'
 
-export type ProductDTO = {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-  categoryId: string | null
-  images: string[]
-  status: ProductStatus
-  createdAt: Date
-  updatedAt: Date
-  skus: Array<{
-    id: string
-    productId: string
-    name: string
-    skuCode: string
-    price: string
-    stock: number
-    attributes: Record<string, string>
-    createdAt: Date
-    updatedAt: Date
-  }>
-}
-
-export type CategoryDTO = {
-  id: string
-  name: string
-  slug: string
-  parentId: string | null
-  sortOrder: number
-  createdAt: Date
-  updatedAt: Date
-}
-
 export class ProductService {
   static async list(query: {
     page?: number
@@ -60,45 +27,44 @@ export class ProductService {
       .limit(pageSize)
       .offset(offset)
     const [{ total }] = await db.select({ total: count() }).from(schema.products).where(where)
-    if (items.length === 0)
-      return { items: [] as ProductDTO[], total: Number(total), page, pageSize }
+    if (items.length === 0) return { items: [] as never[], total: Number(total), page, pageSize }
 
     const skus = await db
       .select()
       .from(schema.productSkus)
       .where(and(...items.map((p) => eq(schema.productSkus.productId, p.id))))
-    const skuMap = new Map<string, ProductDTO['skus']>()
+    const skuMap = new Map<string, (typeof schema.productSkus.$inferSelect)[]>()
     for (const sku of skus) {
       const arr = skuMap.get(sku.productId) ?? []
-      arr.push(sku as ProductDTO['skus'][number])
+      arr.push(sku)
       skuMap.set(sku.productId, arr)
     }
     return {
-      items: items.map((p) => ({ ...p, skus: skuMap.get(p.id) ?? [] })) as ProductDTO[],
+      items: items.map((p) => ({ ...p, skus: skuMap.get(p.id) ?? [] })),
       total: Number(total),
       page,
       pageSize,
     }
   }
 
-  static async getById(id: string): Promise<Result<ProductDTO, 'PRODUCT_NOT_FOUND'>> {
+  static async getById(id: string) {
     const [product] = await db.select().from(schema.products).where(eq(schema.products.id, id))
     if (!product) return err('PRODUCT_NOT_FOUND')
     const skus = await db
       .select()
       .from(schema.productSkus)
       .where(eq(schema.productSkus.productId, id))
-    return ok({ ...product, skus } as ProductDTO)
+    return ok({ ...product, skus })
   }
 
-  static async getByIdPublic(id: string): Promise<Result<ProductDTO, 'PRODUCT_NOT_FOUND'>> {
+  static async getByIdPublic(id: string) {
     const [product] = await db.select().from(schema.products).where(eq(schema.products.id, id))
     if (!product || product.status !== 'published') return err('PRODUCT_NOT_FOUND')
     const skus = await db
       .select()
       .from(schema.productSkus)
       .where(eq(schema.productSkus.productId, id))
-    return ok({ ...product, skus } as ProductDTO)
+    return ok({ ...product, skus })
   }
 
   static async create(input: {
@@ -115,7 +81,7 @@ export class ProductService {
       stock?: number
       attributes?: Record<string, string>
     }>
-  }): Promise<ProductDTO> {
+  }) {
     return db.transaction(async (tx) => {
       const [product] = await tx
         .insert(schema.products)
@@ -144,7 +110,7 @@ export class ProductService {
         .select()
         .from(schema.productSkus)
         .where(eq(schema.productSkus.productId, product.id))
-      return { ...product, skus } as ProductDTO
+      return { ...product, skus }
     })
   }
 
@@ -158,8 +124,8 @@ export class ProductService {
       images?: string[]
       status?: ProductStatus
     },
-  ): Promise<Result<ProductDTO, 'PRODUCT_NOT_FOUND'>> {
-    return db.transaction(async (tx): Promise<Result<ProductDTO, 'PRODUCT_NOT_FOUND'>> => {
+  ) {
+    return db.transaction(async (tx) => {
       const setPayload: Record<string, unknown> = { updatedAt: new Date() }
       if (input.name !== undefined) setPayload.name = input.name
       if (input.slug !== undefined) setPayload.slug = input.slug
@@ -177,12 +143,12 @@ export class ProductService {
         .select()
         .from(schema.productSkus)
         .where(eq(schema.productSkus.productId, product.id))
-      return ok({ ...product, skus } as ProductDTO)
+      return ok({ ...product, skus })
     })
   }
 
-  static async remove(id: string): Promise<Result<void, 'PRODUCT_NOT_FOUND'>> {
-    return db.transaction(async (tx): Promise<Result<void, 'PRODUCT_NOT_FOUND'>> => {
+  static async remove(id: string) {
+    return db.transaction(async (tx) => {
       const [product] = await tx.select().from(schema.products).where(eq(schema.products.id, id))
       if (!product) return err('PRODUCT_NOT_FOUND')
       await tx.delete(schema.productSkus).where(eq(schema.productSkus.productId, id))
@@ -191,7 +157,7 @@ export class ProductService {
     })
   }
 
-  static async listCategories(): Promise<CategoryDTO[]> {
+  static async listCategories() {
     return db.select().from(schema.categories).orderBy(schema.categories.sortOrder)
   }
 
@@ -200,7 +166,7 @@ export class ProductService {
     slug: string
     parentId?: string
     sortOrder?: number
-  }): Promise<CategoryDTO> {
+  }) {
     const [cat] = await db
       .insert(schema.categories)
       .values({
@@ -210,24 +176,20 @@ export class ProductService {
         sortOrder: input.sortOrder ?? 0,
       })
       .returning()
-    return cat as CategoryDTO
+    return cat
   }
 
-  static async removeCategory(
-    id: string,
-  ): Promise<Result<void, 'CATEGORY_NOT_FOUND' | 'CATEGORY_HAS_PRODUCTS'>> {
-    return db.transaction(
-      async (tx): Promise<Result<void, 'CATEGORY_NOT_FOUND' | 'CATEGORY_HAS_PRODUCTS'>> => {
-        const [cat] = await tx.select().from(schema.categories).where(eq(schema.categories.id, id))
-        if (!cat) return err('CATEGORY_NOT_FOUND')
-        const [ref] = await tx
-          .select({ count: count() })
-          .from(schema.products)
-          .where(eq(schema.products.categoryId, id))
-        if (Number(ref.count) > 0) return err('CATEGORY_HAS_PRODUCTS')
-        await tx.delete(schema.categories).where(eq(schema.categories.id, id))
-        return ok(undefined)
-      },
-    )
+  static async removeCategory(id: string) {
+    return db.transaction(async (tx) => {
+      const [cat] = await tx.select().from(schema.categories).where(eq(schema.categories.id, id))
+      if (!cat) return err('CATEGORY_NOT_FOUND')
+      const [ref] = await tx
+        .select({ count: count() })
+        .from(schema.products)
+        .where(eq(schema.products.categoryId, id))
+      if (Number(ref.count) > 0) return err('CATEGORY_HAS_PRODUCTS')
+      await tx.delete(schema.categories).where(eq(schema.categories.id, id))
+      return ok(undefined)
+    })
   }
 }

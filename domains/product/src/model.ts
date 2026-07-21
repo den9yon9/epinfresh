@@ -1,56 +1,47 @@
+import { table } from '@epinfresh/database'
 import type { InferModelsMap } from '@epinfresh/shared'
 import { PRODUCT_STATUS } from '@epinfresh/shared'
 import Elysia, { t } from 'elysia'
 
 const STATUS_LITERALS = PRODUCT_STATUS.map((s) => t.Literal(s))
 
-const skuInput = t.Object({
-  name: t.String({ minLength: 1, maxLength: 255 }),
-  skuCode: t.String({ minLength: 1, maxLength: 100, pattern: '^[A-Za-z0-9_-]+$' }),
-  price: t.Number({ minimum: 0 }),
-  stock: t.Optional(t.Integer({ minimum: 0 })),
-  attributes: t.Optional(t.Record(t.String({ maxLength: 64 }), t.String({ maxLength: 1024 }))),
-})
+const ProductResponseSchema = t.Intersect([
+  table.select.product,
+  t.Object({ skus: t.Array(table.select.productSku) }),
+])
 
-const skuResponse = t.Object({
-  id: t.String({ format: 'uuid' }),
-  productId: t.String({ format: 'uuid' }),
-  name: t.String(),
-  skuCode: t.String(),
-  price: t.String(),
-  stock: t.Number(),
-  attributes: t.Record(t.String(), t.String()),
-  createdAt: t.Date(),
-  updatedAt: t.Date(),
-})
+const skuInput = t.Intersect([
+  t.Omit(table.insert.productSku, ['id', 'productId', 'price', 'createdAt', 'updatedAt']),
+  t.Object({
+    price: t.Number({ minimum: 0 }),
+  }),
+])
 
 export const productModel = new Elysia().model({
-  CreateProductInput: t.Object({
-    name: t.String({ minLength: 1, maxLength: 255 }),
-    slug: t.String({ minLength: 1, maxLength: 255, pattern: '^[a-z0-9-]+$' }),
-    description: t.Optional(t.String({ maxLength: 65535 })),
-    categoryId: t.Optional(t.String({ format: 'uuid' })),
-    images: t.Optional(t.Array(t.String({ maxLength: 2048 }), { maxItems: 20 })),
-    status: t.Optional(t.Union(STATUS_LITERALS)),
-    skus: t.Optional(t.Array(skuInput, { maxItems: 100 })),
-  }),
-
-  UpdateProductInput: t.Partial(
+  CreateProductInput: t.Intersect([
+    t.Omit(table.insert.product, ['id', 'createdAt', 'updatedAt']),
     t.Object({
-      name: t.String({ minLength: 1, maxLength: 255 }),
-      slug: t.String({ minLength: 1, maxLength: 255, pattern: '^[a-z0-9-]+$' }),
-      description: t.String({ maxLength: 65535 }),
-      categoryId: t.String({ format: 'uuid' }),
-      images: t.Array(t.String({ maxLength: 2048 }), { maxItems: 20 }),
-      status: t.Union(STATUS_LITERALS),
+      skus: t.Optional(t.Array(skuInput, { maxItems: 100 })),
     }),
-  ),
+  ]),
 
-  CreateCategoryInput: t.Object({
-    name: t.String({ minLength: 1, maxLength: 255 }),
-    slug: t.String({ minLength: 1, maxLength: 255, pattern: '^[a-z0-9-]+$' }),
-    parentId: t.Optional(t.String({ format: 'uuid' })),
-    sortOrder: t.Optional(t.Integer({ minimum: 0 })),
+  UpdateProductInput: t.Partial(t.Omit(table.update.product, ['id', 'createdAt', 'updatedAt'])),
+
+  CreateCategoryInput: t.Omit(table.insert.category, ['id', 'createdAt', 'updatedAt']),
+
+  ProductResponse: ProductResponseSchema,
+  ProductListResponse: t.Object({
+    items: t.Array(ProductResponseSchema),
+    total: t.Number(),
+    page: t.Number(),
+    pageSize: t.Number(),
+  }),
+  CategoryResponse: table.select.category,
+  CategoryListResponse: t.Array(table.select.category),
+
+  ErrorResponse: t.Object({
+    error: t.String(),
+    message: t.String(),
   }),
 
   ProductListQuery: t.Object({

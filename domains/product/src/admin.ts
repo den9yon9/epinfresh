@@ -13,7 +13,11 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
         categoryId: query.categoryId,
         status: undefined,
       }),
-    { query: 'AdminProductListQuery', detail: { tags: ['Admin/Products'] } },
+    {
+      query: 'AdminProductListQuery',
+      response: { 200: 'ProductListResponse' },
+      detail: { tags: ['Admin/Products'] },
+    },
   )
   .get(
     '/products/:id',
@@ -26,6 +30,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
     },
     {
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
+      response: { 200: 'ProductResponse', 404: 'ErrorResponse' },
       detail: { tags: ['Admin/Products'] },
     },
   )
@@ -36,7 +41,11 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       set.status = 201
       return product
     },
-    { body: 'CreateProductInput', detail: { tags: ['Admin/Products'] } },
+    {
+      body: 'CreateProductInput',
+      response: { 200: 'ProductResponse', 201: 'ProductResponse' },
+      detail: { tags: ['Admin/Products'] },
+    },
   )
   .put(
     '/products/:id',
@@ -50,6 +59,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
     {
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
       body: 'UpdateProductInput',
+      response: { 200: 'ProductResponse', 404: 'ErrorResponse' },
       detail: { tags: ['Admin/Products'] },
     },
   )
@@ -68,6 +78,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
     },
   )
   .get('/categories', () => ProductService.listCategories(), {
+    response: { 200: 'CategoryListResponse' },
     detail: { tags: ['Admin/Categories'] },
   })
   .post(
@@ -77,7 +88,11 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       set.status = 201
       return cat
     },
-    { body: 'CreateCategoryInput', detail: { tags: ['Admin/Categories'] } },
+    {
+      body: 'CreateCategoryInput',
+      response: { 200: 'CategoryResponse', 201: 'CategoryResponse' },
+      detail: { tags: ['Admin/Categories'] },
+    },
   )
   .delete(
     '/categories/:id',

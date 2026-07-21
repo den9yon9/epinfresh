@@ -1,28 +1,29 @@
-import { type InferModelsMap, USER_ROLE, type UserRole } from '@epinfresh/shared'
+import { table } from '@epinfresh/database'
+import type { InferModelsMap, UserRole } from '@epinfresh/shared'
 import Elysia, { t } from 'elysia'
 
+const UserResponseSchema = t.Omit(table.select.user, ['passwordHash'])
+
 export const userModel = new Elysia().model({
-  RegisterInput: t.Object({
-    name: t.String({ minLength: 1, maxLength: 255 }),
-    email: t.String({ format: 'email' }),
-    password: t.String({ minLength: 8 }),
-    phone: t.Optional(t.String({ maxLength: 50 })),
-  }),
+  RegisterInput: t.Intersect([
+    t.Omit(table.insert.user, ['id', 'passwordHash', 'role', 'avatar', 'createdAt', 'updatedAt']),
+    t.Object({
+      name: t.String({ minLength: 1, maxLength: 255 }),
+      password: t.String({ minLength: 8 }),
+    }),
+  ]),
 
   LoginInput: t.Object({
     email: t.String({ format: 'email' }),
     password: t.String(),
   }),
 
-  UserResponse: t.Object({
-    id: t.String({ format: 'uuid' }),
-    name: t.Union([t.String(), t.Null()]),
-    email: t.String({ format: 'email' }),
-    phone: t.Union([t.String(), t.Null()]),
-    avatar: t.Union([t.String(), t.Null()]),
-    role: t.Union(USER_ROLE.map((r) => t.Literal(r))),
-    createdAt: t.Date(),
-    updatedAt: t.Date(),
+  UserResponse: UserResponseSchema,
+  UserListResponse: t.Array(UserResponseSchema),
+
+  ErrorResponse: t.Object({
+    error: t.String(),
+    message: t.String(),
   }),
 
   Empty: t.Object({}),

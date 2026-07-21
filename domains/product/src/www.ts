@@ -13,7 +13,11 @@ export const productWWWPlugin = new Elysia({ name: 'product-www', prefix: '/api/
         categoryId: query.categoryId,
         status: 'published',
       }),
-    { query: 'ProductListQuery', detail: { tags: ['Products'] } },
+    {
+      query: 'ProductListQuery',
+      response: { 200: 'ProductListResponse' },
+      detail: { tags: ['Products'] },
+    },
   )
   .get(
     '/products/:id',
@@ -24,6 +28,13 @@ export const productWWWPlugin = new Elysia({ name: 'product-www', prefix: '/api/
         () => status(404, { error: 'PRODUCT_NOT_FOUND', message: 'Product not found' }),
       )
     },
-    { params: t.Object({ id: t.String({ format: 'uuid' }) }), detail: { tags: ['Products'] } },
+    {
+      params: t.Object({ id: t.String({ format: 'uuid' }) }),
+      response: { 200: 'ProductResponse', 404: 'ErrorResponse' },
+      detail: { tags: ['Products'] },
+    },
   )
-  .get('/categories', () => ProductService.listCategories(), { detail: { tags: ['Categories'] } })
+  .get('/categories', () => ProductService.listCategories(), {
+    response: { 200: 'CategoryListResponse' },
+    detail: { tags: ['Categories'] },
+  })

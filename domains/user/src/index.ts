@@ -1,5 +1,5 @@
 export { userModel } from './model'
 export { userWWWPlugin } from './www'
 export { userAdminPlugin } from './admin'
-export { UserService, type UserDTO } from './service'
+export { UserService } from './service'
 export type { UserModel, UserRole } from './model'

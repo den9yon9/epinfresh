@@ -18,6 +18,7 @@ export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/aut
   }))
   .post('/register', ({ body }) => UserService.register(body), {
     body: 'RegisterInput',
+    response: { 200: 'UserResponse' },
     detail: { tags: ['Auth'] },
   })
   .post(
@@ -35,7 +36,11 @@ export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/aut
         () => status(401, { error: 'LOGIN_FAILED', message: 'Invalid email or password' }),
       )
     },
-    { body: 'LoginInput', detail: { tags: ['Auth'] } },
+    {
+      body: 'LoginInput',
+      response: { 200: 'UserResponse', 401: 'ErrorResponse' },
+      detail: { tags: ['Auth'] },
+    },
   )
   .post(
     '/logout',
@@ -60,5 +65,8 @@ export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/aut
         () => status(404, { error: 'USER_NOT_FOUND', message: 'User not found' }),
       )
     },
-    { detail: { tags: ['Auth'] } },
+    {
+      response: { 200: 'UserResponse', 401: 'ErrorResponse', 404: 'ErrorResponse' },
+      detail: { tags: ['Auth'] },
+    },
   )
