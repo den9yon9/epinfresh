@@ -1,5 +1,4 @@
 import { cookie } from '@elysiajs/cookie'
-import type { DomainError } from '@epinfresh/shared'
 import { USER_ROLE, type UserRole } from '@epinfresh/shared'
 import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status, t } from 'elysia'
@@ -7,7 +6,6 @@ import { type Redis, closeRedis, createRedis, getRedis, initRedis } from './redi
 
 export { createRedis, initRedis, closeRedis, getRedis }
 export type { Redis }
-export type { DomainError }
 
 const SessionSchema = t.Object({
   userId: t.String(),

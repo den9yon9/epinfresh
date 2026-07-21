@@ -13,7 +13,6 @@
     "@epinfresh/shared": "workspace:*",
     "@sinclair/typebox": "^0.34.0",
     "elysia": "^1.2.0",
-    "ioredis": "^5.5.0",
-    "neverthrow": "^8.2.0"
+    "ioredis": "^5.5.0"
   }
 }

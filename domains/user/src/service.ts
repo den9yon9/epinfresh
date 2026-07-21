@@ -1,14 +1,6 @@
 import { db, schema } from '@epinfresh/database'
-import {
-  type DomainError,
-  ResultAsync,
-  conflict,
-  internal,
-  invalidCredentials,
-  notFound,
-} from '@epinfresh/shared'
+import { type Result, err, ok } from '@epinfresh/shared'
 import { eq } from 'drizzle-orm'
-import type { UserModel } from './model'
 
 export type UserDTO = {
   id: string
@@ -28,126 +20,64 @@ function toDTO(user: typeof schema.users.$inferSelect): UserDTO {
     email: user.email,
     phone: user.phone,
     avatar: user.avatar,
-    role: user.role,
+    role: user.role as 'customer' | 'admin',
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   }
 }
 
 const HASH_ALGO = 'argon2id' as const
-const DUMMY_HASH = Bun.password.hashSync('epinfresh-dummy', HASH_ALGO)
-
-interface RegisterInput {
-  name: string
-  email: string
-  password: string
-  phone?: string
-}
-
-interface LoginInput {
-  email: string
-  password: string
-}
+const DUMMY_HASH = await Bun.password.hash('epinfresh-dummy', HASH_ALGO)
 
 export class UserService {
-  static register(input: RegisterInput): ResultAsync<UserDTO, DomainError> {
-    return ResultAsync.fromPromise(
-      (async () => {
-        const passwordHash = await Bun.password.hash(input.password, HASH_ALGO)
-        try {
-          const [user] = await db
-            .insert(schema.users)
-            .values({
-              name: input.name,
-              email: input.email,
-              passwordHash,
-              phone: input.phone ?? null,
-            })
-            .returning()
-          return toDTO(user)
-        } catch (rawErr) {
-          const code = unwrapPgCode(rawErr)
-          if (code === '23505') throw new EmailConflictError()
-          throw rawErr
-        }
-      })(),
-      (rawErr) =>
-        rawErr instanceof EmailConflictError
-          ? conflict('DUPLICATE_EMAIL', 'Email already registered')
-          : internal('Failed to register user', rawErr),
-    )
+  static async register(input: {
+    name: string
+    email: string
+    password: string
+    phone?: string
+  }): Promise<UserDTO> {
+    const passwordHash = await Bun.password.hash(input.password, HASH_ALGO)
+    const [user] = await db
+      .insert(schema.users)
+      .values({
+        name: input.name,
+        email: input.email,
+        passwordHash,
+        phone: input.phone ?? null,
+      })
+      .returning()
+    return toDTO(user)
   }
 
-  static login(input: LoginInput): ResultAsync<UserDTO, DomainError> {
-    return ResultAsync.fromPromise(
-      (async () => {
-        const [user] = await db
-          .select()
-          .from(schema.users)
-          .where(eq(schema.users.email, input.email))
-        if (!user) {
-          await Bun.password.verify(input.password, DUMMY_HASH, HASH_ALGO)
-          throw new InvalidCredentialsError()
-        }
-        const valid = await Bun.password.verify(input.password, user.passwordHash, HASH_ALGO)
-        if (!valid) throw new InvalidCredentialsError()
-        return toDTO(user)
-      })(),
-      (rawErr) =>
-        rawErr instanceof InvalidCredentialsError
-          ? invalidCredentials()
-          : internal('Failed to login', rawErr),
-    )
+  static async login(input: { email: string; password: string }): Promise<
+    Result<UserDTO, 'LOGIN_FAILED'>
+  > {
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.email, input.email))
+    if (!user) {
+      await Bun.password.verify(input.password, DUMMY_HASH, HASH_ALGO)
+      return err('LOGIN_FAILED')
+    }
+    const valid = await Bun.password.verify(input.password, user.passwordHash, HASH_ALGO)
+    if (!valid) return err('LOGIN_FAILED')
+    return ok(toDTO(user))
   }
 
-  static getById(id: string): ResultAsync<UserDTO, DomainError> {
-    return ResultAsync.fromPromise(
-      (async () => {
-        const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id))
-        if (!user) throw new NotFoundError('User', id)
-        return toDTO(user)
-      })(),
-      (rawErr) =>
-        rawErr instanceof NotFoundError
-          ? notFound('User', id)
-          : internal('Failed to fetch user', rawErr),
-    )
+  static async getById(id: string): Promise<Result<UserDTO, 'USER_NOT_FOUND'>> {
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id))
+    if (!user) return err('USER_NOT_FOUND')
+    return ok(toDTO(user))
   }
 
-  static list(
-    opts: { page?: number; pageSize?: number } = {},
-  ): ResultAsync<UserDTO[], DomainError> {
+  static async list(opts: { page?: number; pageSize?: number } = {}): Promise<UserDTO[]> {
     const page = opts.page ?? 1
     const pageSize = Math.min(opts.pageSize ?? 20, 100)
     const offset = (page - 1) * pageSize
-    return ResultAsync.fromPromise(
-      db
-        .select()
-        .from(schema.users)
-        .orderBy(schema.users.createdAt)
-        .limit(pageSize)
-        .offset(offset)
-        .then((rows) => rows.map(toDTO)),
-      (rawErr) => internal('Failed to list users', rawErr),
-    )
+    const rows = await db
+      .select()
+      .from(schema.users)
+      .orderBy(schema.users.createdAt)
+      .limit(pageSize)
+      .offset(offset)
+    return rows.map(toDTO)
   }
 }
-
-class EmailConflictError extends Error {}
-class InvalidCredentialsError extends Error {}
-class NotFoundError extends Error {
-  constructor(
-    readonly entity: string,
-    readonly id?: string,
-  ) {
-    super(`${entity} not found`)
-  }
-}
-
-function unwrapPgCode(err: unknown): string | null {
-  if (typeof err !== 'object' || err === null) return null
-  const candidate = err as { code?: unknown }
-  return typeof candidate.code === 'string' ? candidate.code : null
-}
-
-export type { UserModel }

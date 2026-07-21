@@ -19,7 +19,7 @@ export function createRedis(url: string, opts: CreateRedisOptions = {}): Redis {
     ...rest,
   })
   client.on('error', (err) => {
-    console.error('[redis] connection error:', err.message || err.code)
+    console.error('[redis] connection error:', err.message)
   })
   if (keyPrefix) {
     void keyPrefix

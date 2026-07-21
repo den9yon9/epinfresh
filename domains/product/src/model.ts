@@ -1,4 +1,4 @@
-import type { InferModelsMap, ProductStatus } from '@epinfresh/shared'
+import type { InferModelsMap } from '@epinfresh/shared'
 import { PRODUCT_STATUS } from '@epinfresh/shared'
 import Elysia, { t } from 'elysia'
 
@@ -10,6 +10,18 @@ const skuInput = t.Object({
   price: t.Number({ minimum: 0 }),
   stock: t.Optional(t.Integer({ minimum: 0 })),
   attributes: t.Optional(t.Record(t.String({ maxLength: 64 }), t.String({ maxLength: 1024 }))),
+})
+
+const skuResponse = t.Object({
+  id: t.String({ format: 'uuid' }),
+  productId: t.String({ format: 'uuid' }),
+  name: t.String(),
+  skuCode: t.String(),
+  price: t.String(),
+  stock: t.Number(),
+  attributes: t.Record(t.String(), t.String()),
+  createdAt: t.Date(),
+  updatedAt: t.Date(),
 })
 
 export const productModel = new Elysia().model({
@@ -56,4 +68,3 @@ export const productModel = new Elysia().model({
 })
 
 export type ProductModel = InferModelsMap<typeof productModel>
-export type { ProductStatus }

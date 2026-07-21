@@ -1,15 +1,9 @@
 import { closeDb, initDb } from '@epinfresh/database'
 import { productWWWPlugin } from '@epinfresh/product'
 import { closeRedis, initRedis } from '@epinfresh/session'
-import {
-  EnvValidationError,
-  type InferModelsMap,
-  isProduction,
-  loadEnv,
-  wwwEnvSchema,
-} from '@epinfresh/shared'
+import { EnvValidationError, type InferModelsMap, loadEnv, wwwEnvSchema } from '@epinfresh/shared'
 import { userWWWPlugin } from '@epinfresh/user'
-import { Elysia, ValidationError } from 'elysia'
+import { Elysia } from 'elysia'
 
 let env: ReturnType<typeof loadEnv<typeof wwwEnvSchema>>
 try {
@@ -28,18 +22,6 @@ initRedis(env.REDIS_URL)
 const port = Number(env.WWW_PORT)
 
 const app = new Elysia()
-  .onError(({ error, set }) => {
-    if (error instanceof ValidationError) {
-      set.status = 422
-      return { error: 'VALIDATION', message: error.message }
-    }
-    if (isProduction()) {
-      set.status = 500
-      return { error: 'INTERNAL', message: 'Internal server error' }
-    }
-    set.status = 500
-    return { error: 'INTERNAL', message: error instanceof Error ? error.message : 'unknown error' }
-  })
   .get('/health', () => ({ status: 'ok', service: 'www' }))
   .use(userWWWPlugin)
   .use(productWWWPlugin)

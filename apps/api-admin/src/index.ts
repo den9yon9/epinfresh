@@ -1,15 +1,9 @@
 import { closeDb, initDb } from '@epinfresh/database'
 import { productAdminPlugin } from '@epinfresh/product'
 import { type Session, closeRedis, createSessionPlugin, initRedis } from '@epinfresh/session'
-import {
-  EnvValidationError,
-  type InferModelsMap,
-  adminEnvSchema,
-  isProduction,
-  loadEnv,
-} from '@epinfresh/shared'
+import { EnvValidationError, type InferModelsMap, adminEnvSchema, loadEnv } from '@epinfresh/shared'
 import { userAdminPlugin } from '@epinfresh/user'
-import { Elysia, ValidationError, status } from 'elysia'
+import { Elysia, status } from 'elysia'
 
 let env: ReturnType<typeof loadEnv<typeof adminEnvSchema>>
 try {
@@ -28,23 +22,11 @@ initRedis(env.REDIS_URL)
 const port = Number(env.ADMIN_PORT)
 
 const app = new Elysia()
-  .onError(({ error, set }) => {
-    if (error instanceof ValidationError) {
-      set.status = 422
-      return { error: 'VALIDATION', message: error.message }
-    }
-    if (isProduction()) {
-      set.status = 500
-      return { error: 'INTERNAL', message: 'Internal server error' }
-    }
-    set.status = 500
-    return { error: 'INTERNAL', message: error instanceof Error ? error.message : 'unknown error' }
-  })
   .get('/health', () => ({ status: 'ok', service: 'admin' }))
   .use(createSessionPlugin())
   .guard({
     as: 'scoped',
-    // biome-ignore lint/suspicious/noExplicitAny: derive session type propagated cross-plugin
+    // biome-ignore lint/suspicious/noExplicitAny: derive session type across plugin boundary
     beforeHandle: ({ session }: any) => {
       const s = session as Session | null
       if (!s) return status(401, { error: 'UNAUTHORIZED', message: 'Unauthorized' })
