@@ -1,31 +1,42 @@
-import { cookie } from '@elysiajs/cookie'
-import { Elysia, status } from 'elysia'
+import type { DomainError } from '@epinfresh/shared'
+import { toHttpStatus } from '@epinfresh/shared'
+import { Elysia, t } from 'elysia'
 import { userModel } from './model'
 import { UserService } from './service'
-import { redis } from './session'
+
+function setError(set: { status?: number | string | undefined }, err: DomainError) {
+  const { statusCode, body } = toHttpStatus(err)
+  set.status = statusCode
+  return body
+}
 
 export const userAdminPlugin = new Elysia({ name: 'user-admin', prefix: '/api/v1/admin/users' })
   .use(userModel)
-  .use(cookie())
-  .derive(async (ctx) => {
-    const sessionId = ctx.cookie.session_id?.value
-    if (sessionId) {
-      try {
-        const raw = await redis.get(`session:${sessionId}`)
-        if (raw) return { session: JSON.parse(raw) as { userId: string; role: string } }
-      } catch {}
-    }
-    return { session: null as { userId: string; role: string } | null }
-  })
-  .guard({
-    // biome-ignore lint/suspicious/noExplicitAny: session type from derive not inferred in guard
-    beforeHandle: (ctx: any) => {
-      if (!ctx.session || ctx.session.role !== 'admin') {
-        return status(403, 'Forbidden')
-      }
+  .get(
+    '/',
+    async ({ query, set }) => {
+      const r = await UserService.list({
+        page: Number(query.page) || 1,
+        pageSize: Number(query.pageSize) || 20,
+      })
+      if (r.isOk()) return r.value
+      return setError(set, r.error as never)
     },
-  })
-  .get('/', async () => UserService.list())
-  .get('/:id', async ({ params: { id } }) => {
-    return UserService.getById(id)
-  })
+    {
+      query: t.Object({
+        page: t.Optional(t.String()),
+        pageSize: t.Optional(t.String()),
+      }),
+    },
+  )
+  .get(
+    '/:id',
+    async ({ params, set }) => {
+      const r = await UserService.getById(params.id)
+      if (r.isOk()) return r.value
+      return setError(set, r.error as never)
+    },
+    {
+      params: t.Object({ id: t.String({ format: 'uuid' }) }),
+    },
+  )

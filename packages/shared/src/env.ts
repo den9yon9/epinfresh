@@ -1,36 +1,69 @@
 import { Value } from '@sinclair/typebox/value'
 import { t } from 'elysia'
 
-const envSchema = t.Object({
-  DATABASE_URL: t.String(),
-  REDIS_URL: t.String(),
-  SESSION_SECRET: t.String(),
-  WWW_PORT: t.String(),
-  ADMIN_PORT: t.String(),
+export const baseEnvSchema = t.Object({
+  DATABASE_URL: t.String({ format: 'uri' }),
+  REDIS_URL: t.String({ format: 'uri' }),
+  SESSION_SECRET: t.String({ minLength: 32 }),
+  NODE_ENV: t.Union([t.Literal('development'), t.Literal('production'), t.Literal('test')], {
+    default: 'development',
+  }),
 })
 
-function load() {
-  const errors = [...Value.Errors(envSchema, process.env)]
-  if (errors.length > 0) {
-    const seen = new Set<string>()
-    for (const err of errors) {
-      const key = err.path.slice(1)
-      if (seen.has(key)) continue
-      seen.add(key)
-      console.error(`[ENV] ${key} — ${err.message}`)
-    }
-    process.exit(1)
-  }
+export const wwwEnvSchema = t.Object({
+  ...baseEnvSchema.properties,
+  WWW_PORT: t.String({ pattern: '^\\d+$' }),
+})
 
-  const parsed = Value.Decode(envSchema, process.env)
+export const adminEnvSchema = t.Object({
+  ...baseEnvSchema.properties,
+  ADMIN_PORT: t.String({ pattern: '^\\d+$' }),
+})
 
-  return {
-    DATABASE_URL: parsed.DATABASE_URL,
-    REDIS_URL: parsed.REDIS_URL,
-    SESSION_SECRET: parsed.SESSION_SECRET,
-    WWW_PORT: parsed.WWW_PORT,
-    ADMIN_PORT: parsed.ADMIN_PORT,
+export type BaseEnv = {
+  DATABASE_URL: string
+  REDIS_URL: string
+  SESSION_SECRET: string
+  NODE_ENV: 'development' | 'production' | 'test'
+}
+export type WwwEnv = BaseEnv & { WWW_PORT: string }
+export type AdminEnv = BaseEnv & { ADMIN_PORT: string }
+
+export class EnvValidationError extends Error {
+  readonly missing: string[]
+  constructor(missing: string[]) {
+    super(`[ENV] missing or invalid: ${missing.join(', ')}`)
+    this.name = 'EnvValidationError'
+    this.missing = missing
   }
 }
 
-export const env = load()
+type Schema = typeof baseEnvSchema | typeof wwwEnvSchema | typeof adminEnvSchema
+type Source = Record<string, string | undefined>
+type EnvOf<T extends Schema> = T extends typeof wwwEnvSchema
+  ? WwwEnv
+  : T extends typeof adminEnvSchema
+    ? AdminEnv
+    : BaseEnv
+
+function collectErrors(schema: Schema, source: Source): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const err of Value.Errors(schema, source)) {
+    const key = err.path.slice(1) || '<root>'
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(`${key} (${err.message})`)
+  }
+  return out
+}
+
+export function loadEnv<T extends Schema>(
+  schema: T,
+  source: Source = process.env as Source,
+): EnvOf<T> {
+  const missing = collectErrors(schema, source)
+  if (missing.length > 0) throw new EnvValidationError(missing)
+
+  return Value.Decode(schema, Value.Cast(schema, source)) as EnvOf<T>
+}

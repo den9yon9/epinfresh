@@ -23,6 +23,14 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "dist", ".turbo", "biome-logs", ".agents", ".git"]
+    "ignore": [
+      "node_modules",
+      "dist",
+      ".turbo",
+      "biome-logs",
+      ".agents",
+      ".git",
+      "packages/database/src/migrations/meta"
+    ]
   }
 }

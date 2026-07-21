@@ -1,57 +1,59 @@
-import { table } from '@epinfresh/database'
-import type { InferModelsMap } from '@epinfresh/shared'
+import type { InferModelsMap, ProductStatus } from '@epinfresh/shared'
+import { PRODUCT_STATUS } from '@epinfresh/shared'
 import Elysia, { t } from 'elysia'
+
+const STATUS_LITERALS = PRODUCT_STATUS.map((s) => t.Literal(s))
+
+const skuInput = t.Object({
+  name: t.String({ minLength: 1, maxLength: 255 }),
+  skuCode: t.String({ minLength: 1, maxLength: 100, pattern: '^[A-Za-z0-9_-]+$' }),
+  price: t.Number({ minimum: 0 }),
+  stock: t.Optional(t.Integer({ minimum: 0 })),
+  attributes: t.Optional(t.Record(t.String({ maxLength: 64 }), t.String({ maxLength: 1024 }))),
+})
 
 export const productModel = new Elysia().model({
   CreateProductInput: t.Object({
-    name: t.String(),
-    slug: t.String(),
-    description: t.Optional(t.String()),
-    categoryId: t.Optional(t.String()),
-    images: t.Optional(t.Array(t.String())),
-    status: t.Optional(t.String()),
-    skus: t.Optional(
-      t.Array(
-        t.Object({
-          name: t.String(),
-          skuCode: t.String(),
-          price: t.Number(),
-          stock: t.Optional(t.Number()),
-          attributes: t.Optional(t.Record(t.String(), t.String())),
-        }),
-      ),
-    ),
+    name: t.String({ minLength: 1, maxLength: 255 }),
+    slug: t.String({ minLength: 1, maxLength: 255, pattern: '^[a-z0-9-]+$' }),
+    description: t.Optional(t.String({ maxLength: 65535 })),
+    categoryId: t.Optional(t.String({ format: 'uuid' })),
+    images: t.Optional(t.Array(t.String({ maxLength: 2048 }), { maxItems: 20 })),
+    status: t.Optional(t.Union(STATUS_LITERALS)),
+    skus: t.Optional(t.Array(skuInput, { maxItems: 100 })),
   }),
 
-  UpdateProductInput: table.update.product,
-  CreateCategoryInput: table.insert.category,
-  ProductResponse: table.select.product,
-  CategoryResponse: table.select.category,
+  UpdateProductInput: t.Partial(
+    t.Object({
+      name: t.String({ minLength: 1, maxLength: 255 }),
+      slug: t.String({ minLength: 1, maxLength: 255, pattern: '^[a-z0-9-]+$' }),
+      description: t.String({ maxLength: 65535 }),
+      categoryId: t.String({ format: 'uuid' }),
+      images: t.Array(t.String({ maxLength: 2048 }), { maxItems: 20 }),
+      status: t.Union(STATUS_LITERALS),
+    }),
+  ),
 
-  ProductDetailResponse: t.Object({
-    ...table.select.product.properties,
-    skus: t.Array(table.select.productSku),
-  }),
-
-  PaginatedProducts: t.Object({
-    items: t.Array(table.select.product),
-    total: t.Number(),
-    page: t.Number(),
-    pageSize: t.Number(),
+  CreateCategoryInput: t.Object({
+    name: t.String({ minLength: 1, maxLength: 255 }),
+    slug: t.String({ minLength: 1, maxLength: 255, pattern: '^[a-z0-9-]+$' }),
+    parentId: t.Optional(t.String({ format: 'uuid' })),
+    sortOrder: t.Optional(t.Integer({ minimum: 0 })),
   }),
 
   ProductListQuery: t.Object({
     page: t.Optional(t.String()),
     pageSize: t.Optional(t.String()),
-    categoryId: t.Optional(t.String()),
+    categoryId: t.Optional(t.String({ format: 'uuid' })),
   }),
 
   AdminProductListQuery: t.Object({
     page: t.Optional(t.String()),
     pageSize: t.Optional(t.String()),
-    categoryId: t.Optional(t.String()),
-    status: t.Optional(t.String()),
+    categoryId: t.Optional(t.String({ format: 'uuid' })),
+    status: t.Optional(t.Union(STATUS_LITERALS)),
   }),
 })
 
 export type ProductModel = InferModelsMap<typeof productModel>
+export type { ProductStatus }

@@ -1,12 +1,74 @@
-import { env } from '@epinfresh/shared'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
+import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js'
+import postgres, { type Sql } from 'postgres'
 import * as schema from './schema'
 
-const connectionString = env.DATABASE_URL
-
-const queryClient = postgres(connectionString)
-
-export const db = drizzle(queryClient, { schema })
 export { schema }
 export { table } from './model'
+
+type PgDatabase = PostgresJsDatabase<typeof schema>
+
+export type Db = PgDatabase & {
+  $primary: Sql
+}
+
+let queryClient: Sql | null = null
+let dbInstance: Db | null = null
+
+export interface DbOptions {
+  max?: number
+  idleTimeout?: number
+  connectTimeout?: number
+  prepare?: boolean
+}
+
+function makeDb(client: Sql): Db {
+  const instance = drizzle(client, { schema })
+  return Object.assign(instance, { $primary: client }) as unknown as Db
+}
+
+export function createDb(connectionString: string, opts: DbOptions = {}): Db {
+  const client = postgres(connectionString, {
+    max: opts.max ?? 10,
+    idle_timeout: opts.idleTimeout ?? 30,
+    connect_timeout: opts.connectTimeout ?? 30,
+    prepare: opts.prepare ?? false,
+  })
+  return makeDb(client)
+}
+
+export function initDb(
+  connectionString: string,
+  opts: DbOptions = {},
+): { db: Db; queryClient: Sql } {
+  if (dbInstance && queryClient) return { db: dbInstance, queryClient }
+  queryClient = postgres(connectionString, {
+    max: opts.max ?? 10,
+    idle_timeout: opts.idleTimeout ?? 30,
+    connect_timeout: opts.connectTimeout ?? 30,
+    prepare: opts.prepare ?? false,
+  })
+  dbInstance = makeDb(queryClient)
+  return { db: dbInstance, queryClient }
+}
+
+export async function closeDb(): Promise<void> {
+  if (queryClient) {
+    await queryClient.end({ timeout: 5 })
+    queryClient = null
+    dbInstance = null
+  }
+}
+
+export const db = new Proxy({} as Db, {
+  get(_t, prop) {
+    if (!dbInstance) {
+      throw new Error(
+        'Database accessed before initDb(). Call initDb(env.DATABASE_URL) at app bootstrap.',
+      )
+    }
+    return Reflect.get(dbInstance, prop as string | symbol, dbInstance)
+  },
+})
+
+export type Transaction = Parameters<Parameters<Db['transaction']>[0]>[0]
+export type TypedDb = Db

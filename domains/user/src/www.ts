@@ -1,64 +1,84 @@
-import { cookie } from '@elysiajs/cookie'
-import { Elysia, t } from 'elysia'
+import {
+  type Session,
+  clearSessionCookie,
+  createSessionPlugin,
+  createSessionStore,
+  getRedis,
+  setSessionCookie,
+} from '@epinfresh/session'
+import { isProduction, toHttpStatus } from '@epinfresh/shared'
+import type { DomainError } from '@epinfresh/shared'
+import { Elysia } from 'elysia'
 import { userModel } from './model'
 import { UserService } from './service'
-import { redis } from './session'
+
+function setError(set: { status?: number | string | undefined }, err: DomainError) {
+  const { statusCode, body } = toHttpStatus(err)
+  set.status = statusCode
+  return body
+}
 
 export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/auth' })
   .use(userModel)
-  .use(cookie())
-  .derive(async (ctx) => {
-    const sessionId = ctx.cookie.session_id?.value
-    if (sessionId) {
-      try {
-        const raw = await redis.get(`session:${sessionId}`)
-        if (raw) return { session: JSON.parse(raw) as { userId: string; role: string } }
-      } catch {}
-    }
-    return { session: null as { userId: string; role: string } | null }
-  })
+  .use(createSessionPlugin())
+  .derive({ as: 'scoped' }, () => ({
+    sessionStore: createSessionStore(getRedis()),
+  }))
   .post(
     '/register',
-    async ({ body }) => {
-      return UserService.register(body)
+    async ({ body, set }) => {
+      const r = await UserService.register(body)
+      if (r.isOk()) return r.value
+      return setError(set, r.error)
     },
     {
       body: 'RegisterInput',
-      response: { 200: 'UserResponse', 409: t.String() },
       detail: { tags: ['Auth'] },
     },
   )
   .post(
     '/login',
-    async ({ body, cookie, status }) => {
-      const user = await UserService.login(body)
-      if (!user) return status(401, 'Invalid email or password')
-
-      const sessionId = crypto.randomUUID()
-      await redis.set(
-        `session:${sessionId}`,
-        JSON.stringify({ userId: user.id, role: user.role }),
-        'EX',
-        86400,
-      )
-      cookie.session_id.set({ value: sessionId, httpOnly: true, path: '/' })
+    async ({ body, cookie, sessionStore, set }) => {
+      const r = await UserService.login(body)
+      if (r.isErr()) return setError(set, r.error as never)
+      const user = r.value
+      const sessionId = await sessionStore.create({ userId: user.id, role: user.role })
+      setSessionCookie(cookie.session_id, sessionId, { secure: isProduction() })
       return user
     },
     {
       body: 'LoginInput',
-      response: { 200: 'UserResponse', 401: t.String() },
       detail: { tags: ['Auth'] },
     },
   )
-  .post('/logout', async ({ cookie, status }) => {
-    const sid = cookie.session_id?.value
-    if (sid) {
-      await redis.del(`session:${sid}`)
-      cookie.session_id.set({ value: '', httpOnly: true, path: '/', maxAge: 0 })
-    }
-    return status(204)
-  })
-  .get('/me', async ({ session }) => {
-    if (!session) return null
-    return UserService.getById(session.userId)
-  })
+  .post(
+    '/logout',
+    async ({ cookie, session, sessionStore, set }) => {
+      if (session) {
+        const sid = cookie.session_id?.value
+        if (typeof sid === 'string' && sid.length > 0) await sessionStore.destroy(sid)
+      }
+      clearSessionCookie(cookie.session_id)
+      set.status = 204
+      return null
+    },
+    {
+      detail: { tags: ['Auth'] },
+    },
+  )
+  .get(
+    '/me',
+    async ({ session, set }) => {
+      const s = session as Session | null
+      if (!s) {
+        set.status = 401
+        return { error: 'UNAUTHORIZED', message: 'Unauthorized' }
+      }
+      const r = await UserService.getById(s.userId)
+      if (r.isOk()) return r.value
+      return setError(set, r.error)
+    },
+    {
+      detail: { tags: ['Auth'] },
+    },
+  )

@@ -8,6 +8,13 @@
       "when": 1784451555087,
       "tag": "0000_material_wong",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784595719614,
+      "tag": "0001_init_enums_and_fk",
+      "breakpoints": true
     }
   ]
 }

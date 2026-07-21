@@ -1,4 +1,7 @@
-import { pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+import { USER_ROLE } from '@epinfresh/shared'
+import { pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+
+export const userRole = pgEnum('user_role', USER_ROLE)
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -7,7 +10,7 @@ export const users = pgTable('users', {
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   phone: varchar('phone', { length: 50 }),
   avatar: text('avatar'),
-  role: varchar('role', { length: 50 }).default('customer').notNull(),
+  role: userRole('role').default('customer').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

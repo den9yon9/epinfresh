@@ -1,5 +1,5 @@
 {
-  "name": "@epinfresh/user",
+  "name": "@epinfresh/session",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -9,11 +9,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@epinfresh/database": "workspace:*",
-    "@epinfresh/session": "workspace:*",
+    "@elysiajs/cookie": "^0.8.0",
     "@epinfresh/shared": "workspace:*",
-    "drizzle-orm": "^0.40.0",
+    "@sinclair/typebox": "^0.34.0",
     "elysia": "^1.2.0",
+    "ioredis": "^5.5.0",
     "neverthrow": "^8.2.0"
   }
 }
