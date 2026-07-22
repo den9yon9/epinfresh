@@ -15,7 +15,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       const result = await ProductService.getById(params.id)
       return result.match(
         (p) => p,
-        () => status(404, { error: 'PRODUCT_NOT_FOUND', message: 'Product not found' }),
+        (code) => status(404, { error: code, message: 'Product not found' }),
       )
     },
     {
@@ -24,26 +24,18 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       detail: { tags: ['Admin/Products'] },
     },
   )
-  .post(
-    '/products',
-    async ({ body, set }) => {
-      const product = await ProductService.create(body)
-      set.status = 201
-      return product
-    },
-    {
-      body: 'CreateProductInput',
-      response: { 200: 'ProductResponse', 201: 'ProductResponse' },
-      detail: { tags: ['Admin/Products'] },
-    },
-  )
+  .post('/products', async ({ body }) => status(201, await ProductService.create(body)), {
+    body: 'CreateProductInput',
+    response: { 201: 'ProductResponse' },
+    detail: { tags: ['Admin/Products'] },
+  })
   .put(
     '/products/:id',
     async ({ params, body }) => {
       const result = await ProductService.update(params.id, body)
       return result.match(
         (p) => p,
-        () => status(404, { error: 'PRODUCT_NOT_FOUND', message: 'Product not found' }),
+        (code) => status(404, { error: code, message: 'Product not found' }),
       )
     },
     {
@@ -59,7 +51,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       const result = await ProductService.remove(params.id)
       return result.match(
         () => status(204),
-        () => status(404, { error: 'PRODUCT_NOT_FOUND', message: 'Product not found' }),
+        (code) => status(404, { error: code, message: 'Product not found' }),
       )
     },
     {
@@ -71,32 +63,24 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
     response: { 200: 'CategoryListResponse' },
     detail: { tags: ['Admin/Categories'] },
   })
-  .post(
-    '/categories',
-    async ({ body, set }) => {
-      const cat = await ProductService.createCategory(body)
-      set.status = 201
-      return cat
-    },
-    {
-      body: 'CreateCategoryInput',
-      response: { 200: 'CategoryResponse', 201: 'CategoryResponse' },
-      detail: { tags: ['Admin/Categories'] },
-    },
-  )
+  .post('/categories', async ({ body }) => status(201, await ProductService.createCategory(body)), {
+    body: 'CreateCategoryInput',
+    response: { 201: 'CategoryResponse' },
+    detail: { tags: ['Admin/Categories'] },
+  })
   .delete(
     '/categories/:id',
     async ({ params }) => {
       const result = await ProductService.removeCategory(params.id)
       return result.match(
         () => status(204),
-        (err) => {
-          switch (err) {
+        (code) => {
+          switch (code) {
             case 'CATEGORY_NOT_FOUND':
-              return status(404, { error: 'CATEGORY_NOT_FOUND', message: 'Category not found' })
+              return status(404, { error: code, message: 'Category not found' })
             case 'CATEGORY_HAS_PRODUCTS':
               return status(409, {
-                error: 'CATEGORY_HAS_PRODUCTS',
+                error: code,
                 message: 'Category still has products',
               })
           }

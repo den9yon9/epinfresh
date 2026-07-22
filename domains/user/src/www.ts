@@ -33,7 +33,7 @@ export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/aut
           })
           return user
         },
-        () => status(401, { error: 'LOGIN_FAILED', message: 'Invalid email or password' }),
+        (code) => status(401, { error: code, message: 'Invalid email or password' }),
       )
     },
     {
@@ -62,7 +62,7 @@ export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/aut
       const result = await UserService.getById(session.userId)
       return result.match(
         (user) => user,
-        () => status(404, { error: 'USER_NOT_FOUND', message: 'User not found' }),
+        (code) => status(404, { error: code, message: 'User not found' }),
       )
     },
     {

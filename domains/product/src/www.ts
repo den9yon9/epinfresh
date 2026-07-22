@@ -15,7 +15,7 @@ export const productWWWPlugin = new Elysia({ name: 'product-www', prefix: '/api/
       const result = await ProductService.getByIdPublic(params.id)
       return result.match(
         (p) => p,
-        () => status(404, { error: 'PRODUCT_NOT_FOUND', message: 'Product not found' }),
+        (code) => status(404, { error: code, message: 'Product not found' }),
       )
     },
     {

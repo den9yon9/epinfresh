@@ -14,7 +14,7 @@ export const userAdminPlugin = new Elysia({ name: 'user-admin', prefix: '/api/v1
       const result = await UserService.getById(params.id)
       return result.match(
         (user) => user,
-        () => status(404, { error: 'USER_NOT_FOUND', message: 'User not found' }),
+        (code) => status(404, { error: code, message: 'User not found' }),
       )
     },
     {
