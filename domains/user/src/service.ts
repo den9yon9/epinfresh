@@ -1,5 +1,5 @@
 import { db, schema } from '@epinfresh/database'
-import { type PaginationParams, type Result, err, ok } from '@epinfresh/shared'
+import { type Result, err, ok } from '@epinfresh/shared'
 import { count, eq } from 'drizzle-orm'
 import type { UserModel } from './model'
 
@@ -41,7 +41,7 @@ export class UserService {
     return ok(safeUser)
   }
 
-  static async list(opts: PaginationParams) {
+  static async list(opts: UserModel['UserListQuery']) {
     const { page, pageSize } = opts
     const offset = (page - 1) * pageSize
     const rows = await db

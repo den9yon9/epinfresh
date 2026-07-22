@@ -4,21 +4,11 @@ import { ProductService } from './service'
 
 export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/api/v1/admin' })
   .use(productModel)
-  .get(
-    '/products',
-    async ({ query }) =>
-      ProductService.list({
-        page: query.page,
-        pageSize: query.pageSize,
-        categoryId: query.categoryId,
-        status: query.status,
-      }),
-    {
-      query: 'AdminProductListQuery',
-      response: { 200: 'ProductListResponse' },
-      detail: { tags: ['Admin/Products'] },
-    },
-  )
+  .get('/products', async ({ query }) => ProductService.list(query), {
+    query: 'AdminProductListQuery',
+    response: { 200: 'ProductListResponse' },
+    detail: { tags: ['Admin/Products'] },
+  })
   .get(
     '/products/:id',
     async ({ params }) => {

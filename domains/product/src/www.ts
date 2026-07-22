@@ -4,21 +4,11 @@ import { ProductService } from './service'
 
 export const productWWWPlugin = new Elysia({ name: 'product-www', prefix: '/api/v1' })
   .use(productModel)
-  .get(
-    '/products',
-    async ({ query }) =>
-      ProductService.list({
-        page: query.page,
-        pageSize: query.pageSize,
-        categoryId: query.categoryId,
-        status: 'published',
-      }),
-    {
-      query: 'ProductListQuery',
-      response: { 200: 'ProductListResponse' },
-      detail: { tags: ['Products'] },
-    },
-  )
+  .get('/products', async ({ query }) => ProductService.list({ ...query, status: 'published' }), {
+    query: 'ProductListQuery',
+    response: { 200: 'ProductListResponse' },
+    detail: { tags: ['Products'] },
+  })
   .get(
     '/products/:id',
     async ({ params }) => {

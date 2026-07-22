@@ -1,14 +1,10 @@
 import { db, schema } from '@epinfresh/database'
-import { type PaginationParams, type Result, err, ok } from '@epinfresh/shared'
-import type { ProductStatus } from '@epinfresh/shared'
+import { type Result, err, ok } from '@epinfresh/shared'
 import { and, count, eq } from 'drizzle-orm'
 import type { ProductModel } from './model'
 
-type ProductListParams = Omit<ProductModel['AdminProductListQuery'], 'page' | 'pageSize'> &
-  PaginationParams
-
 export class ProductService {
-  static async list(query: ProductListParams) {
+  static async list(query: ProductModel['AdminProductListQuery']) {
     const { page, pageSize } = query
     const offset = (page - 1) * pageSize
 
