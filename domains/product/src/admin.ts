@@ -11,7 +11,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
         page: Number(query.page) || 1,
         pageSize: Number(query.pageSize) || 20,
         categoryId: query.categoryId,
-        status: undefined,
+        status: query.status,
       }),
     {
       query: 'AdminProductListQuery',
