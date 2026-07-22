@@ -1,17 +1,15 @@
 import { db, schema } from '@epinfresh/database'
+import { type PaginationParams, type Result, err, ok } from '@epinfresh/shared'
 import type { ProductStatus } from '@epinfresh/shared'
-import { type Result, err, ok } from '@epinfresh/shared'
 import { and, count, eq } from 'drizzle-orm'
+import type { ProductModel } from './model'
+
+type ProductListParams = Omit<ProductModel['AdminProductListQuery'], 'page' | 'pageSize'> &
+  PaginationParams
 
 export class ProductService {
-  static async list(query: {
-    page?: number
-    pageSize?: number
-    categoryId?: string
-    status?: ProductStatus
-  }) {
-    const page = Math.max(query.page ?? 1, 1)
-    const pageSize = Math.min(Math.max(query.pageSize ?? 20, 1), 100)
+  static async list(query: ProductListParams) {
+    const { page, pageSize } = query
     const offset = (page - 1) * pageSize
 
     const filters: ReturnType<typeof eq>[] = []
@@ -67,21 +65,7 @@ export class ProductService {
     return ok({ ...product, skus })
   }
 
-  static async create(input: {
-    name: string
-    slug: string
-    description?: string
-    categoryId?: string
-    images?: string[]
-    status?: ProductStatus
-    skus?: Array<{
-      name: string
-      skuCode: string
-      price: number
-      stock?: number
-      attributes?: Record<string, string>
-    }>
-  }) {
+  static async create(input: ProductModel['CreateProductInput']) {
     return db.transaction(async (tx) => {
       const [product] = await tx
         .insert(schema.products)
@@ -90,8 +74,6 @@ export class ProductService {
           slug: input.slug,
           description: input.description ?? null,
           categoryId: input.categoryId ?? null,
-          images: input.images ?? [],
-          status: input.status ?? 'draft',
         })
         .returning()
       if (input.skus && input.skus.length > 0) {
@@ -101,8 +83,6 @@ export class ProductService {
             name: sku.name,
             skuCode: sku.skuCode,
             price: String(sku.price),
-            stock: sku.stock ?? 0,
-            attributes: sku.attributes ?? {},
           })),
         )
       }
@@ -114,17 +94,7 @@ export class ProductService {
     })
   }
 
-  static async update(
-    id: string,
-    input: {
-      name?: string
-      slug?: string
-      description?: string
-      categoryId?: string
-      images?: string[]
-      status?: ProductStatus
-    },
-  ) {
+  static async update(id: string, input: ProductModel['UpdateProductInput']) {
     return db.transaction(async (tx) => {
       const setPayload: Record<string, unknown> = { updatedAt: new Date() }
       if (input.name !== undefined) setPayload.name = input.name
@@ -161,21 +131,8 @@ export class ProductService {
     return db.select().from(schema.categories).orderBy(schema.categories.sortOrder)
   }
 
-  static async createCategory(input: {
-    name: string
-    slug: string
-    parentId?: string
-    sortOrder?: number
-  }) {
-    const [cat] = await db
-      .insert(schema.categories)
-      .values({
-        name: input.name,
-        slug: input.slug,
-        parentId: input.parentId ?? null,
-        sortOrder: input.sortOrder ?? 0,
-      })
-      .returning()
+  static async createCategory(input: ProductModel['CreateCategoryInput']) {
+    const [cat] = await db.insert(schema.categories).values(input).returning()
     return cat
   }
 

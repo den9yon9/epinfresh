@@ -4,15 +4,10 @@ import { UserService } from './service'
 
 export const userAdminPlugin = new Elysia({ name: 'user-admin', prefix: '/api/v1/admin/users' })
   .use(userModel)
-  .get(
-    '/',
-    ({ query }) =>
-      UserService.list({ page: Number(query.page) || 1, pageSize: Number(query.pageSize) || 20 }),
-    {
-      query: t.Object({ page: t.Optional(t.String()), pageSize: t.Optional(t.String()) }),
-      response: { 200: 'UserListResponse' },
-    },
-  )
+  .get('/', ({ query }) => UserService.list({ page: query.page, pageSize: query.pageSize }), {
+    query: 'UserListQuery',
+    response: { 200: 'UserListResponse' },
+  })
   .get(
     '/:id',
     async ({ params }) => {

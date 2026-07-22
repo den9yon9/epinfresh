@@ -8,8 +8,8 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
     '/products',
     async ({ query }) =>
       ProductService.list({
-        page: Number(query.page) || 1,
-        pageSize: Number(query.pageSize) || 20,
+        page: query.page,
+        pageSize: query.pageSize,
         categoryId: query.categoryId,
         status: query.status,
       }),

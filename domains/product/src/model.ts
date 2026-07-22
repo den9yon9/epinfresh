@@ -1,6 +1,6 @@
 import { table } from '@epinfresh/database'
 import type { InferModelsMap } from '@epinfresh/shared'
-import { PRODUCT_STATUS } from '@epinfresh/shared'
+import { PRODUCT_STATUS, PaginatedResponse, PaginationQuery } from '@epinfresh/shared'
 import Elysia, { t } from 'elysia'
 
 const STATUS_LITERALS = PRODUCT_STATUS.map((s) => t.Literal(s))
@@ -30,12 +30,7 @@ export const productModel = new Elysia().model({
   CreateCategoryInput: t.Omit(table.insert.category, ['id', 'createdAt', 'updatedAt']),
 
   ProductResponse: ProductResponseSchema,
-  ProductListResponse: t.Object({
-    items: t.Array(ProductResponseSchema),
-    total: t.Number(),
-    page: t.Number(),
-    pageSize: t.Number(),
-  }),
+  ProductListResponse: PaginatedResponse(ProductResponseSchema),
   CategoryResponse: table.select.category,
   CategoryListResponse: t.Array(table.select.category),
 
@@ -44,18 +39,18 @@ export const productModel = new Elysia().model({
     message: t.String(),
   }),
 
-  ProductListQuery: t.Object({
-    page: t.Optional(t.String()),
-    pageSize: t.Optional(t.String()),
-    categoryId: t.Optional(t.String({ format: 'uuid' })),
-  }),
+  ProductListQuery: t.Intersect([
+    PaginationQuery,
+    t.Object({ categoryId: t.Optional(t.String({ format: 'uuid' })) }),
+  ]),
 
-  AdminProductListQuery: t.Object({
-    page: t.Optional(t.String()),
-    pageSize: t.Optional(t.String()),
-    categoryId: t.Optional(t.String({ format: 'uuid' })),
-    status: t.Optional(t.Union(STATUS_LITERALS)),
-  }),
+  AdminProductListQuery: t.Intersect([
+    PaginationQuery,
+    t.Object({
+      categoryId: t.Optional(t.String({ format: 'uuid' })),
+      status: t.Optional(t.Union(STATUS_LITERALS)),
+    }),
+  ]),
 })
 
 export type ProductModel = InferModelsMap<typeof productModel>

@@ -1,17 +1,13 @@
 import { db, schema } from '@epinfresh/database'
-import { type Result, err, ok } from '@epinfresh/shared'
-import { eq } from 'drizzle-orm'
+import { type PaginationParams, type Result, err, ok } from '@epinfresh/shared'
+import { count, eq } from 'drizzle-orm'
+import type { UserModel } from './model'
 
 const HASH_ALGO = 'argon2id' as const
 const DUMMY_HASH = await Bun.password.hash('epinfresh-dummy', HASH_ALGO)
 
 export class UserService {
-  static async register(input: {
-    name: string
-    email: string
-    password: string
-    phone?: string
-  }) {
+  static async register(input: UserModel['RegisterInput']) {
     const passwordHash = await Bun.password.hash(input.password, HASH_ALGO)
     const [user] = await db
       .insert(schema.users)
@@ -26,7 +22,7 @@ export class UserService {
     return safeUser
   }
 
-  static async login(input: { email: string; password: string }) {
+  static async login(input: UserModel['LoginInput']) {
     const [user] = await db.select().from(schema.users).where(eq(schema.users.email, input.email))
     if (!user) {
       await Bun.password.verify(input.password, DUMMY_HASH, HASH_ALGO)
@@ -45,9 +41,8 @@ export class UserService {
     return ok(safeUser)
   }
 
-  static async list(opts: { page?: number; pageSize?: number } = {}) {
-    const page = opts.page ?? 1
-    const pageSize = Math.min(opts.pageSize ?? 20, 100)
+  static async list(opts: PaginationParams) {
+    const { page, pageSize } = opts
     const offset = (page - 1) * pageSize
     const rows = await db
       .select()
@@ -55,6 +50,8 @@ export class UserService {
       .orderBy(schema.users.createdAt)
       .limit(pageSize)
       .offset(offset)
-    return rows.map(({ passwordHash: _, ...safe }) => safe)
+    const [{ total }] = await db.select({ total: count() }).from(schema.users)
+    const items = rows.map(({ passwordHash: _, ...safe }) => safe)
+    return { items, total: Number(total), page, pageSize }
   }
 }

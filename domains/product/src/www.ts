@@ -8,8 +8,8 @@ export const productWWWPlugin = new Elysia({ name: 'product-www', prefix: '/api/
     '/products',
     async ({ query }) =>
       ProductService.list({
-        page: Number(query.page) || 1,
-        pageSize: Number(query.pageSize) || 20,
+        page: query.page,
+        pageSize: query.pageSize,
         categoryId: query.categoryId,
         status: 'published',
       }),
