@@ -2,26 +2,11 @@ import { cors } from '@elysiajs/cors'
 import { closeDb, initDb } from '@epinfresh/database'
 import { productAdminPlugin } from '@epinfresh/product'
 import { type Session, closeRedis, createSessionPlugin, initRedis } from '@epinfresh/session'
-import {
-  EnvValidationError,
-  type InferModelsMap,
-  adminEnvSchema,
-  loadEnv,
-  requestLogger,
-} from '@epinfresh/shared'
+import { type InferModelsMap, adminEnvSchema, loadEnv, requestLogger } from '@epinfresh/shared'
 import { userAdminPlugin } from '@epinfresh/user'
 import { Elysia, status } from 'elysia'
 
-let env: ReturnType<typeof loadEnv<typeof adminEnvSchema>>
-try {
-  env = loadEnv(adminEnvSchema)
-} catch (e) {
-  if (e instanceof EnvValidationError) {
-    console.error(e.message)
-    process.exit(1)
-  }
-  throw e
-}
+const env = loadEnv(adminEnvSchema)
 
 initDb(env.DATABASE_URL)
 initRedis(env.REDIS_URL)

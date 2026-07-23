@@ -2,26 +2,11 @@ import { cors } from '@elysiajs/cors'
 import { closeDb, initDb } from '@epinfresh/database'
 import { productWWWPlugin } from '@epinfresh/product'
 import { closeRedis, initRedis } from '@epinfresh/session'
-import {
-  EnvValidationError,
-  type InferModelsMap,
-  loadEnv,
-  requestLogger,
-  wwwEnvSchema,
-} from '@epinfresh/shared'
+import { type InferModelsMap, loadEnv, requestLogger, wwwEnvSchema } from '@epinfresh/shared'
 import { userWWWPlugin } from '@epinfresh/user'
 import { Elysia } from 'elysia'
 
-let env: ReturnType<typeof loadEnv<typeof wwwEnvSchema>>
-try {
-  env = loadEnv(wwwEnvSchema)
-} catch (e) {
-  if (e instanceof EnvValidationError) {
-    console.error(e.message)
-    process.exit(1)
-  }
-  throw e
-}
+const env = loadEnv(wwwEnvSchema)
 
 initDb(env.DATABASE_URL)
 initRedis(env.REDIS_URL)
