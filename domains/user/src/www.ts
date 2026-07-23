@@ -1,5 +1,6 @@
 import {
   type Session,
+  authRateLimit,
   clearSessionCookie,
   createSessionPlugin,
   createSessionStore,
@@ -13,6 +14,7 @@ import { UserService } from './service'
 export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/auth' })
   .use(userModel)
   .use(createSessionPlugin())
+  .use(authRateLimit({ prefix: 'rl:auth' }))
   .derive({ as: 'scoped' }, () => ({
     sessionStore: createSessionStore(getRedis()),
   }))
@@ -38,7 +40,8 @@ export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/aut
     },
     {
       body: 'LoginInput',
-      response: { 200: 'UserResponse', 401: 'ErrorResponse' },
+      rateLimit: { limit: 10, window: '60s' },
+      response: { 200: 'UserResponse', 401: 'ErrorResponse', 429: 'ErrorResponse' },
       detail: { tags: ['Auth'] },
     },
   )

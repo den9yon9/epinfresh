@@ -1,5 +1,19 @@
 import { Value } from '@sinclair/typebox/value'
-import { t } from 'elysia'
+import { type Static, t } from 'elysia'
+
+export type CorsOrigin = boolean | string | string[]
+
+function parseCorsOrigin(raw: string): CorsOrigin {
+  const s = raw.trim()
+  if (s === '*') return true
+  const list = s
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0)
+  if (list.length === 0) return true
+  if (list.length === 1) return list[0] as string
+  return list
+}
 
 export const baseEnvSchema = t.Object({
   DATABASE_URL: t.String({ format: 'uri' }),
@@ -8,6 +22,20 @@ export const baseEnvSchema = t.Object({
   NODE_ENV: t.Union([t.Literal('development'), t.Literal('production'), t.Literal('test')], {
     default: 'development',
   }),
+  LOG_LEVEL: t.Union(
+    [
+      t.Literal('debug'),
+      t.Literal('info'),
+      t.Literal('warn'),
+      t.Literal('error'),
+      t.Literal('silent'),
+    ],
+    { default: 'info' },
+  ),
+  CORS_ORIGIN: t
+    .Transform(t.String({ default: '*' }))
+    .Decode((v: string) => parseCorsOrigin(v))
+    .Encode((v: CorsOrigin) => (typeof v === 'boolean' ? '*' : Array.isArray(v) ? v.join(',') : v)),
 })
 
 export const wwwEnvSchema = t.Object({
@@ -20,14 +48,9 @@ export const adminEnvSchema = t.Object({
   ADMIN_PORT: t.String({ pattern: '^\\d+$' }),
 })
 
-export type BaseEnv = {
-  DATABASE_URL: string
-  REDIS_URL: string
-  SESSION_SECRET: string
-  NODE_ENV: 'development' | 'production' | 'test'
-}
-export type WwwEnv = BaseEnv & { WWW_PORT: string }
-export type AdminEnv = BaseEnv & { ADMIN_PORT: string }
+export type BaseEnv = Static<typeof baseEnvSchema>
+export type WwwEnv = Static<typeof wwwEnvSchema>
+export type AdminEnv = Static<typeof adminEnvSchema>
 
 export class EnvValidationError extends Error {
   readonly missing: string[]
@@ -62,8 +85,9 @@ export function loadEnv<T extends Schema>(
   schema: T,
   source: Source = process.env as Source,
 ): EnvOf<T> {
-  const missing = collectErrors(schema, source)
+  const withDefaults = Value.Default(schema, source) as Source
+  const missing = collectErrors(schema, withDefaults)
   if (missing.length > 0) throw new EnvValidationError(missing)
 
-  return Value.Decode(schema, Value.Cast(schema, source)) as EnvOf<T>
+  return Value.Decode(schema, Value.Cast(schema, withDefaults)) as EnvOf<T>
 }

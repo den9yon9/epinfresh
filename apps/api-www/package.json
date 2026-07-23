@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@elysiajs/cors": "^1.4.2",
     "@epinfresh/database": "workspace:*",
     "@epinfresh/product": "workspace:*",
     "@epinfresh/session": "workspace:*",

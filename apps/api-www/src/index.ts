@@ -1,7 +1,14 @@
+import { cors } from '@elysiajs/cors'
 import { closeDb, initDb } from '@epinfresh/database'
 import { productWWWPlugin } from '@epinfresh/product'
 import { closeRedis, initRedis } from '@epinfresh/session'
-import { EnvValidationError, type InferModelsMap, loadEnv, wwwEnvSchema } from '@epinfresh/shared'
+import {
+  EnvValidationError,
+  type InferModelsMap,
+  loadEnv,
+  requestLogger,
+  wwwEnvSchema,
+} from '@epinfresh/shared'
 import { userWWWPlugin } from '@epinfresh/user'
 import { Elysia } from 'elysia'
 
@@ -22,6 +29,8 @@ initRedis(env.REDIS_URL)
 const port = Number(env.WWW_PORT)
 
 const app = new Elysia()
+  .use(requestLogger())
+  .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
   .get('/health', () => ({ status: 'ok', service: 'www' }))
   .use(userWWWPlugin)
   .use(productWWWPlugin)

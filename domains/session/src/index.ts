@@ -21,3 +21,7 @@ export {
   requireAdmin,
   requireSession,
 } from './sessionPlugin'
+export {
+  authRateLimit,
+  type AuthRateLimitOptions,
+} from './rateLimit'

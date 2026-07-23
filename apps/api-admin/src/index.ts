@@ -1,7 +1,14 @@
+import { cors } from '@elysiajs/cors'
 import { closeDb, initDb } from '@epinfresh/database'
 import { productAdminPlugin } from '@epinfresh/product'
 import { type Session, closeRedis, createSessionPlugin, initRedis } from '@epinfresh/session'
-import { EnvValidationError, type InferModelsMap, adminEnvSchema, loadEnv } from '@epinfresh/shared'
+import {
+  EnvValidationError,
+  type InferModelsMap,
+  adminEnvSchema,
+  loadEnv,
+  requestLogger,
+} from '@epinfresh/shared'
 import { userAdminPlugin } from '@epinfresh/user'
 import { Elysia, status } from 'elysia'
 
@@ -22,6 +29,8 @@ initRedis(env.REDIS_URL)
 const port = Number(env.ADMIN_PORT)
 
 const app = new Elysia()
+  .use(requestLogger())
+  .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
   .get('/health', () => ({ status: 'ok', service: 'admin' }))
   .use(createSessionPlugin())
   .guard({
