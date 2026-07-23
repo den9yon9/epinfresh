@@ -16,8 +16,11 @@ export const products = pgTable(
     }),
     images: jsonb('images').$type<string[]>().default([]).notNull(),
     status: productStatus('status').default('draft').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
   (t) => ({
     statusIdx: index('products_status_idx').on(t.status),

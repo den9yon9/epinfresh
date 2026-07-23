@@ -13,52 +13,33 @@ export class ProductService {
     if (query.status) filters.push(eq(schema.products.status, query.status))
     const where = filters.length > 0 ? and(...filters) : undefined
 
-    const items = await db
-      .select()
-      .from(schema.products)
-      .where(where)
-      .orderBy(schema.products.createdAt)
-      .limit(pageSize)
-      .offset(offset)
+    const items = await db.query.products.findMany({
+      where,
+      orderBy: (products, { asc }) => asc(products.createdAt),
+      limit: pageSize,
+      offset,
+      with: { skus: true },
+    })
     const [{ total }] = await db.select({ total: count() }).from(schema.products).where(where)
-    if (items.length === 0) return { items: [] as never[], total: Number(total), page, pageSize }
-
-    const skus = await db
-      .select()
-      .from(schema.productSkus)
-      .where(and(...items.map((p) => eq(schema.productSkus.productId, p.id))))
-    const skuMap = new Map<string, (typeof schema.productSkus.$inferSelect)[]>()
-    for (const sku of skus) {
-      const arr = skuMap.get(sku.productId) ?? []
-      arr.push(sku)
-      skuMap.set(sku.productId, arr)
-    }
-    return {
-      items: items.map((p) => ({ ...p, skus: skuMap.get(p.id) ?? [] })),
-      total: Number(total),
-      page,
-      pageSize,
-    }
+    return { items, total: Number(total), page, pageSize }
   }
 
   static async getById(id: string) {
-    const [product] = await db.select().from(schema.products).where(eq(schema.products.id, id))
+    const product = await db.query.products.findFirst({
+      where: eq(schema.products.id, id),
+      with: { skus: true },
+    })
     if (!product) return err('PRODUCT_NOT_FOUND')
-    const skus = await db
-      .select()
-      .from(schema.productSkus)
-      .where(eq(schema.productSkus.productId, id))
-    return ok({ ...product, skus })
+    return ok(product)
   }
 
   static async getByIdPublic(id: string) {
-    const [product] = await db.select().from(schema.products).where(eq(schema.products.id, id))
-    if (!product || product.status !== 'published') return err('PRODUCT_NOT_FOUND')
-    const skus = await db
-      .select()
-      .from(schema.productSkus)
-      .where(eq(schema.productSkus.productId, id))
-    return ok({ ...product, skus })
+    const product = await db.query.products.findFirst({
+      where: and(eq(schema.products.id, id), eq(schema.products.status, 'published')),
+      with: { skus: true },
+    })
+    if (!product) return err('PRODUCT_NOT_FOUND')
+    return ok(product)
   }
 
   static async create(input: ProductModel['CreateProductInput']) {
@@ -92,7 +73,7 @@ export class ProductService {
 
   static async update(id: string, input: ProductModel['UpdateProductInput']) {
     return db.transaction(async (tx) => {
-      const setPayload: Record<string, unknown> = { updatedAt: new Date() }
+      const setPayload: Record<string, unknown> = {}
       if (input.name !== undefined) setPayload.name = input.name
       if (input.slug !== undefined) setPayload.slug = input.slug
       if (input.description !== undefined) setPayload.description = input.description

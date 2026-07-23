@@ -1,5 +1,5 @@
 import { cors } from '@elysiajs/cors'
-import { closeDb, initDb } from '@epinfresh/database'
+import { closeDb, initDb, runMigrations } from '@epinfresh/database'
 import { productAdminPlugin } from '@epinfresh/product'
 import { type Session, closeRedis, createSessionPlugin, initRedis } from '@epinfresh/session'
 import { type InferModelsMap, adminEnvSchema, loadEnv, requestLogger } from '@epinfresh/shared'
@@ -10,6 +10,7 @@ const env = loadEnv(adminEnvSchema)
 
 initDb(env.DATABASE_URL)
 initRedis(env.REDIS_URL)
+if (env.NODE_ENV !== 'production') await runMigrations()
 
 const port = Number(env.ADMIN_PORT)
 

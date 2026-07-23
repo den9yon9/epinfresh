@@ -22,8 +22,11 @@ export const productSkus = pgTable(
     price: decimal('price', { precision: 10, scale: 2 }).notNull(),
     stock: integer('stock').default(0).notNull(),
     attributes: jsonb('attributes').$type<Record<string, string>>().default({}).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
   (t) => ({
     productIdIdx: index('product_skus_product_id_idx').on(t.productId),

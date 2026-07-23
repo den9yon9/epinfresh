@@ -1,4 +1,6 @@
+import { fileURLToPath } from 'node:url'
 import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js'
+import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres, { type Sql } from 'postgres'
 import * as schema from './schema'
 
@@ -57,6 +59,13 @@ export async function closeDb(): Promise<void> {
     queryClient = null
     dbInstance = null
   }
+}
+
+const migrationsFolder = fileURLToPath(new URL('./migrations', import.meta.url))
+
+export async function runMigrations(target?: Db): Promise<void> {
+  const instance = target ?? dbInstance ?? (db as unknown as Db)
+  await migrate(instance, { migrationsFolder })
 }
 
 export const db = new Proxy({} as Db, {
