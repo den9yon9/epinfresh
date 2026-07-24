@@ -20,6 +20,7 @@ export {
   type PaginationQueryType,
   type PaginationParams,
   PaginatedResponse,
+  ErrorResponse,
 } from './schemas'
 export { logger } from './logger'
 export { requestLogger } from './requestLogger'

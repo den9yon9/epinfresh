@@ -1,6 +1,11 @@
 import { table } from '@epinfresh/database'
-import type { InferModelsMap, UserRole } from '@epinfresh/shared'
-import { PaginatedResponse, PaginationQuery } from '@epinfresh/shared'
+import {
+  ErrorResponse,
+  type InferModelsMap,
+  PaginatedResponse,
+  PaginationQuery,
+  type UserRole,
+} from '@epinfresh/shared'
 import Elysia, { t } from 'elysia'
 
 const UserResponseSchema = t.Omit(table.select.user, ['passwordHash'])
@@ -23,10 +28,7 @@ export const userModel = new Elysia().model({
   UserListResponse: PaginatedResponse(UserResponseSchema),
   UserListQuery: PaginationQuery,
 
-  ErrorResponse: t.Object({
-    error: t.String(),
-    message: t.String(),
-  }),
+  ErrorResponse,
 })
 
 export type UserModel = InferModelsMap<typeof userModel>

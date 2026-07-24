@@ -4,9 +4,6 @@ import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status, t } from 'elysia'
 import { type Redis, closeRedis, createRedis, getRedis, initRedis } from './redis'
 
-export { createRedis, initRedis, closeRedis, getRedis }
-export type { Redis }
-
 const SessionSchema = t.Object({
   userId: t.String(),
   role: t.Union([t.Literal(USER_ROLE[0]), t.Literal(USER_ROLE[1])]),
@@ -106,11 +103,10 @@ function forbidden() {
 
 export function requireRole(role: UserRole) {
   return {
-    // biome-ignore lint/suspicious/noExplicitAny: derive session type propagated to guard context via cross-plugin
-    beforeHandle: ({ session }: any) => {
-      const s = session as Session | null
-      if (!s) return unauthorized()
-      if (s.role !== role) return forbidden()
+    beforeHandle(ctx: Record<string, unknown>) {
+      const session = ctx.session as Session | null
+      if (!session) return unauthorized()
+      if (session.role !== role) return forbidden()
     },
   }
 }
@@ -121,9 +117,8 @@ export function requireAdmin() {
 
 export function requireSession() {
   return {
-    // biome-ignore lint/suspicious/noExplicitAny: derive session type propagated to guard context via cross-plugin
-    beforeHandle: ({ session }: any) => {
-      if (!(session as Session | null)) return unauthorized()
+    beforeHandle(ctx: Record<string, unknown>) {
+      if (!(ctx.session as Session | null)) return unauthorized()
     },
   }
 }

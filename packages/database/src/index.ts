@@ -15,6 +15,7 @@ export type Db = PgDatabase & {
 
 let queryClient: Sql | null = null
 let dbInstance: Db | null = null
+let cachedDbUrl: string | null = null
 
 export interface DbOptions {
   max?: number
@@ -42,7 +43,13 @@ export function initDb(
   connectionString: string,
   opts: DbOptions = {},
 ): { db: Db; queryClient: Sql } {
-  if (dbInstance && queryClient) return { db: dbInstance, queryClient }
+  if (dbInstance && queryClient) {
+    if (cachedDbUrl !== connectionString) {
+      throw new Error(`initDb called with different URL; already initialized with ${cachedDbUrl}`)
+    }
+    return { db: dbInstance, queryClient }
+  }
+  cachedDbUrl = connectionString
   queryClient = postgres(connectionString, {
     max: opts.max ?? 10,
     idle_timeout: opts.idleTimeout ?? 30,

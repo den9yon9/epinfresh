@@ -1,7 +1,7 @@
 import type { AnyElysia, Static } from 'elysia'
 
 export type InferModel<TApp extends AnyElysia, K extends keyof TApp['models']> = Static<
-  ReturnType<TApp['models'][K]['Schema']>
+  TApp['models'][K]['schema']
 >
 
 export type InferModelsMap<TApp extends AnyElysia> = {

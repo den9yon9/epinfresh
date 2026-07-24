@@ -19,3 +19,8 @@ export const PaginatedResponse = <T extends TSchema>(item: T) =>
     page: t.Number(),
     pageSize: t.Number(),
   })
+
+export const ErrorResponse = t.Object({
+  error: t.String(),
+  message: t.String(),
+})

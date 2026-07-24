@@ -1,10 +1,10 @@
 import { cors } from '@elysiajs/cors'
 import { closeDb, initDb, runMigrations } from '@epinfresh/database'
 import { productAdminPlugin } from '@epinfresh/product'
-import { type Session, closeRedis, createSessionPlugin, initRedis } from '@epinfresh/session'
+import { closeRedis, createSessionPlugin, initRedis, requireAdmin } from '@epinfresh/session'
 import { type InferModelsMap, adminEnvSchema, loadEnv, requestLogger } from '@epinfresh/shared'
 import { userAdminPlugin } from '@epinfresh/user'
-import { Elysia, status } from 'elysia'
+import { Elysia } from 'elysia'
 
 const env = loadEnv(adminEnvSchema)
 
@@ -19,15 +19,7 @@ const app = new Elysia()
   .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
   .get('/health', () => ({ status: 'ok', service: 'admin' }))
   .use(createSessionPlugin())
-  .guard({
-    as: 'scoped',
-    // biome-ignore lint/suspicious/noExplicitAny: derive session type across plugin boundary
-    beforeHandle: ({ session }: any) => {
-      const s = session as Session | null
-      if (!s) return status(401, { error: 'UNAUTHORIZED', message: 'Unauthorized' })
-      if (s.role !== 'admin') return status(403, { error: 'FORBIDDEN', message: 'Forbidden' })
-    },
-  })
+  .guard({ as: 'scoped', ...requireAdmin() })
   .use(userAdminPlugin)
   .use(productAdminPlugin)
   .listen(port)
