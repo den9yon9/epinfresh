@@ -7,6 +7,7 @@ import {
   type InferModelsMap,
   commonModel,
   loadEnv,
+  logger,
   mapDbError,
   requestLogger,
   wwwEnvSchema,
@@ -42,13 +43,13 @@ const app = new Elysia()
   .use(productWWWPlugin)
   .listen(port)
 
-console.log(`🦊 WWW API running at http://localhost:${port}`)
+logger.info({ port, service: 'www' }, 'API listening')
 
 const SHUTDOWN_TIMEOUT_MS = 10_000
 
 async function shutdown() {
   const forceExit = setTimeout(() => {
-    console.error('[shutdown] timed out, forcing exit')
+    logger.error('shutdown timed out, forcing exit')
     process.exit(1)
   }, SHUTDOWN_TIMEOUT_MS)
   forceExit.unref()
@@ -57,7 +58,7 @@ async function shutdown() {
     await closeDb()
     await closeRedis()
   } catch (err) {
-    console.error('[shutdown] error:', err)
+    logger.error({ err }, 'shutdown error')
     process.exit(1)
   }
   process.exit(0)

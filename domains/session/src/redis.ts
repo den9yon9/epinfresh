@@ -1,3 +1,4 @@
+import { logger } from '@epinfresh/shared'
 import { Redis, type RedisOptions } from 'ioredis'
 
 export type { Redis, RedisOptions }
@@ -17,7 +18,7 @@ export function createRedis(url: string, opts: CreateRedisOptions = {}): Redis {
     ...opts,
   })
   client.on('error', (err) => {
-    console.error('[redis] connection error:', err.message)
+    logger.error({ err }, 'redis connection error')
   })
   return client
 }

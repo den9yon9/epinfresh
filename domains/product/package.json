@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@epinfresh/database": "workspace:*",
+    "@epinfresh/session": "workspace:*",
     "@epinfresh/shared": "workspace:*",
     "drizzle-orm": "^0.40.0",
     "elysia": "^1.2.0",

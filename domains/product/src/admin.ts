@@ -1,14 +1,19 @@
+import { createSessionPlugin } from '@epinfresh/session'
 import { commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 import { productModel } from './model'
 import { ProductService } from './service'
 
+const adminResponse = { 401: 'ErrorResponse', 403: 'ErrorResponse' } as const
+
 export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/api/v1/admin' })
   .use(productModel)
   .use(commonModel)
+  .use(createSessionPlugin())
   .get('/products', async ({ query }) => ProductService.list(query), {
+    isAdmin: true,
     query: 'AdminProductListQuery',
-    response: { 200: 'ProductListResponse' },
+    response: { 200: 'ProductListResponse', ...adminResponse },
     detail: { tags: ['Admin/Products'] },
   })
   .get(
@@ -21,14 +26,16 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       )
     },
     {
+      isAdmin: true,
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
-      response: { 200: 'ProductResponse', 404: 'ErrorResponse' },
+      response: { 200: 'ProductResponse', 404: 'ErrorResponse', ...adminResponse },
       detail: { tags: ['Admin/Products'] },
     },
   )
   .post('/products', async ({ body }) => status(201, await ProductService.create(body)), {
+    isAdmin: true,
     body: 'CreateProductInput',
-    response: { 201: 'ProductResponse' },
+    response: { 201: 'ProductResponse', ...adminResponse },
     detail: { tags: ['Admin/Products'] },
   })
   .put(
@@ -41,9 +48,10 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       )
     },
     {
+      isAdmin: true,
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
       body: 'UpdateProductInput',
-      response: { 200: 'ProductResponse', 404: 'ErrorResponse' },
+      response: { 200: 'ProductResponse', 404: 'ErrorResponse', ...adminResponse },
       detail: { tags: ['Admin/Products'] },
     },
   )
@@ -57,17 +65,20 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       )
     },
     {
+      isAdmin: true,
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
       detail: { tags: ['Admin/Products'] },
     },
   )
   .get('/categories', () => ProductService.listCategories(), {
-    response: { 200: 'CategoryListResponse' },
+    isAdmin: true,
+    response: { 200: 'CategoryListResponse', ...adminResponse },
     detail: { tags: ['Admin/Categories'] },
   })
   .post('/categories', async ({ body }) => status(201, await ProductService.createCategory(body)), {
+    isAdmin: true,
     body: 'CreateCategoryInput',
-    response: { 201: 'CategoryResponse' },
+    response: { 201: 'CategoryResponse', ...adminResponse },
     detail: { tags: ['Admin/Categories'] },
   })
   .delete(
@@ -90,6 +101,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       )
     },
     {
+      isAdmin: true,
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
       detail: { tags: ['Admin/Categories'] },
     },

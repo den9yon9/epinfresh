@@ -1,3 +1,4 @@
+import { logger } from '@epinfresh/shared'
 import { createDb, runMigrations } from './index'
 
 const url = process.env.DATABASE_URL
@@ -8,7 +9,7 @@ if (!url) {
 const db = createDb(url)
 try {
   await runMigrations(db)
-  console.log('✓ migrations applied')
+  logger.info('migrations applied')
 } finally {
   await db.$primary.end({ timeout: 5 })
 }

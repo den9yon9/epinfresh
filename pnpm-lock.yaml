@@ -91,6 +91,9 @@ importers:
       '@epinfresh/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@epinfresh/session':
+        specifier: workspace:*
+        version: link:../session
       '@epinfresh/shared':
         specifier: workspace:*
         version: link:../../packages/shared

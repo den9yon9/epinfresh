@@ -1,12 +1,12 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
-import { USER_ROLE, type UserRole } from '@epinfresh/shared'
+import { USER_ROLE, type UserRole, logger } from '@epinfresh/shared'
 import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status, t } from 'elysia'
 import { type Redis, getRedis } from './redis'
 
 const SessionSchema = t.Object({
   userId: t.String(),
-  role: t.Union([t.Literal(USER_ROLE[0]), t.Literal(USER_ROLE[1])]),
+  role: t.Union(USER_ROLE.map((r) => t.Literal(r))),
 })
 
 export type Session = { userId: string; role: UserRole }
@@ -79,7 +79,7 @@ export function createSessionPlugin(options: SessionPluginOptions = {}) {
         const raw = await redis.get(`session:${sessionId}`)
         return { session: parseSession(raw) } satisfies { session: Session | null }
       } catch (err) {
-        console.error('[session] redis lookup failed:', err)
+        logger.error({ err }, 'session redis lookup failed')
         return { session: null } satisfies { session: Session | null }
       }
     })
