@@ -1,6 +1,5 @@
 import { table } from '@epinfresh/database'
 import {
-  ErrorResponse,
   type InferModelsMap,
   PaginatedResponse,
   PaginationQuery,
@@ -27,8 +26,6 @@ export const userModel = new Elysia().model({
   UserResponse: UserResponseSchema,
   UserListResponse: PaginatedResponse(UserResponseSchema),
   UserListQuery: PaginationQuery,
-
-  ErrorResponse,
 })
 
 export type UserModel = InferModelsMap<typeof userModel>

@@ -22,5 +22,6 @@ export {
   PaginatedResponse,
   ErrorResponse,
 } from './schemas'
+export { commonModel } from './commonModel'
 export { logger } from './logger'
 export { requestLogger } from './requestLogger'

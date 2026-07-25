@@ -1,12 +1,11 @@
 import { table } from '@epinfresh/database'
 import {
-  ErrorResponse,
   type InferModelsMap,
   PRODUCT_STATUS,
   PaginatedResponse,
   PaginationQuery,
 } from '@epinfresh/shared'
-import Elysia, { Static, t } from 'elysia'
+import Elysia, { t } from 'elysia'
 
 const STATUS_LITERALS = PRODUCT_STATUS.map((s) => t.Literal(s))
 
@@ -38,8 +37,6 @@ export const productModel = new Elysia().model({
   ProductListResponse: PaginatedResponse(ProductResponseSchema),
   CategoryResponse: table.select.category,
   CategoryListResponse: t.Array(table.select.category),
-
-  ErrorResponse,
 
   ProductListQuery: t.Intersect([
     PaginationQuery,

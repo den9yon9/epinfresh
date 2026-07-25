@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
+    "@elysiajs/openapi": "^1.4.0",
     "@epinfresh/database": "workspace:*",
     "@epinfresh/product": "workspace:*",
     "@epinfresh/session": "workspace:*",

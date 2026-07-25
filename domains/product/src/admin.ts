@@ -1,9 +1,11 @@
+import { commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 import { productModel } from './model'
 import { ProductService } from './service'
 
 export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/api/v1/admin' })
   .use(productModel)
+  .use(commonModel)
   .get('/products', async ({ query }) => ProductService.list(query), {
     query: 'AdminProductListQuery',
     response: { 200: 'ProductListResponse' },

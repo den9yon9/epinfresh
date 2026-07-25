@@ -1,4 +1,3 @@
-import { cookie } from '@elysiajs/cookie'
 import { USER_ROLE, type UserRole } from '@epinfresh/shared'
 import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status, t } from 'elysia'
@@ -30,20 +29,40 @@ export interface SessionPluginOptions {
 
 export function createSessionPlugin(options: SessionPluginOptions = {}) {
   const lazyRedis = (): Redis => options.redis ?? getRedis()
-  return new Elysia({ name: 'session' }).use(cookie()).derive({ as: 'scoped' }, async (ctx) => {
-    const cookieVal = ctx.cookie?.session_id?.value
-    if (typeof cookieVal !== 'string' || cookieVal.length === 0) {
-      return { session: null } satisfies { session: Session | null }
-    }
-    const redis = lazyRedis()
-    try {
-      const raw = await redis.get(`session:${cookieVal}`)
-      return { session: parseSession(raw) } satisfies { session: Session | null }
-    } catch (err) {
-      console.error('[session] redis lookup failed:', err)
-      return { session: null } satisfies { session: Session | null }
-    }
-  })
+  return new Elysia({ name: 'session' })
+    .derive({ as: 'scoped' }, async (ctx) => {
+      const cookieVal = ctx.cookie?.session_id?.value
+      if (typeof cookieVal !== 'string' || cookieVal.length === 0) {
+        return { session: null } satisfies { session: Session | null }
+      }
+      const redis = lazyRedis()
+      try {
+        const raw = await redis.get(`session:${cookieVal}`)
+        return { session: parseSession(raw) } satisfies { session: Session | null }
+      } catch (err) {
+        console.error('[session] redis lookup failed:', err)
+        return { session: null } satisfies { session: Session | null }
+      }
+    })
+    .derive({ as: 'scoped' }, () => ({
+      sessionStore: createSessionStore(lazyRedis()),
+    }))
+    .macro({
+      isAuth: {
+        resolve({ session }) {
+          if (!session) return status(401, { error: 'UNAUTHORIZED', message: 'Unauthorized' })
+          return { session }
+        },
+      },
+      isAdmin: {
+        resolve({ session }) {
+          if (!session) return status(401, { error: 'UNAUTHORIZED', message: 'Unauthorized' })
+          if (session.role !== 'admin')
+            return status(403, { error: 'FORBIDDEN', message: 'Forbidden' })
+          return { session }
+        },
+      },
+    })
 }
 
 export interface CookieSetOptions {
@@ -89,36 +108,6 @@ export function createSessionStore(redis: Redis): SessionStore {
     },
     async destroy(sessionId) {
       await redis.del(`session:${sessionId}`)
-    },
-  }
-}
-
-function unauthorized() {
-  return status(401, { error: 'UNAUTHORIZED', message: 'Unauthorized' })
-}
-
-function forbidden() {
-  return status(403, { error: 'FORBIDDEN', message: 'Forbidden' })
-}
-
-export function requireRole(role: UserRole) {
-  return {
-    beforeHandle(ctx: Record<string, unknown>) {
-      const session = ctx.session as Session | null
-      if (!session) return unauthorized()
-      if (session.role !== role) return forbidden()
-    },
-  }
-}
-
-export function requireAdmin() {
-  return requireRole('admin')
-}
-
-export function requireSession() {
-  return {
-    beforeHandle(ctx: Record<string, unknown>) {
-      if (!(ctx.session as Session | null)) return unauthorized()
     },
   }
 }

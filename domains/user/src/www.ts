@@ -1,23 +1,19 @@
 import {
-  type Session,
   authRateLimit,
   clearSessionCookie,
   createSessionPlugin,
-  createSessionStore,
-  getRedis,
   setSessionCookie,
 } from '@epinfresh/session'
+import { commonModel } from '@epinfresh/shared'
 import { Elysia, status } from 'elysia'
 import { userModel } from './model'
 import { UserService } from './service'
 
 export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/auth' })
   .use(userModel)
+  .use(commonModel)
   .use(createSessionPlugin())
   .use(authRateLimit({ prefix: 'rl:auth' }))
-  .derive({ as: 'scoped' }, () => ({
-    sessionStore: createSessionStore(getRedis()),
-  }))
   .post('/register', ({ body }) => UserService.register(body), {
     body: 'RegisterInput',
     response: { 200: 'UserResponse' },
@@ -59,9 +55,7 @@ export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/aut
   )
   .get(
     '/me',
-    async ({ session: s }) => {
-      const session = s as Session | null
-      if (!session) return status(401, { error: 'UNAUTHORIZED', message: 'Unauthorized' })
+    async ({ session }) => {
       const result = await UserService.getById(session.userId)
       return result.match(
         (user) => user,
@@ -69,6 +63,7 @@ export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/aut
       )
     },
     {
+      isAuth: true,
       response: { 200: 'UserResponse', 401: 'ErrorResponse', 404: 'ErrorResponse' },
       detail: { tags: ['Auth'] },
     },

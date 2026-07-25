@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@elysiajs/cookie": "^0.8.0",
     "@epinfresh/shared": "workspace:*",
     "@sinclair/typebox": "^0.34.0",
     "elysia": "^1.2.0",

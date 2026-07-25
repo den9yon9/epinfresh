@@ -8,7 +8,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "db:generate": "bun --env-file=../../.env node_modules/drizzle-kit/bin.cjs generate",
-    "db:migrate": "bun --env-file=../../.env node_modules/drizzle-kit/bin.cjs migrate"
+    "db:migrate": "bun --env-file=../../.env node_modules/drizzle-kit/bin.cjs migrate",
+    "migrate": "bun --env-file=../../.env src/migrate.ts"
   },
   "dependencies": {
     "@epinfresh/shared": "workspace:*",

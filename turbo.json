@@ -10,6 +10,9 @@
       "cache": false,
       "persistent": true
     },
+    "migrate": {
+      "cache": false
+    },
     "typecheck": {}
   }
 }

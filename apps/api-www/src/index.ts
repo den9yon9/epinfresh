@@ -1,8 +1,15 @@
 import { cors } from '@elysiajs/cors'
-import { closeDb, initDb, runMigrations } from '@epinfresh/database'
+import { openapi } from '@elysiajs/openapi'
+import { closeDb, initDb } from '@epinfresh/database'
 import { productWWWPlugin } from '@epinfresh/product'
 import { closeRedis, initRedis } from '@epinfresh/session'
-import { type InferModelsMap, loadEnv, requestLogger, wwwEnvSchema } from '@epinfresh/shared'
+import {
+  type InferModelsMap,
+  commonModel,
+  loadEnv,
+  requestLogger,
+  wwwEnvSchema,
+} from '@epinfresh/shared'
 import { userWWWPlugin } from '@epinfresh/user'
 import { Elysia } from 'elysia'
 
@@ -10,13 +17,21 @@ const env = loadEnv(wwwEnvSchema)
 
 initDb(env.DATABASE_URL)
 initRedis(env.REDIS_URL)
-if (env.NODE_ENV !== 'production') await runMigrations()
 
 const port = Number(env.WWW_PORT)
 
 const app = new Elysia()
   .use(requestLogger())
   .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
+  .use(
+    openapi({
+      path: '/docs',
+      documentation: {
+        info: { title: 'Epinfresh WWW API', version: '1.0.0' },
+      },
+    }),
+  )
+  .use(commonModel)
   .get('/health', () => ({ status: 'ok', service: 'www' }))
   .use(userWWWPlugin)
   .use(productWWWPlugin)

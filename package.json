@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "turbo migrate && turbo dev",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
     "lint": "biome check .",

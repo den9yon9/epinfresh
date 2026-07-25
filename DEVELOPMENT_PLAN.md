@@ -73,6 +73,12 @@ domains/product/
 └── tsconfig.json
 ```
 
+> **例外：`domains/session` 为基础设施域**，不适用上述五件套结构。
+> 它提供跨域共享的会话能力（session 插件、Redis 连接、限流），采用
+> `sessionPlugin.ts` / `redis.ts` / `rateLimit.ts` / `index.ts` 结构。
+> `createSessionPlugin` 同时 derive `session`/`sessionStore` 并暴露
+> `isAuth`/`isAdmin` macro，业务域通过 `.use(createSessionPlugin())` 接入。
+
 ## 阶段划分
 
 ---
