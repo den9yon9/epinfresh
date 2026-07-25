@@ -8,6 +8,7 @@ import {
   adminEnvSchema,
   commonModel,
   loadEnv,
+  mapDbError,
   requestLogger,
 } from '@epinfresh/shared'
 import { userAdminPlugin } from '@epinfresh/user'
@@ -19,17 +20,24 @@ initDb(env.DATABASE_URL)
 initRedis(env.REDIS_URL)
 
 const port = Number(env.ADMIN_PORT)
+const enableDocs = env.NODE_ENV !== 'production'
 
 const app = new Elysia()
   .use(requestLogger())
+  .onError(({ error }) => {
+    const mapped = mapDbError(error)
+    if (mapped) return status(mapped.status, mapped.body)
+  })
   .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
   .use(
-    openapi({
-      path: '/docs',
-      documentation: {
-        info: { title: 'Epinfresh Admin API', version: '1.0.0' },
-      },
-    }),
+    enableDocs
+      ? openapi({
+          path: '/docs',
+          documentation: {
+            info: { title: 'Epinfresh Admin API', version: '1.0.0' },
+          },
+        })
+      : new Elysia(),
   )
   .use(commonModel)
   .get('/health', () => ({ status: 'ok', service: 'admin' }))
@@ -44,13 +52,21 @@ const app = new Elysia()
 
 console.log(`🛡️  Admin API running at http://localhost:${port}`)
 
+const SHUTDOWN_TIMEOUT_MS = 10_000
+
 async function shutdown() {
+  const forceExit = setTimeout(() => {
+    console.error('[shutdown] timed out, forcing exit')
+    process.exit(1)
+  }, SHUTDOWN_TIMEOUT_MS)
+  forceExit.unref()
   try {
     await app.stop()
     await closeDb()
     await closeRedis()
   } catch (err) {
     console.error('[shutdown] error:', err)
+    process.exit(1)
   }
   process.exit(0)
 }

@@ -25,3 +25,4 @@ export {
 export { commonModel } from './commonModel'
 export { logger } from './logger'
 export { requestLogger } from './requestLogger'
+export { mapDbError, type DbErrorMapping } from './dbError'

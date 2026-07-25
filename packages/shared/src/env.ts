@@ -63,5 +63,12 @@ export function loadEnv<T extends Schema>(schema: T, source: Source = process.en
   const withDefaults = Value.Default(schema, source) as Source
   const missing = collectErrors(schema, withDefaults)
   if (missing.length > 0) throw new Error(`[ENV] missing or invalid: ${missing.join(', ')}`)
-  return Value.Decode(schema, Value.Cast(schema, withDefaults))
+  const decoded = Value.Decode(schema, Value.Cast(schema, withDefaults))
+  const env = decoded as { NODE_ENV?: string; CORS_ORIGIN?: unknown }
+  if (env.NODE_ENV === 'production' && env.CORS_ORIGIN === true) {
+    throw new Error(
+      '[ENV] CORS_ORIGIN cannot be "*" in production; set an explicit origin or comma-separated allowlist',
+    )
+  }
+  return decoded
 }

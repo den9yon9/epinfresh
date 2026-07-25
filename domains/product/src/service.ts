@@ -51,6 +51,8 @@ export class ProductService {
           slug: input.slug,
           description: input.description ?? null,
           categoryId: input.categoryId ?? null,
+          images: input.images ?? [],
+          status: input.status ?? 'draft',
         })
         .returning()
       if (input.skus && input.skus.length > 0) {
@@ -60,6 +62,8 @@ export class ProductService {
             name: sku.name,
             skuCode: sku.skuCode,
             price: String(sku.price),
+            stock: sku.stock ?? 0,
+            attributes: sku.attributes ?? {},
           })),
         )
       }

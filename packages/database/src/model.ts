@@ -24,12 +24,12 @@ export const table = {
       phone: Type.Optional(Type.String({ maxLength: 50 })),
     }),
     category: insert(schema.categories, {
-      parentId: Type.Optional(Type.String()),
+      parentId: Type.Optional(Type.String({ format: 'uuid' })),
     }),
     product: insert(schema.products, {
       images: Type.Array(Type.String()),
       description: Type.Optional(Type.String()),
-      categoryId: Type.Optional(Type.String()),
+      categoryId: Type.Optional(Type.String({ format: 'uuid' })),
     }),
     productSku: insert(schema.productSkus, {
       attributes: Type.Record(Type.String(), Type.String()),
@@ -41,7 +41,7 @@ export const table = {
     product: update(schema.products, {
       images: Type.Array(Type.String()),
       description: Type.Optional(Type.String()),
-      categoryId: Type.Optional(Type.String()),
+      categoryId: Type.Optional(Type.String({ format: 'uuid' })),
     }),
     productSku: update(schema.productSkus, {
       attributes: Type.Record(Type.String(), Type.String()),
