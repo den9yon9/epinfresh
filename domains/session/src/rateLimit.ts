@@ -1,5 +1,4 @@
 import {
-  type HitResult,
   type RateLimitPluginOptions,
   type RateLimitStore,
   type RedisClientLike,

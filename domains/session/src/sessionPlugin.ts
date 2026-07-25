@@ -1,7 +1,7 @@
 import { USER_ROLE, type UserRole } from '@epinfresh/shared'
 import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status, t } from 'elysia'
-import { type Redis, closeRedis, createRedis, getRedis, initRedis } from './redis'
+import { type Redis, getRedis } from './redis'
 
 const SessionSchema = t.Object({
   userId: t.String(),

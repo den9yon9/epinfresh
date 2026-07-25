@@ -2,7 +2,6 @@
   "name": "@epinfresh/tsconfig",
   "private": true,
   "exports": {
-    "./base": "./base.json",
-    "./package": "./package.json"
+    "./base": "./base.json"
   }
 }
