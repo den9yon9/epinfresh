@@ -26,7 +26,8 @@ export const productWWWPlugin = new Elysia({ name: 'product-www', prefix: '/api/
       detail: { tags: ['Products'] },
     },
   )
-  .get('/categories', () => ProductService.listCategories(), {
+  .get('/categories', ({ query }) => ProductService.listCategories(query), {
+    query: 'CategoryListQuery',
     response: { 200: 'CategoryListResponse' },
     detail: { tags: ['Categories'] },
   })

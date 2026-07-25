@@ -29,6 +29,13 @@
       "when": 1784849128125,
       "tag": "0003_broken_revanche",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784981970882,
+      "tag": "0004_goofy_ser_duncan",
+      "breakpoints": true
     }
   ]
 }

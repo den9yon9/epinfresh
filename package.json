@@ -9,6 +9,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "check": "biome ci .",
+    "clean": "rm -rf apps/*/dist packages/*/dist domains/*/dist apps/*/.turbo packages/*/.turbo domains/*/.turbo",
     "prepare": "lefthook install"
   },
   "devDependencies": {

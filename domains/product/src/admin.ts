@@ -70,8 +70,9 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       detail: { tags: ['Admin/Products'] },
     },
   )
-  .get('/categories', () => ProductService.listCategories(), {
+  .get('/categories', ({ query }) => ProductService.listCategories(query), {
     isAdmin: true,
+    query: 'CategoryListQuery',
     response: { 200: 'CategoryListResponse', ...adminResponse },
     detail: { tags: ['Admin/Categories'] },
   })

@@ -102,14 +102,22 @@ export class ProductService {
     return db.transaction(async (tx) => {
       const [product] = await tx.select().from(schema.products).where(eq(schema.products.id, id))
       if (!product) return err('PRODUCT_NOT_FOUND')
-      await tx.delete(schema.productSkus).where(eq(schema.productSkus.productId, id))
       await tx.delete(schema.products).where(eq(schema.products.id, id))
       return ok(undefined)
     })
   }
 
-  static async listCategories() {
-    return db.select().from(schema.categories).orderBy(schema.categories.sortOrder)
+  static async listCategories(opts: { page: number; pageSize: number }) {
+    const { page, pageSize } = opts
+    const offset = (page - 1) * pageSize
+    const items = await db
+      .select()
+      .from(schema.categories)
+      .orderBy(schema.categories.sortOrder)
+      .limit(pageSize)
+      .offset(offset)
+    const [{ total }] = await db.select({ total: count() }).from(schema.categories)
+    return { items, total: Number(total), page, pageSize }
   }
 
   static async createCategory(input: ProductModel['CreateCategoryInput']) {

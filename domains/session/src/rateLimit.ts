@@ -12,6 +12,7 @@ export interface AuthRateLimitOptions {
   window?: RateLimitPluginOptions['window']
   prefix?: string
   namespace?: string
+  trustProxy?: boolean
 }
 
 function lazyRedisStore(prefix: string): RateLimitStore {
@@ -38,10 +39,11 @@ function lazyRedisStore(prefix: string): RateLimitStore {
 }
 
 export function authRateLimit(opts: AuthRateLimitOptions = {}): ReturnType<typeof nazliRateLimit> {
+  const trustProxy = opts.trustProxy ?? process.env.TRUST_PROXY === 'true'
   return nazliRateLimit({
     namespace: opts.namespace ?? 'epinfresh',
     store: lazyRedisStore(opts.prefix ?? 'rl'),
-    trustProxy: true,
+    trustProxy,
     limit: opts.limit ?? 120,
     window: opts.window ?? '1m',
     headers: { standard: true, legacy: false },

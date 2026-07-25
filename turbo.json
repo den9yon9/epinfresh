@@ -13,6 +13,9 @@
     "migrate": {
       "cache": false
     },
-    "typecheck": {}
+    "typecheck": {},
+    "clean": {
+      "cache": false
+    }
   }
 }

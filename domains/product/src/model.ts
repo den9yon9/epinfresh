@@ -36,7 +36,8 @@ export const productModel = new Elysia().model({
   ProductResponse: ProductResponseSchema,
   ProductListResponse: PaginatedResponse(ProductResponseSchema),
   CategoryResponse: table.select.category,
-  CategoryListResponse: t.Array(table.select.category),
+  CategoryListResponse: PaginatedResponse(table.select.category),
+  CategoryListQuery: PaginationQuery,
 
   ProductListQuery: t.Intersect([
     PaginationQuery,

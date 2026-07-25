@@ -6,3 +6,7 @@ dist/
 *.log
 .lefthook/
 biome-logs/
+.DS_Store
+.idea/
+.vscode/
+*.tsbuildinfo

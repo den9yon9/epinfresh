@@ -2,7 +2,7 @@ import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { closeDb, initDb } from '@epinfresh/database'
 import { productAdminPlugin } from '@epinfresh/product'
-import { closeRedis, initRedis } from '@epinfresh/session'
+import { authRateLimit, closeRedis, initRedis } from '@epinfresh/session'
 import {
   type InferModelsMap,
   adminEnvSchema,
@@ -11,6 +11,7 @@ import {
   logger,
   mapDbError,
   requestLogger,
+  securityHeaders,
 } from '@epinfresh/shared'
 import { userAdminPlugin } from '@epinfresh/user'
 import { Elysia, status } from 'elysia'
@@ -25,6 +26,7 @@ const enableDocs = env.NODE_ENV !== 'production'
 
 const app = new Elysia()
   .use(requestLogger())
+  .use(securityHeaders())
   .onError(({ error }) => {
     const mapped = mapDbError(error)
     if (mapped) return status(mapped.status, mapped.body)
@@ -41,6 +43,7 @@ const app = new Elysia()
       : new Elysia(),
   )
   .use(commonModel)
+  .use(authRateLimit({ prefix: 'rl:admin' }))
   .get('/health', () => ({ status: 'ok', service: 'admin' }))
   .use(userAdminPlugin)
   .use(productAdminPlugin)

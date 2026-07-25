@@ -64,5 +64,6 @@
 
 - [x] 第 1 批
 - [x] 第 2 批(测试与 db 可注入按用户要求跳过;2c Result 统一暂缓——第 1 批 global onError 已覆盖 500→409)
-- [ ] 第 3 批
-- [ ] 第 4 批
+- [x] 第 3 批
+- [x] 第 4 批(vestigial build 与 commonModel 去重暂缓——前者牵涉构建架构,后者无害)
+

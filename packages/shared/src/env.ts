@@ -32,6 +32,10 @@ export const baseEnvSchema = t.Object({
       return list
     })
     .Encode((v) => (typeof v === 'boolean' ? '*' : Array.isArray(v) ? v.join(',') : v)),
+  TRUST_PROXY: t
+    .Transform(t.String({ default: 'false' }))
+    .Decode((raw: string) => raw.trim() === 'true')
+    .Encode((v) => (v ? 'true' : 'false')),
 })
 
 export const wwwEnvSchema = t.Object({

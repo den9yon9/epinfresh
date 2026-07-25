@@ -10,6 +10,7 @@ import {
   logger,
   mapDbError,
   requestLogger,
+  securityHeaders,
   wwwEnvSchema,
 } from '@epinfresh/shared'
 import { userWWWPlugin } from '@epinfresh/user'
@@ -24,6 +25,7 @@ const port = Number(env.WWW_PORT)
 
 const app = new Elysia()
   .use(requestLogger())
+  .use(securityHeaders())
   .onError(({ error }) => {
     const mapped = mapDbError(error)
     if (mapped) return status(mapped.status, mapped.body)

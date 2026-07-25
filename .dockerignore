@@ -1,0 +1,14 @@
+.git/
+.gitignore
+.turbo/
+.env*
+*.log
+node_modules/
+dist/
+.lefthook/
+biome-logs/
+PLAN.md
+skills-lock.json
+.agents/
+docker/
+.github/

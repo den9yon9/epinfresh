@@ -85,6 +85,3 @@ export const db = new Proxy({} as Db, {
     return Reflect.get(dbInstance, prop as string | symbol, dbInstance)
   },
 })
-
-export type Transaction = Parameters<Parameters<Db['transaction']>[0]>[0]
-export type TypedDb = Db
