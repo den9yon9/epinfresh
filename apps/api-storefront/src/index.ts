@@ -1,7 +1,7 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { closeDb, initDb } from '@epinfresh/database'
-import { productWWWPlugin } from '@epinfresh/product'
+import { productStorefrontPlugin } from '@epinfresh/product'
 import { closeRedis, initRedis } from '@epinfresh/session'
 import {
   type InferModelsMap,
@@ -12,16 +12,16 @@ import {
   requestLogger,
   securityHeaders,
 } from '@epinfresh/shared'
-import { userWWWPlugin } from '@epinfresh/user'
-import { Elysia, status } from 'elysia'
-import { wwwEnvSchema } from './env'
+import { userStorefrontPlugin } from '@epinfresh/user'
 
-const env = loadEnv(wwwEnvSchema)
+import { Elysia, status } from 'elysia'
+import { storefrontEnvSchema } from './env'
+const env = loadEnv(storefrontEnvSchema)
 
 initDb(env.DATABASE_URL)
 initRedis(env.REDIS_URL)
 
-const port = Number(env.WWW_PORT)
+const port = Number(env.STOREFRONT_PORT)
 
 const app = new Elysia()
   .use(requestLogger())
@@ -35,17 +35,17 @@ const app = new Elysia()
     openapi({
       path: '/docs',
       documentation: {
-        info: { title: 'Epinfresh WWW API', version: '1.0.0' },
+        info: { title: 'Epinfresh Storefront API', version: '1.0.0' },
       },
     }),
   )
   .use(commonModel)
-  .get('/health', () => ({ status: 'ok', service: 'www' }))
-  .use(userWWWPlugin)
-  .use(productWWWPlugin)
+  .get('/health', () => ({ status: 'ok', service: 'storefront' }))
+  .use(userStorefrontPlugin)
+  .use(productStorefrontPlugin)
   .listen(port)
 
-logger.info({ port, service: 'www' }, 'API listening')
+logger.info({ port, service: 'storefront' }, 'API listening')
 
 const SHUTDOWN_TIMEOUT_MS = 10_000
 
@@ -70,4 +70,4 @@ process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)
 
 export type App = typeof app
-export type WWWModels = InferModelsMap<typeof app>
+export type StorefrontModels = InferModelsMap<typeof app>

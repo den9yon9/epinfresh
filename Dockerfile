@@ -1,4 +1,4 @@
-ARG APP=api-www
+ARG APP=api-storefront
 
 FROM oven/bun:1.2-alpine AS base
 WORKDIR /app
@@ -9,9 +9,9 @@ COPY config/tsconfig/package.json ./config/tsconfig/
 COPY packages/database/package.json ./packages/database/
 COPY packages/shared/package.json ./packages/shared/
 COPY domains/product/package.json ./domains/product/
-COPY domains/session/package.json ./domains/session/
+COPY packages/session/package.json ./packages/session/
 COPY domains/user/package.json ./domains/user/
-COPY apps/api-www/package.json ./apps/api-www/
+COPY apps/api-storefront/package.json ./apps/api-storefront/
 COPY apps/api-admin/package.json ./apps/api-admin/
 
 RUN bun add -g pnpm && pnpm install --frozen-lockfile --prod --ignore-scripts

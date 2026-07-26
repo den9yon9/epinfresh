@@ -3,7 +3,7 @@ import { Elysia, status, t } from 'elysia'
 import { productModel } from './model'
 import { ProductService } from './service'
 
-export const productWWWPlugin = new Elysia({ name: 'product-www', prefix: '/api/v1' })
+export const productStorefrontPlugin = new Elysia({ name: 'product-storefront', prefix: '/api/v1' })
   .use(productModel)
   .use(commonModel)
   .get('/products', async ({ query }) => ProductService.list({ ...query, status: 'published' }), {

@@ -1,5 +1,5 @@
 {
-  "name": "@epinfresh/api-www",
+  "name": "@epinfresh/api-storefront",
   "private": true,
   "type": "module",
   "scripts": {

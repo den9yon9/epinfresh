@@ -1,5 +1,5 @@
 export { productModel } from './model'
-export { productWWWPlugin } from './www'
+export { productStorefrontPlugin } from './storefront'
 export { productAdminPlugin } from './admin'
 export { ProductService } from './service'
 export type { ProductModel } from './model'

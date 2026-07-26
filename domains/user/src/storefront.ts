@@ -9,7 +9,7 @@ import { Elysia, status } from 'elysia'
 import { userModel } from './model'
 import { UserService } from './service'
 
-export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/auth' })
+export const userStorefrontPlugin = new Elysia({ name: 'user-storefront', prefix: '/api/v1/auth' })
   .use(userModel)
   .use(commonModel)
   .use(sessionPlugin)

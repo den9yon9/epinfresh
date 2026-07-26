@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: [api-www, api-admin]
+        app: [api-storefront, api-admin]
     steps:
       - uses: actions/checkout@v4
 

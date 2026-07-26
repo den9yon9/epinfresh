@@ -17,7 +17,7 @@ E-commerce backend monorepo — ElysiaJS + Drizzle ORM + Bun.
 
 ```
 apps/
-├── api-www/     → Public storefront API (port 3000)
+├── api-storefront/     → Public storefront API (port 3000)
 └── api-admin/   → Admin API (port 3001)
 domains/
 ├── product/     → Product/category CRUD
@@ -59,7 +59,7 @@ pnpm dev  # runs migrate before dev server
 pnpm dev
 
 # Or start individually
-bun --watch apps/api-www/src/index.ts     # WWW API :3000
+bun --watch apps/api-storefront/src/index.ts     # Storefront API :3000
 bun --watch apps/api-admin/src/index.ts  # Admin API :3001
 ```
 
@@ -86,14 +86,14 @@ bun --watch apps/api-admin/src/index.ts  # Admin API :3001
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`, `silent` |
 | `CORS_ORIGIN` | `*` | Allowed origin(s) for CORS |
 | `TRUST_PROXY` | `false` | Trust `X-Forwarded-For` for rate limiting |
-| `WWW_PORT` | `3000` | WWW API port |
+| `STOREFRONT_PORT` | `3000` | Storefront API port |
 | `ADMIN_PORT` | `3001` | Admin API port |
 
 ## Docker
 
 ```bash
 # Build production image
-docker build --build-arg APP=api-www -t epinfresh-www .
+docker build --build-arg APP=api-storefront -t epinfresh-storefront .
 
 # Run with compose (includes healthchecks)
 docker compose -f docker/docker-compose.yml up -d
