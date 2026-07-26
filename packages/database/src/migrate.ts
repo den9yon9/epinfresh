@@ -1,10 +1,7 @@
-import { logger } from '@epinfresh/shared'
+import { getEnv, logger } from '@epinfresh/shared'
 import { createDb, runMigrations } from './index'
 
-const url = process.env.DATABASE_URL
-if (!url) {
-  throw new Error('DATABASE_URL is required. Set it via --env-file or shell.')
-}
+const url = getEnv().DATABASE_URL
 
 const db = createDb(url)
 try {

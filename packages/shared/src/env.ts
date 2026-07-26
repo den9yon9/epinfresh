@@ -1,5 +1,7 @@
+import type { TObject } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
 import { type Static, t } from 'elysia'
+export { t }
 
 export const baseEnvSchema = t.Object({
   DATABASE_URL: t.String({ format: 'uri' }),
@@ -38,18 +40,8 @@ export const baseEnvSchema = t.Object({
     .Encode((v) => (v ? 'true' : 'false')),
 })
 
-export const wwwEnvSchema = t.Object({
-  ...baseEnvSchema.properties,
-  WWW_PORT: t.String({ pattern: '^\\d+$' }),
-})
-
-export const adminEnvSchema = t.Object({
-  ...baseEnvSchema.properties,
-  ADMIN_PORT: t.String({ pattern: '^\\d+$' }),
-})
-
 type BaseEnv = Static<typeof baseEnvSchema>
-type Schema = typeof baseEnvSchema | typeof wwwEnvSchema | typeof adminEnvSchema
+type Schema = TObject
 type Source = Record<string, string | undefined>
 
 let cachedEnv: BaseEnv | null = null

@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url'
+import { getEnv } from '@epinfresh/shared'
 import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres, { type Sql } from 'postgres'
@@ -40,17 +41,18 @@ export function createDb(connectionString: string, opts: DbOptions = {}): Db {
 }
 
 export function initDb(
-  connectionString: string,
+  connectionString?: string,
   opts: DbOptions = {},
 ): { db: Db; queryClient: Sql } {
+  const url = connectionString ?? getEnv().DATABASE_URL
   if (dbInstance && queryClient) {
-    if (cachedDbUrl !== connectionString) {
+    if (cachedDbUrl !== url) {
       throw new Error(`initDb called with different URL; already initialized with ${cachedDbUrl}`)
     }
     return { db: dbInstance, queryClient }
   }
-  cachedDbUrl = connectionString
-  queryClient = postgres(connectionString, {
+  cachedDbUrl = url
+  queryClient = postgres(url, {
     max: opts.max ?? 10,
     idle_timeout: opts.idleTimeout ?? 30,
     connect_timeout: opts.connectTimeout ?? 30,

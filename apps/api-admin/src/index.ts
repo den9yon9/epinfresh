@@ -5,7 +5,6 @@ import { productAdminPlugin } from '@epinfresh/product'
 import { authRateLimit, closeRedis, initRedis } from '@epinfresh/session'
 import {
   type InferModelsMap,
-  adminEnvSchema,
   commonModel,
   loadEnv,
   logger,
@@ -15,6 +14,7 @@ import {
 } from '@epinfresh/shared'
 import { userAdminPlugin } from '@epinfresh/user'
 import { Elysia, status } from 'elysia'
+import { adminEnvSchema } from './env'
 
 const env = loadEnv(adminEnvSchema)
 

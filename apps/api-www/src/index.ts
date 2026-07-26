@@ -11,10 +11,10 @@ import {
   mapDbError,
   requestLogger,
   securityHeaders,
-  wwwEnvSchema,
 } from '@epinfresh/shared'
 import { userWWWPlugin } from '@epinfresh/user'
 import { Elysia, status } from 'elysia'
+import { wwwEnvSchema } from './env'
 
 const env = loadEnv(wwwEnvSchema)
 
