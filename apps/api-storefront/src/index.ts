@@ -6,7 +6,6 @@ import { closeRedis, initRedis } from '@epinfresh/session'
 import {
   type InferModelsMap,
   commonModel,
-  eventBus,
   loadEnv,
   logger,
   mapDbError,
@@ -45,13 +44,6 @@ const app = new Elysia()
   .use(userStorefrontPlugin)
   .use(productStorefrontPlugin)
   .listen(port)
-
-eventBus.on('user:registered', (event) => {
-  logger.info(
-    { userId: event.userId, email: event.email },
-    '[EventBus] User registered event received',
-  )
-})
 
 logger.info({ port, service: 'storefront' }, 'API listening')
 

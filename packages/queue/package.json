@@ -1,5 +1,5 @@
 {
-  "name": "@epinfresh/user",
+  "name": "@epinfresh/queue",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -9,12 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@epinfresh/database": "workspace:*",
-    "@epinfresh/queue": "workspace:*",
     "@epinfresh/session": "workspace:*",
     "@epinfresh/shared": "workspace:*",
-    "drizzle-orm": "^0.40.0",
-    "elysia": "^1.2.0",
-    "neverthrow": "^8.2.0"
+    "bullmq": "^5.41.0"
   }
 }

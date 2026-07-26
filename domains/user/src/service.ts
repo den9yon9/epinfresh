@@ -1,5 +1,6 @@
 import { db, schema } from '@epinfresh/database'
-import { type Result, err, eventBus, hashPassword, ok, verifyPassword } from '@epinfresh/shared'
+import { emailQueue } from '@epinfresh/queue'
+import { type Result, err, hashPassword, ok, verifyPassword } from '@epinfresh/shared'
 import { count, eq } from 'drizzle-orm'
 import type { UserModel } from './model'
 
@@ -33,11 +34,10 @@ export abstract class UserService {
         createdAt: schema.users.createdAt,
         updatedAt: schema.users.updatedAt,
       })
-    eventBus.emit('user:registered', {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      createdAt: user.createdAt,
+    await emailQueue.add('send-welcome-email', {
+      type: 'welcome',
+      to: user.email,
+      payload: { userId: user.id, name: user.name },
     })
     return user
   }
