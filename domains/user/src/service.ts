@@ -1,22 +1,20 @@
 import { db, schema } from '@epinfresh/database'
-import { type Result, err, ok } from '@epinfresh/shared'
+import { type Result, err, eventBus, hashPassword, ok, verifyPassword } from '@epinfresh/shared'
 import { count, eq } from 'drizzle-orm'
 import type { UserModel } from './model'
-
-const HASH_ALGO = 'argon2id' as const
 
 let dummyHash: string | null = null
 
 async function getDummyHash(): Promise<string> {
   if (!dummyHash) {
-    dummyHash = await Bun.password.hash('epinfresh-dummy', HASH_ALGO)
+    dummyHash = await hashPassword('epinfresh-dummy')
   }
   return dummyHash
 }
 
 export abstract class UserService {
   static async register(input: UserModel['RegisterInput']) {
-    const passwordHash = await Bun.password.hash(input.password, HASH_ALGO)
+    const passwordHash = await hashPassword(input.password)
     const [user] = await db
       .insert(schema.users)
       .values({
@@ -35,6 +33,12 @@ export abstract class UserService {
         createdAt: schema.users.createdAt,
         updatedAt: schema.users.updatedAt,
       })
+    eventBus.emit('user:registered', {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      createdAt: user.createdAt,
+    })
     return user
   }
 
@@ -55,10 +59,10 @@ export abstract class UserService {
       .from(schema.users)
       .where(eq(schema.users.email, email))
     if (!user) {
-      await Bun.password.verify(input.password, await getDummyHash(), HASH_ALGO)
+      await verifyPassword(input.password, await getDummyHash())
       return err('LOGIN_FAILED')
     }
-    const valid = await Bun.password.verify(input.password, user.passwordHash, HASH_ALGO)
+    const valid = await verifyPassword(input.password, user.passwordHash)
     if (!valid) return err('LOGIN_FAILED')
     const { passwordHash: _, ...safeUser } = user
     return ok(safeUser)

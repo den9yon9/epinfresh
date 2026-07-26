@@ -11,6 +11,7 @@
   "dependencies": {
     "@sinclair/typebox": "^0.34.0",
     "elysia": "^1.2.0",
+    "mitt": "^3.0.1",
     "neverthrow": "^8.2.0",
     "pino": "^10.3.1"
   }
