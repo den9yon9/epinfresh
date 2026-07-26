@@ -3,15 +3,28 @@ ARG APP=api-www
 FROM oven/bun:1.2-alpine AS base
 WORKDIR /app
 
+# 1. 优先复制依赖清单，利用 Docker 缓存
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY config/tsconfig/package.json ./config/tsconfig/
+COPY packages/database/package.json ./packages/database/
+COPY packages/shared/package.json ./packages/shared/
+COPY domains/product/package.json ./domains/product/
+COPY domains/session/package.json ./domains/session/
+COPY domains/user/package.json ./domains/user/
+COPY apps/api-www/package.json ./apps/api-www/
+COPY apps/api-admin/package.json ./apps/api-admin/
+
+RUN bun add -g pnpm && pnpm install --frozen-lockfile --prod --ignore-scripts
+
+# 2. 复制实际源码
 COPY config/tsconfig/ ./config/tsconfig/
 COPY packages/ ./packages/
 COPY domains/ ./domains/
 COPY apps/ ./apps/
 
-RUN bun add -g pnpm && pnpm install --frozen-lockfile --prod --ignore-scripts
-
 ENV NODE_ENV=production
 EXPOSE 3000
+
+USER bun
 
 CMD ["sh", "-c", "exec bun apps/${APP}/src/index.ts"]

@@ -1,4 +1,4 @@
-import { createSessionPlugin } from '@epinfresh/session'
+import { sessionPlugin } from '@epinfresh/session'
 import { commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 import { productModel } from './model'
@@ -9,7 +9,7 @@ const adminResponse = { 401: 'ErrorResponse', 403: 'ErrorResponse' } as const
 export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/api/v1/admin' })
   .use(productModel)
   .use(commonModel)
-  .use(createSessionPlugin())
+  .use(sessionPlugin)
   .get('/products', async ({ query }) => ProductService.list(query), {
     isAdmin: true,
     query: 'AdminProductListQuery',

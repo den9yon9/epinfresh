@@ -1,5 +1,5 @@
 import { Value } from '@sinclair/typebox/value'
-import { t } from 'elysia'
+import { type Static, t } from 'elysia'
 
 export const baseEnvSchema = t.Object({
   DATABASE_URL: t.String({ format: 'uri' }),
@@ -48,8 +48,11 @@ export const adminEnvSchema = t.Object({
   ADMIN_PORT: t.String({ pattern: '^\\d+$' }),
 })
 
+type BaseEnv = Static<typeof baseEnvSchema>
 type Schema = typeof baseEnvSchema | typeof wwwEnvSchema | typeof adminEnvSchema
 type Source = Record<string, string | undefined>
+
+let cachedEnv: BaseEnv | null = null
 
 function collectErrors(schema: Schema, source: Source): string[] {
   const seen = new Set<string>()
@@ -74,5 +77,13 @@ export function loadEnv<T extends Schema>(schema: T, source: Source = process.en
       '[ENV] CORS_ORIGIN cannot be "*" in production; set an explicit origin or comma-separated allowlist',
     )
   }
+  cachedEnv = decoded as BaseEnv
   return decoded
+}
+
+export function getEnv(): BaseEnv {
+  if (!cachedEnv) {
+    cachedEnv = loadEnv(baseEnvSchema)
+  }
+  return cachedEnv
 }

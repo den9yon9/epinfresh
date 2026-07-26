@@ -21,7 +21,7 @@ const skuInput = t.Intersect([
   }),
 ])
 
-export const productModel = new Elysia().model({
+export const productModel = new Elysia({ name: 'product-model' }).model({
   CreateProductInput: t.Intersect([
     t.Omit(table.insert.product, ['id', 'createdAt', 'updatedAt']),
     t.Object({

@@ -1,3 +1,4 @@
+import { getEnv } from '@epinfresh/shared'
 import {
   type RateLimitPluginOptions,
   type RateLimitStore,
@@ -39,7 +40,7 @@ function lazyRedisStore(prefix: string): RateLimitStore {
 }
 
 export function authRateLimit(opts: AuthRateLimitOptions = {}): ReturnType<typeof nazliRateLimit> {
-  const trustProxy = opts.trustProxy ?? process.env.TRUST_PROXY === 'true'
+  const trustProxy = opts.trustProxy ?? getEnv().TRUST_PROXY
   return nazliRateLimit({
     namespace: opts.namespace ?? 'epinfresh',
     store: lazyRedisStore(opts.prefix ?? 'rl'),

@@ -3,7 +3,7 @@ import { type Result, err, ok } from '@epinfresh/shared'
 import { and, count, eq } from 'drizzle-orm'
 import type { ProductModel } from './model'
 
-export class ProductService {
+export abstract class ProductService {
   static async list(query: ProductModel['AdminProductListQuery']) {
     const { page, pageSize } = query
     const offset = (page - 1) * pageSize
@@ -76,14 +76,17 @@ export class ProductService {
   }
 
   static async update(id: string, input: ProductModel['UpdateProductInput']) {
+    const setPayload: Record<string, unknown> = {}
+    if (input.name !== undefined) setPayload.name = input.name
+    if (input.slug !== undefined) setPayload.slug = input.slug
+    if (input.description !== undefined) setPayload.description = input.description
+    if (input.categoryId !== undefined) setPayload.categoryId = input.categoryId
+    if (input.images !== undefined) setPayload.images = input.images
+    if (input.status !== undefined) setPayload.status = input.status
+    if (Object.keys(setPayload).length === 0) {
+      return ProductService.getById(id)
+    }
     return db.transaction(async (tx) => {
-      const setPayload: Record<string, unknown> = {}
-      if (input.name !== undefined) setPayload.name = input.name
-      if (input.slug !== undefined) setPayload.slug = input.slug
-      if (input.description !== undefined) setPayload.description = input.description
-      if (input.categoryId !== undefined) setPayload.categoryId = input.categoryId
-      if (input.images !== undefined) setPayload.images = input.images
-      if (input.status !== undefined) setPayload.status = input.status
       const [product] = await tx
         .update(schema.products)
         .set(setPayload)

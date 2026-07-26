@@ -14,6 +14,7 @@ export {
 } from './redis'
 export {
   createSessionPlugin,
+  sessionPlugin,
   createSessionStore,
   setSessionCookie,
   clearSessionCookie,

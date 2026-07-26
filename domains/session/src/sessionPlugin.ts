@@ -1,5 +1,5 @@
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
-import { USER_ROLE, type UserRole, logger } from '@epinfresh/shared'
+import { randomUUID } from 'node:crypto'
+import { USER_ROLE, type UserRole, getEnv, logger } from '@epinfresh/shared'
 import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status, t } from 'elysia'
 import { type Redis, getRedis } from './redis'
@@ -24,30 +24,11 @@ function parseSession(raw: string | null): Session | null {
   }
 }
 
-function signSessionId(sessionId: string, secret: string): string {
-  const sig = createHmac('sha256', secret).update(sessionId).digest('base64url')
-  return `${sessionId}.${sig}`
-}
-
-function unsignSessionToken(token: string, secret: string): string | null {
-  const idx = token.lastIndexOf('.')
-  if (idx <= 0 || idx >= token.length - 1) return null
-  const id = token.slice(0, idx)
-  const sig = token.slice(idx + 1)
-  const expected = createHmac('sha256', secret).update(id).digest('base64url')
-  if (sig.length !== expected.length) return null
-  try {
-    return timingSafeEqual(Buffer.from(sig), Buffer.from(expected)) ? id : null
-  } catch {
-    return null
-  }
-}
-
 function resolveSecret(secret?: string): string {
-  const resolved = secret ?? process.env.SESSION_SECRET
+  const resolved = secret ?? getEnv().SESSION_SECRET
   if (!resolved || resolved.length < 32) {
     throw new Error(
-      '[session] SESSION_SECRET is required (min 32 chars). Pass it via options or process.env.',
+      '[session] SESSION_SECRET is required (min 32 chars). Pass it via options or getEnv().',
     )
   }
   return resolved
@@ -59,22 +40,22 @@ export interface SessionPluginOptions {
 }
 
 export function createSessionPlugin(options: SessionPluginOptions = {}) {
-  const lazyRedis = (): Redis => options.redis ?? getRedis()
+  const resolveRedis = (): Redis => options.redis ?? getRedis()
   const secret = resolveSecret(options.sessionSecret)
-  return new Elysia({ name: 'session' })
-    .derive({ as: 'scoped' }, () => ({
-      sessionStore: createSessionStore(lazyRedis(), secret),
-    }))
-    .derive({ as: 'scoped' }, async (ctx) => {
-      const cookieVal = ctx.cookie?.session_id?.value
-      if (typeof cookieVal !== 'string' || cookieVal.length === 0) {
+  const redis = resolveRedis()
+  return new Elysia({
+    name: 'session',
+    cookie: {
+      secrets: secret,
+      sign: ['session_id'],
+    },
+  })
+    .decorate('sessionStore', createSessionStore(redis))
+    .derive({ as: 'scoped' }, async ({ cookie }) => {
+      const sessionId = cookie.session_id?.value
+      if (typeof sessionId !== 'string' || sessionId.length === 0) {
         return { session: null } satisfies { session: Session | null }
       }
-      const sessionId = unsignSessionToken(cookieVal, secret)
-      if (!sessionId) {
-        return { session: null } satisfies { session: Session | null }
-      }
-      const redis = lazyRedis()
       try {
         const raw = await redis.get(`session:${sessionId}`)
         return { session: parseSession(raw) } satisfies { session: Session | null }
@@ -101,6 +82,8 @@ export function createSessionPlugin(options: SessionPluginOptions = {}) {
     })
 }
 
+export const sessionPlugin = createSessionPlugin()
+
 export interface CookieSetOptions {
   secure: boolean
 }
@@ -115,7 +98,7 @@ export function setSessionCookie(
     value: sessionId,
     httpOnly: true,
     secure: opts.secure,
-    sameSite: 'strict',
+    sameSite: getEnv().NODE_ENV === 'production' ? 'lax' : 'strict',
     path: '/',
     maxAge: SESSION_TTL_SECONDS,
   })
@@ -123,29 +106,33 @@ export function setSessionCookie(
 
 export function clearSessionCookie(cookie: Cookie<unknown> | undefined): void {
   if (!cookie) return
-  cookie.set({ value: '', httpOnly: true, sameSite: 'strict', path: '/', maxAge: 0 })
+  cookie.set({
+    value: '',
+    httpOnly: true,
+    sameSite: getEnv().NODE_ENV === 'production' ? 'lax' : 'strict',
+    path: '/',
+    maxAge: 0,
+  })
 }
 
 export interface SessionStore {
   create(session: Session): Promise<string>
-  read(token: string): Promise<Session | null>
-  destroy(token: string): Promise<void>
+  read(sessionId: string): Promise<Session | null>
+  destroy(sessionId: string): Promise<void>
 }
 
-export function createSessionStore(redis: Redis, secret: string): SessionStore {
+export function createSessionStore(redis: Redis): SessionStore {
   return {
     async create(session) {
       const sessionId = randomUUID()
       await redis.set(`session:${sessionId}`, JSON.stringify(session), 'EX', SESSION_TTL_SECONDS)
-      return signSessionId(sessionId, secret)
+      return sessionId
     },
-    async read(token) {
-      const sessionId = unsignSessionToken(token, secret)
+    async read(sessionId) {
       if (!sessionId) return null
       return parseSession(await redis.get(`session:${sessionId}`))
     },
-    async destroy(token) {
-      const sessionId = unsignSessionToken(token, secret)
+    async destroy(sessionId) {
       if (!sessionId) return
       await redis.del(`session:${sessionId}`)
     },

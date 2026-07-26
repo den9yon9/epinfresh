@@ -1,10 +1,10 @@
 import {
   authRateLimit,
   clearSessionCookie,
-  createSessionPlugin,
+  sessionPlugin,
   setSessionCookie,
 } from '@epinfresh/session'
-import { commonModel } from '@epinfresh/shared'
+import { commonModel, getEnv } from '@epinfresh/shared'
 import { Elysia, status } from 'elysia'
 import { userModel } from './model'
 import { UserService } from './service'
@@ -12,7 +12,7 @@ import { UserService } from './service'
 export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/auth' })
   .use(userModel)
   .use(commonModel)
-  .use(createSessionPlugin())
+  .use(sessionPlugin)
   .use(authRateLimit({ prefix: 'rl:auth' }))
   .post('/register', ({ body }) => UserService.register(body), {
     body: 'RegisterInput',
@@ -27,7 +27,7 @@ export const userWWWPlugin = new Elysia({ name: 'user-www', prefix: '/api/v1/aut
         async (user) => {
           const sessionId = await sessionStore.create({ userId: user.id, role: user.role })
           setSessionCookie(cookie.session_id, sessionId, {
-            secure: process.env.NODE_ENV === 'production',
+            secure: getEnv().NODE_ENV === 'production',
           })
           return user
         },

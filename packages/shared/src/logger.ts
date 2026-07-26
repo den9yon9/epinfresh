@@ -1,12 +1,16 @@
 import pino, { type Level, type Logger } from 'pino'
+import { getEnv } from './env'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent'
 
 const ALLOWED = new Set<LogLevel>(['debug', 'info', 'warn', 'error', 'silent'])
 
 function readInitialLevel(): string {
-  const raw = process.env.LOG_LEVEL
-  return raw && ALLOWED.has(raw as LogLevel) ? raw : 'info'
+  try {
+    return getEnv().LOG_LEVEL
+  } catch {
+    return 'info'
+  }
 }
 
 export const logger: Logger = pino({

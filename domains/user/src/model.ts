@@ -9,7 +9,7 @@ import Elysia, { t } from 'elysia'
 
 const UserResponseSchema = t.Omit(table.select.user, ['passwordHash'])
 
-export const userModel = new Elysia().model({
+export const userModel = new Elysia({ name: 'user-model' }).model({
   RegisterInput: t.Intersect([
     t.Omit(table.insert.user, ['id', 'passwordHash', 'role', 'avatar', 'createdAt', 'updatedAt']),
     t.Object({

@@ -14,7 +14,7 @@ async function getDummyHash(): Promise<string> {
   return dummyHash
 }
 
-export class UserService {
+export abstract class UserService {
   static async register(input: UserModel['RegisterInput']) {
     const passwordHash = await Bun.password.hash(input.password, HASH_ALGO)
     const [user] = await db

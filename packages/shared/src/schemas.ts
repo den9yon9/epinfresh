@@ -8,9 +8,6 @@ export const PaginationQuery = t.Object({
   page: t.Number({ minimum: 1, default: DEFAULT_PAGE }),
   pageSize: t.Number({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
 })
-export type PaginationQueryType = Static<typeof PaginationQuery>
-
-export type PaginationParams = { page: number; pageSize: number }
 
 export const PaginatedResponse = <T extends TSchema>(item: T) =>
   t.Object({

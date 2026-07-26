@@ -1,4 +1,4 @@
-import { createSessionPlugin } from '@epinfresh/session'
+import { sessionPlugin } from '@epinfresh/session'
 import { commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 import { userModel } from './model'
@@ -9,7 +9,7 @@ const adminResponse = { 401: 'ErrorResponse', 403: 'ErrorResponse' } as const
 export const userAdminPlugin = new Elysia({ name: 'user-admin', prefix: '/api/v1/admin' })
   .use(userModel)
   .use(commonModel)
-  .use(createSessionPlugin())
+  .use(sessionPlugin)
   .get('/users', ({ query }) => UserService.list(query), {
     isAdmin: true,
     query: 'UserListQuery',
