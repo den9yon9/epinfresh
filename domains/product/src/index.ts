@@ -1,5 +1,5 @@
 export { productModel } from './model'
 export { productStorefrontPlugin } from './storefront'
 export { productAdminPlugin } from './admin'
-export { ProductService } from './service'
+export { productService, createProductService, type ProductService } from './service'
 export type { ProductModel } from './model'

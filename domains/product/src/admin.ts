@@ -2,7 +2,7 @@ import { sessionPlugin } from '@epinfresh/session'
 import { commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 import { productModel } from './model'
-import { ProductService } from './service'
+import { productService } from './service'
 
 const adminResponse = { 401: 'ErrorResponse', 403: 'ErrorResponse' } as const
 
@@ -10,7 +10,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
   .use(productModel)
   .use(commonModel)
   .use(sessionPlugin)
-  .get('/products', async ({ query }) => ProductService.list(query), {
+  .get('/products', async ({ query }) => productService.list(query), {
     isAdmin: true,
     query: 'AdminProductListQuery',
     response: { 200: 'ProductListResponse', ...adminResponse },
@@ -19,7 +19,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
   .get(
     '/products/:id',
     async ({ params }) => {
-      const result = await ProductService.getById(params.id)
+      const result = await productService.getById(params.id)
       return result.match(
         (p) => p,
         (code) => status(404, { error: code, message: 'Product not found' }),
@@ -32,7 +32,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       detail: { tags: ['Admin/Products'] },
     },
   )
-  .post('/products', async ({ body }) => status(201, await ProductService.create(body)), {
+  .post('/products', async ({ body }) => status(201, await productService.create(body)), {
     isAdmin: true,
     body: 'CreateProductInput',
     response: { 201: 'ProductResponse', ...adminResponse },
@@ -41,7 +41,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
   .put(
     '/products/:id',
     async ({ params, body }) => {
-      const result = await ProductService.update(params.id, body)
+      const result = await productService.update(params.id, body)
       return result.match(
         (p) => p,
         (code) => status(404, { error: code, message: 'Product not found' }),
@@ -58,7 +58,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
   .delete(
     '/products/:id',
     async ({ params }) => {
-      const result = await ProductService.remove(params.id)
+      const result = await productService.remove(params.id)
       return result.match(
         () => status(204),
         (code) => status(404, { error: code, message: 'Product not found' }),
@@ -70,13 +70,13 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
       detail: { tags: ['Admin/Products'] },
     },
   )
-  .get('/categories', ({ query }) => ProductService.listCategories(query), {
+  .get('/categories', ({ query }) => productService.listCategories(query), {
     isAdmin: true,
     query: 'CategoryListQuery',
     response: { 200: 'CategoryListResponse', ...adminResponse },
     detail: { tags: ['Admin/Categories'] },
   })
-  .post('/categories', async ({ body }) => status(201, await ProductService.createCategory(body)), {
+  .post('/categories', async ({ body }) => status(201, await productService.createCategory(body)), {
     isAdmin: true,
     body: 'CreateCategoryInput',
     response: { 201: 'CategoryResponse', ...adminResponse },
@@ -85,7 +85,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
   .delete(
     '/categories/:id',
     async ({ params }) => {
-      const result = await ProductService.removeCategory(params.id)
+      const result = await productService.removeCategory(params.id)
       return result.match(
         () => status(204),
         (code) => {
