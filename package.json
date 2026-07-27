@@ -9,6 +9,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "check": "biome ci .",
+    "lint:boundaries": "eslint --ext .ts domains/ packages/ apps/",
     "clean": "rm -rf apps/*/dist packages/*/dist domains/*/dist apps/*/.turbo packages/*/.turbo domains/*/.turbo",
     "prepare": "lefthook install"
   },
@@ -17,6 +18,10 @@
     "@commitlint/cli": "^19.0.0",
     "@commitlint/config-conventional": "^19.0.0",
     "@types/bun": "^1.2.0",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "eslint": "^10.8.0",
+    "eslint-plugin-boundaries": "^7.1.0",
     "lefthook": "^1.11.0",
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"

@@ -1,6 +1,6 @@
-import { db, schema } from '@epinfresh/database'
+import { type DbClient, db, schema } from '@epinfresh/database'
 import { type Result, err, ok } from '@epinfresh/shared'
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, eq, gte, sql } from 'drizzle-orm'
 import type { ProductModel } from './model'
 
 export abstract class ProductService {
@@ -42,9 +42,34 @@ export abstract class ProductService {
     return ok(product)
   }
 
-  static async create(input: ProductModel['CreateProductInput']) {
-    return db.transaction(async (tx) => {
-      const [product] = await tx
+  static async reduceStock(
+    skuId: string,
+    quantity: number,
+    tx?: DbClient,
+  ): Promise<Result<void, 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'>> {
+    const client = tx ?? db
+    const updated = await client
+      .update(schema.productSkus)
+      .set({
+        stock: sql`${schema.productSkus.stock} - ${quantity}`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(schema.productSkus.id, skuId), gte(schema.productSkus.stock, quantity)))
+      .returning()
+
+    if (updated.length === 0) {
+      const sku = await client.query.productSkus.findFirst({
+        where: eq(schema.productSkus.id, skuId),
+      })
+      if (!sku) return err('SKU_NOT_FOUND')
+      return err('INSUFFICIENT_STOCK')
+    }
+    return ok(undefined)
+  }
+
+  static async create(input: ProductModel['CreateProductInput'], tx?: DbClient) {
+    const execute = async (execTx: DbClient) => {
+      const [product] = await execTx
         .insert(schema.products)
         .values({
           name: input.name,
@@ -56,7 +81,7 @@ export abstract class ProductService {
         })
         .returning()
       if (input.skus && input.skus.length > 0) {
-        await tx.insert(schema.productSkus).values(
+        await execTx.insert(schema.productSkus).values(
           input.skus.map((sku) => ({
             productId: product.id,
             name: sku.name,
@@ -67,15 +92,17 @@ export abstract class ProductService {
           })),
         )
       }
-      const skus = await tx
+      const skus = await execTx
         .select()
         .from(schema.productSkus)
         .where(eq(schema.productSkus.productId, product.id))
       return { ...product, skus }
-    })
+    }
+
+    return tx ? execute(tx) : db.transaction((newTx) => execute(newTx))
   }
 
-  static async update(id: string, input: ProductModel['UpdateProductInput']) {
+  static async update(id: string, input: ProductModel['UpdateProductInput'], tx?: DbClient) {
     const setPayload: Record<string, unknown> = {}
     if (input.name !== undefined) setPayload.name = input.name
     if (input.slug !== undefined) setPayload.slug = input.slug
@@ -86,28 +113,35 @@ export abstract class ProductService {
     if (Object.keys(setPayload).length === 0) {
       return ProductService.getById(id)
     }
-    return db.transaction(async (tx) => {
-      const [product] = await tx
+    const execute = async (execTx: DbClient) => {
+      const [product] = await execTx
         .update(schema.products)
         .set(setPayload)
         .where(eq(schema.products.id, id))
         .returning()
       if (!product) return err('PRODUCT_NOT_FOUND')
-      const skus = await tx
+      const skus = await execTx
         .select()
         .from(schema.productSkus)
         .where(eq(schema.productSkus.productId, product.id))
       return ok({ ...product, skus })
-    })
+    }
+
+    return tx ? execute(tx) : db.transaction((newTx) => execute(newTx))
   }
 
-  static async remove(id: string) {
-    return db.transaction(async (tx) => {
-      const [product] = await tx.select().from(schema.products).where(eq(schema.products.id, id))
+  static async remove(id: string, tx?: DbClient) {
+    const execute = async (execTx: DbClient) => {
+      const [product] = await execTx
+        .select()
+        .from(schema.products)
+        .where(eq(schema.products.id, id))
       if (!product) return err('PRODUCT_NOT_FOUND')
-      await tx.delete(schema.products).where(eq(schema.products.id, id))
+      await execTx.delete(schema.products).where(eq(schema.products.id, id))
       return ok(undefined)
-    })
+    }
+
+    return tx ? execute(tx) : db.transaction((newTx) => execute(newTx))
   }
 
   static async listCategories(opts: { page: number; pageSize: number }) {
@@ -123,22 +157,28 @@ export abstract class ProductService {
     return { items, total: Number(total), page, pageSize }
   }
 
-  static async createCategory(input: ProductModel['CreateCategoryInput']) {
-    const [cat] = await db.insert(schema.categories).values(input).returning()
+  static async createCategory(input: ProductModel['CreateCategoryInput'], tx?: DbClient) {
+    const client = tx ?? db
+    const [cat] = await client.insert(schema.categories).values(input).returning()
     return cat
   }
 
-  static async removeCategory(id: string) {
-    return db.transaction(async (tx) => {
-      const [cat] = await tx.select().from(schema.categories).where(eq(schema.categories.id, id))
+  static async removeCategory(id: string, tx?: DbClient) {
+    const execute = async (execTx: DbClient) => {
+      const [cat] = await execTx
+        .select()
+        .from(schema.categories)
+        .where(eq(schema.categories.id, id))
       if (!cat) return err('CATEGORY_NOT_FOUND')
-      const [ref] = await tx
+      const [ref] = await execTx
         .select({ count: count() })
         .from(schema.products)
         .where(eq(schema.products.categoryId, id))
       if (Number(ref.count) > 0) return err('CATEGORY_HAS_PRODUCTS')
-      await tx.delete(schema.categories).where(eq(schema.categories.id, id))
+      await execTx.delete(schema.categories).where(eq(schema.categories.id, id))
       return ok(undefined)
-    })
+    }
+
+    return tx ? execute(tx) : db.transaction((newTx) => execute(newTx))
   }
 }

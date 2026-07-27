@@ -1,0 +1,16 @@
+{
+  "name": "@epinfresh/workflows",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@epinfresh/database": "workspace:*",
+    "@epinfresh/product": "workspace:*",
+    "@epinfresh/shared": "workspace:*"
+  }
+}

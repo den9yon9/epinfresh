@@ -2,7 +2,6 @@ import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { closeDb, initDb } from '@epinfresh/database'
 import { productAdminPlugin } from '@epinfresh/product'
-import { registerEmailWorker } from '@epinfresh/queue'
 import { authRateLimit, closeRedis, initRedis } from '@epinfresh/session'
 import {
   type InferModelsMap,
@@ -21,8 +20,6 @@ const env = loadEnv(adminEnvSchema)
 
 initDb(env.DATABASE_URL)
 initRedis(env.REDIS_URL)
-
-const emailWorker = registerEmailWorker()
 
 const port = Number(env.ADMIN_PORT)
 const enableDocs = env.NODE_ENV !== 'production'
@@ -63,7 +60,6 @@ async function shutdown() {
   }, SHUTDOWN_TIMEOUT_MS)
   forceExit.unref()
   try {
-    await emailWorker.close()
     await app.stop()
     await closeDb()
     await closeRedis()

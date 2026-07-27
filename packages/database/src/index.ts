@@ -1,6 +1,9 @@
 import { fileURLToPath } from 'node:url'
 import { getEnv } from '@epinfresh/shared'
+import type { ExtractTablesWithRelations } from 'drizzle-orm'
+import type { PgTransaction } from 'drizzle-orm/pg-core'
 import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js'
+import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres, { type Sql } from 'postgres'
 import * as schema from './schema'
@@ -13,6 +16,14 @@ type PgDatabase = PostgresJsDatabase<typeof schema>
 export type Db = PgDatabase & {
   $primary: Sql
 }
+
+export type DbTransaction = PgTransaction<
+  PostgresJsQueryResultHKT,
+  typeof schema,
+  ExtractTablesWithRelations<typeof schema>
+>
+
+export type DbClient = Db | DbTransaction
 
 let queryClient: Sql | null = null
 let dbInstance: Db | null = null

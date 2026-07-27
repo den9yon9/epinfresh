@@ -5,6 +5,8 @@ pre-commit:
       glob: "*.{js,ts,jsx,tsx,mjs,cjs,d.ts,json,yml,yaml,md}"
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
+    boundaries:
+      run: pnpm lint:boundaries
 
 commit-msg:
   commands:
