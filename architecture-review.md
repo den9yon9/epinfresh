@@ -1,56 +1,56 @@
-# Architecture Review — Epinfresh
+# 架构审查 — Epinfresh
 
-## Overview
+## 概览
 
-Monorepo e-commerce backend: Bun + ElysiaJS + Drizzle ORM + PostgreSQL + Redis + BullMQ.
+电商后端 monorepo：Bun + ElysiaJS + Drizzle ORM + PostgreSQL + Redis + BullMQ。
 
-DDD-style structure: `packages/` (infra) → `domains/` (business) → `workflows/` (cross-domain) → `apps/` (entry points). ESLint boundaries enforces the dependency graph.
-
----
-
-## Strengths
-
-- **Module boundaries clear**: `packages` → `domains` → `workflows` → `apps`, enforced by `eslint-plugin-boundaries`
-- **TypeBox full-pipeline validation**: HTTP input validated at the boundary, typed through to service layer via `InferModelsMap`
-- **Result pattern**: `neverthrow` `Result<T,E>` for business errors; Elysia macros for auth guards (`isAuth` / `isAdmin`)
-- **Security details**: Pino log redaction for auth/cookie headers; constant-time dummy-hash comparison in login (user enumeration prevention); argon2id password hashing
-- **Ops mature**: graceful shutdown with 10s force-kill deadline; env validation at startup with clear error messages; Docker Compose full local stack; health endpoints
+DDD 风格分层：`packages/`（基础设施）→ `domains/`（业务逻辑）→ `workflows/`（跨域编排）→ `apps/`（入口）。ESLint boundaries 强制执行依赖方向。
 
 ---
 
-## Security (fix first)
+## 亮点
 
-### 1. Session Fixation
-**File:** `packages/session/src/sessionPlugin.ts`
-
-Login does not regenerate the session ID. If an attacker plants a known `session_id` cookie, it becomes authenticated after the victim logs in.
-
-**Fix:** Call `sessionStore.destroy(oldSessionId)` before `sessionStore.create(...)` on login, or add a `regenerate()` method to `SessionStore`.
-
-### 2. `secure` cookie flag not enforced
-**File:** `packages/session/src/sessionPlugin.ts`
-
-`setSessionCookie` delegates `secure` to the caller. A consumer could accidentally pass `false` in production, leaking session cookies over HTTP. `clearSessionCookie` omits `secure` entirely — clearing a secure cookie without the flag may fail.
-
-**Fix:** Enforce `secure: ${NODE_ENV === 'production'}` internally in both functions.
-
-### 3. SameSite logic inverted
-**File:** `packages/session/src/sessionPlugin.ts`
-
-Production uses `lax`, development uses `strict`. This means the CSRF posture differs between environments — you cannot reproduce the production CSRF behavior in development.
-
-**Fix:** Use the same value in both environments, or `strict` in production.
+- **模块边界清晰**：`packages` → `domains` → `workflows` → `apps`，由 `eslint-plugin-boundaries` 硬约束
+- **TypeBox 全链路校验**：HTTP 层自动校验入参，通过 `InferModelsMap` 将类型穿透到 service 层
+- **Result 模式**：用 `neverthrow` 的 `Result<T,E>` 处理业务错误；Elysia macro 实现权限守卫（`isAuth` / `isAdmin`）
+- **安全细节**：Pino 日志脱敏 auth/cookie 头；登录时用假哈希做常数时间比对防用户枚举；argon2id 密码哈希
+- **运维成熟**：优雅退出 + 10s 超时强杀；启动时 env 校验、报错信息明确；Docker Compose 完整本地栈；健康检查端点
 
 ---
 
-## Architecture
+## 安全（优先修复）
 
-### 4. `initDb` / `initRedis` race condition
-**Files:** `packages/database/src/index.ts:54-74`, `packages/session/src/redis.ts:24-32`
+### 1. Session Fixation（会话固定）
+**文件:** `packages/session/src/sessionPlugin.ts`
 
-Both use a check-then-act singleton. Concurrent calls can both pass the `if (!instance)` guard and create duplicate connection pools, leaking the first one.
+登录时未重新生成 session ID。如果攻击者事先种了一个已知的 `session_id` cookie，用户登录后该 cookie 即被认证。
 
-**Fix:** Guard with a promise lock:
+**修复:** 在登录 handler 中先调用 `sessionStore.destroy(旧sessionId)`，再调用 `sessionStore.create(...)`；或在 `SessionStore` 中增加 `regenerate()` 方法。
+
+### 2. Cookie `secure` 标志未强制
+**文件:** `packages/session/src/sessionPlugin.ts`
+
+`setSessionCookie` 将 `secure` 交由调用者决定——生产环境中如果误传 `false`，session cookie 将在 HTTP 明文传输。`clearSessionCookie` 完全未设置 `secure`，清除带 `secure` 的 cookie 可能失败。
+
+**修复:** 两个函数内部直接根据 `NODE_ENV === 'production'` 强制设置 `secure`。
+
+### 3. SameSite 逻辑颠倒
+**文件:** `packages/session/src/sessionPlugin.ts`
+
+生产用 `lax`，开发用 `strict`。开发和生产的 CSRF 行为不一致，无法在本地复现生产环境的 CSRF 问题。
+
+**修复:** 统一使用相同值，或生产也用 `strict`。
+
+---
+
+## 架构
+
+### 4. `initDb` / `initRedis` 竞态条件
+**文件:** `packages/database/src/index.ts:54-74`、`packages/session/src/redis.ts:24-32`
+
+两处都是"先检查再创建"的单例模式。并发调用时可能多个调用方同时通过 `if (!instance)` 检查，创建多个连接池，第一个池泄漏。
+
+**修复:** 用 Promise 锁保护：
 
 ```ts
 let initPromise: Promise<InitResult> | null = null
@@ -61,19 +61,19 @@ export function initDb(...) {
 }
 ```
 
-### 5. N+1 queries in product listing
-**File:** `domains/product/src/service.ts` (`listAllProducts`, `listPublishedProducts`)
+### 5. 产品列表 N+1 查询
+**文件:** `domains/product/src/service.ts`（`listAllProducts`、`listPublishedProducts`）
 
-`db.query.products.findMany({ with: { skus: true } })` may issue a separate query per product for SKUs in Drizzle's current `findMany` implementation. 20 products = 21 queries.
+`db.query.products.findMany({ with: { skus: true } })` 在 Drizzle 的 `findMany` 实现中可能为每个产品单独查询 SKU。20 条产品 = 21 次查询。
 
-**Fix:** Verify Drizzle's SQL output. If N+1, use a join-based query or a single batch SKU query.
+**修复:** 确认 Drizzle 实际 SQL 输出。如果是 N+1，改用 join 查询或批量查 SKU。
 
-### 6. 85% boilerplate duplication between API apps
-**Files:** `apps/api-storefront/src/index.ts`, `apps/api-admin/src/index.ts`
+### 6. 两套 API 入口 ~85% 重复
+**文件:** `apps/api-storefront/src/index.ts`、`apps/api-admin/src/index.ts`
 
-Both apps share the same bootstrap sequence (`loadEnv → initDb → initRedis → middleware chain → plugins → health → listen`), the same CORS config, the same `onError` handler, and a near-identical `shutdown()` function.
+两套 app 共享完全相同的启动流程（`loadEnv → initDb → initRedis → 中间件链 → plugins → health → listen`）、相同的 CORS 配置、相同的 `onError` 处理器，以及几乎一致的 `shutdown()` 函数。
 
-**Fix:** Extract a `createApiApp(options)` factory in `packages/shared`:
+**修复:** 在 `packages/shared` 抽一个 `createApiApp(options)` 工厂：
 
 ```ts
 createApiApp({
@@ -83,71 +83,71 @@ createApiApp({
 })
 ```
 
-### 7. Pagination logic copied 3 times
-**Files:** `domains/product/src/service.ts` (`listAllProducts`, `listCategories`), `domains/user/src/service.ts` (`listUsers`)
+### 7. 分页逻辑 3 处复制
+**文件:** `domains/product/src/service.ts`（`listAllProducts`、`listCategories`）、`domains/user/src/service.ts`（`listUsers`）
 
-Identical `(page - 1) * pageSize` + `select({ count })` + `limit/offset` pattern repeated.
+完全相同的 `(page - 1) * pageSize` + `select({ count })` + `limit/offset` 模式。
 
-**Fix:** Extract a `paginate(db, table, opts)` helper in shared.
-
----
-
-## Code Quality
-
-### 8. Inconsistent Result usage — unhandled DB errors become 500
-**Files:** `domains/user/src/service.ts` (`registerUser`), `domains/product/src/service.ts` (`createProduct`, `createCategory`)
-
-These write operations return raw data instead of `Result`. Unique constraint violations (duplicate email, duplicate slug) throw uncaught exceptions → HTTP 500 instead of a friendly 4xx error.
-
-**Fix:** Either wrap in `Result` or use try/catch with `mapDbError` from shared.
-
-### 9. `updateProduct` includes dead transaction query
-**File:** `domains/product/src/service.ts`
-
-The transaction runs `UPDATE ... RETURNING` (which gives the updated product), then also runs a `SELECT` for SKUs — but `updateProduct` never modifies SKUs.
-
-**Fix:** Remove the SKU re-fetch inside the transaction.
-
-### 10. `RegisterInput.email` missing `format: 'email'`
-**File:** `domains/user/src/model.ts`
-
-`LoginInput.email` has `format: 'email'`, `RegisterInput.email` does not. Invalid emails reach the database.
-
-**Fix:** Add `t.String({ format: 'email' })` to the register schema.
-
-### 11. `reduceProductStock` TOCTOU race
-**File:** `domains/product/src/service.ts:54-76`
-
-The update with `gte(stock, quantity)` guard is atomic. But when it returns 0 rows, a second SELECT outside a transaction disambiguates `SKU_NOT_FOUND` vs `INSUFFICIENT_STOCK`. Another thread can insert/restock between the two queries, returning the wrong error code.
-
-**Fix:** Wrap in a transaction, or check existence before the guarded update within the same transaction.
+**修复:** 在 shared 抽 `paginate(db, table, opts)` 公共 helper。
 
 ---
 
-## Low Priority / Nitpicks
+## 代码质量
 
-- **No tests**: Zero test files in the repository. At minimum, core paths (login, checkout, stock reduction) should have integration tests.
-- **Dead code**: `LogLevel` type and `ALLOWED` Set in `packages/shared/src/logger.ts` are declared but unused.
-- **CSP header missing**: `securityHeaders.ts` sets `nosniff`, `DENY`, HSTS, referrer-policy, but omits `Content-Security-Policy`.
-- **`db` Proxy missing traps**: Only `get` is trapped. `set`, `has`, `ownKeys` bypass the guard. `Object.keys(db)` or `delete db.xxx` interact with the empty proxy target.
-- **`neverthrow` direct dependency**: `domains/product/package.json` and `domains/user/package.json` list `neverthrow` as a direct dependency, but all imports go through `@epinfresh/shared`.
-- **Worker missing shutdown timeout**: API apps have a 10s force-kill deadline; the worker does not.
-- **No bootstrap health check**: `initDb`/`initRedis` succeed eagerly; a down database is only detected at the first request.
-- **No secret rotation**: `SESSION_SECRET` is a single value. Rotating it invalidates all sessions.
-- **`listCategories` loose type**: Service signature is `{page: number; pageSize: number}` instead of the model's `CategoryListQuery`.
-- **Single Redis for sessions + rate limiting**: Rate-limit key eviction competes with session data for memory and CPU.
-- **No idle/sliding session expiry**: Session expires exactly 24h after creation regardless of activity.
-- **Session data stored as plain JSON in Redis**: No encryption at rest.
+### 8. Result 使用不一致——未处理的 DB 错误变为 500
+**文件:** `domains/user/src/service.ts`（`registerUser`）、`domains/product/src/service.ts`（`createProduct`、`createCategory`）
+
+这些写操作直接返回原始数据而非 `Result`。唯一约束冲突（重复 email、重复 slug）会抛出未捕获异常 → HTTP 500，而非友好的 4xx 错误。
+
+**修复:** 要么用 `Result` 包裹，要么加 try/catch 并用 shared 里的 `mapDbError` 兜底。
+
+### 9. `updateProduct` 事务内冗余查询
+**文件:** `domains/product/src/service.ts`
+
+事务中已执行 `UPDATE ... RETURNING`（返回更新后的产品），随后又查一次 SKU——但 `updateProduct` 并不修改 SKU。
+
+**修复:** 删除事务内的 SKU 重新查询。
+
+### 10. `RegisterInput.email` 缺少 `format: 'email'`
+**文件:** `domains/user/src/model.ts`
+
+`LoginInput.email` 有 `format: 'email'` 校验，`RegisterInput.email` 没有。无效邮箱会直接进入数据库。
+
+**修复:** 在注册 schema 中加上 `t.String({ format: 'email' })`。
+
+### 11. `reduceProductStock` TOCTOU 竞态
+**文件:** `domains/product/src/service.ts:54-76`
+
+`gte(stock, quantity)` 的 UPDATE 是原子的。但当它返回 0 行时，第二次 SELECT 在事务外执行，用于区分 `SKU_NOT_FOUND` 还是 `INSUFFICIENT_STOCK`。两次查询之间另一个线程可能插入/补货该 SKU，导致返回错误的错误码。
+
+**修复:** 放入事务，或在同一事务内先查存在再受控更新。
 
 ---
 
-## Summary
+## 低优先级 / 小问题
 
-Strong foundation: type-safe stack, clean domain separation, mature ops tooling. The main gaps are:
+- **无测试**：仓库零测试文件。核心路径（登录、下单、库存扣减）至少应有集成测试。
+- **死代码**：`packages/shared/src/logger.ts` 中的 `LogLevel` 类型和 `ALLOWED` Set 声明后未使用。
+- **CSP 头缺失**：`securityHeaders.ts` 设置了 `nosniff`、`DENY`、HSTS、referrer-policy，但缺 `Content-Security-Policy`。
+- **`db` Proxy 缺少 trap**：仅拦截了 `get`。`set`、`has`、`ownKeys` 绕过守卫。`Object.keys(db)` 或 `delete db.xxx` 会直接操作空的 proxy target。
+- **`neverthrow` 冗余直接依赖**：`domains/product/package.json` 和 `domains/user/package.json` 中列了 `neverthrow` 为直接依赖，但所有导入均通过 `@epinfresh/shared`。
+- **Worker 缺退出超时**：API app 有 10s 超时强杀机制，worker 没有。
+- **无启动健康检查**：`initDb`/`initRedis` 即时成功（连接池惰性创建），数据库挂了只有首次请求时才暴露。
+- **secret 无法轮换**：`SESSION_SECRET` 是单一值，轮换会踢掉所有在线用户。
+- **`listCategories` 类型过松**：service 签名是 `{page: number; pageSize: number}` 而非模型里的 `CategoryListQuery`。
+- **Session 和限流共用一个 Redis**：限流 key 驱逐与 session 数据竞争内存和 CPU。
+- **无滑动过期**：Session 创建 24 小时后精确过期，不活跃也不会延长。
+- **Session 数据明文存 Redis**：无静态加密。
 
-1. **Session fixation** + **cookie flag hygiene** (security)
-2. **Connection pool race** in initDb/initRedis (reliability)
-3. **Inconsistent error handling** on write operations (robustness)
-4. **Missing tests** (confidence)
+---
 
-All are low-effort to fix given the codebase size.
+## 总结
+
+基础扎实：类型安全的 tech stack、清晰的领域划分、成熟的运维工具链。主要差距：
+
+1. **Session fixation** + **Cookie 标志不规范**（安全）
+2. **initDb/initRedis 连接池竞态**（可靠性）
+3. **写操作的错误处理不一致**（健壮性）
+4. **缺少测试**（信心）
+
+以上问题在当前的代码规模下修复成本都不高。
