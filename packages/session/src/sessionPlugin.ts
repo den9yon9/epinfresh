@@ -83,21 +83,14 @@ export function createSessionPlugin(options: SessionPluginOptions = {}) {
 
 export const sessionPlugin = createSessionPlugin()
 
-export interface CookieSetOptions {
-  secure: boolean
-}
-
-export function setSessionCookie(
-  cookie: Cookie<unknown> | undefined,
-  sessionId: string,
-  opts: CookieSetOptions,
-): void {
+export function setSessionCookie(cookie: Cookie<unknown> | undefined, sessionId: string): void {
   if (!cookie) return
+  const secure = getEnv().NODE_ENV === 'production'
   cookie.set({
     value: sessionId,
     httpOnly: true,
-    secure: opts.secure,
-    sameSite: getEnv().NODE_ENV === 'production' ? 'lax' : 'strict',
+    secure,
+    sameSite: 'strict',
     path: '/',
     maxAge: SESSION_TTL_SECONDS,
   })
@@ -105,10 +98,12 @@ export function setSessionCookie(
 
 export function clearSessionCookie(cookie: Cookie<unknown> | undefined): void {
   if (!cookie) return
+  const secure = getEnv().NODE_ENV === 'production'
   cookie.set({
     value: '',
     httpOnly: true,
-    sameSite: getEnv().NODE_ENV === 'production' ? 'lax' : 'strict',
+    secure,
+    sameSite: 'strict',
     path: '/',
     maxAge: 0,
   })

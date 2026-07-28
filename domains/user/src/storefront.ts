@@ -4,7 +4,7 @@ import {
   sessionPlugin,
   setSessionCookie,
 } from '@epinfresh/session'
-import { commonModel, getEnv } from '@epinfresh/shared'
+import { commonModel } from '@epinfresh/shared'
 import { Elysia, status } from 'elysia'
 import { userModel } from './model'
 import { getUserById, loginUser, registerUser } from './service'
@@ -25,10 +25,12 @@ export const userStorefrontPlugin = new Elysia({ name: 'user-storefront', prefix
       const result = await loginUser(body)
       return result.match(
         async (user) => {
+          const oldSid = cookie.session_id?.value
+          if (typeof oldSid === 'string' && oldSid.length > 0) {
+            await sessionStore.destroy(oldSid)
+          }
           const sessionId = await sessionStore.create({ userId: user.id, role: user.role })
-          setSessionCookie(cookie.session_id, sessionId, {
-            secure: getEnv().NODE_ENV === 'production',
-          })
+          setSessionCookie(cookie.session_id, sessionId)
           return user
         },
         (code) => status(401, { error: code, message: 'Invalid email or password' }),
