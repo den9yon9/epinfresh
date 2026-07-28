@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - domains/*
+  - workflows/*
   - apps/*
 onlyBuiltDependencies:
   - esbuild

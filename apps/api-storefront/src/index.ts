@@ -1,5 +1,6 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
+import { checkoutPlugin } from '@epinfresh/checkout'
 import { closeDb, initDb } from '@epinfresh/database'
 import { productStorefrontPlugin } from '@epinfresh/product'
 import { closeRedis, initRedis } from '@epinfresh/session'
@@ -43,6 +44,7 @@ const app = new Elysia()
   .get('/health', () => ({ status: 'ok', service: 'storefront' }))
   .use(userStorefrontPlugin)
   .use(productStorefrontPlugin)
+  .use(checkoutPlugin)
   .listen(port)
 
 logger.info({ port, service: 'storefront' }, 'API listening')

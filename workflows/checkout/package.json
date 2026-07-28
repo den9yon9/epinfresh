@@ -1,5 +1,5 @@
 {
-  "name": "@epinfresh/workflows",
+  "name": "@epinfresh/checkout",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -11,6 +11,8 @@
   "dependencies": {
     "@epinfresh/database": "workspace:*",
     "@epinfresh/product": "workspace:*",
-    "@epinfresh/shared": "workspace:*"
+    "@epinfresh/session": "workspace:*",
+    "@epinfresh/shared": "workspace:*",
+    "elysia": "^1.2.0"
   }
 }

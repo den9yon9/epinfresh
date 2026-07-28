@@ -8,7 +8,9 @@ export interface CheckoutInput {
   quantity: number
 }
 
-export async function checkoutWorkflow(input: CheckoutInput): Promise<Result<void, string>> {
+export async function checkoutWorkflow(
+  input: CheckoutInput,
+): Promise<Result<void, 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'>> {
   return db.transaction(async (tx) => {
     const stockRes = await reduceProductStock(input.skuId, input.quantity, tx)
     if (stockRes.isErr()) return stockRes

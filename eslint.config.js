@@ -15,7 +15,7 @@ export default [
     settings: {
       'boundaries/elements': [
         { type: 'package', pattern: 'packages/(database|session|shared|queue)' },
-        { type: 'workflow', pattern: 'packages/workflows' },
+        { type: 'workflow', pattern: 'workflows/*' },
         { type: 'domain-core', pattern: 'domains/(user|product)' },
         { type: 'domain-flow', pattern: 'domains/(order|cart|payment)' },
         { type: 'app', pattern: 'apps/*' },

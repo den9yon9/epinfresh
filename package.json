@@ -9,8 +9,8 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "check": "biome ci .",
-    "lint:boundaries": "eslint --ext .ts domains/ packages/ apps/",
-    "clean": "rm -rf apps/*/dist packages/*/dist domains/*/dist apps/*/.turbo packages/*/.turbo domains/*/.turbo",
+    "lint:boundaries": "eslint --ext .ts domains/ packages/ workflows/ apps/",
+    "clean": "rm -rf apps/*/dist packages/*/dist domains/*/dist workflows/*/dist apps/*/.turbo packages/*/.turbo domains/*/.turbo workflows/*/.turbo",
     "prepare": "lefthook install"
   },
   "devDependencies": {
