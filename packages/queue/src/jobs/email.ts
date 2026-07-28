@@ -1,3 +1,4 @@
+import { logger } from '@epinfresh/shared'
 import { type Job, createQueue, createWorker } from '../index'
 
 export interface SendEmailJobData {
@@ -19,10 +20,10 @@ export function registerEmailWorker(handler?: (job: Job<SendEmailJobData>) => Pr
 
     switch (job.data.type) {
       case 'welcome':
-        console.log(`[Queue] 📧 发送欢迎邮件给: ${job.data.to}`, job.data.payload)
+        logger.info({ to: job.data.to, payload: job.data.payload }, 'welcome email queued')
         break
       default:
-        console.warn(`[Queue] 未知邮件任务类型: ${job.data.type}`)
+        logger.warn({ type: job.data.type }, 'unknown email job type')
     }
   })
 }

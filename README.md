@@ -4,7 +4,7 @@ E-commerce backend monorepo — ElysiaJS + Drizzle ORM + Bun.
 
 ## Tech Stack
 
-- **Runtime:** Bun ≥1.2, Node ≥22
+- **Runtime:** Bun ≥1.2
 - **Framework:** ElysiaJS 1.2
 - **ORM:** Drizzle ORM 0.40 (PostgreSQL via `postgres-js`)
 - **Validation:** TypeBox / `drizzle-typebox`

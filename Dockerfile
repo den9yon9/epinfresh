@@ -11,7 +11,6 @@ COPY packages/shared/package.json ./packages/shared/
 COPY domains/product/package.json ./domains/product/
 COPY packages/session/package.json ./packages/session/
 COPY packages/queue/package.json ./packages/queue/
-COPY packages/workflows/package.json ./packages/workflows/
 COPY domains/user/package.json ./domains/user/
 COPY apps/api-storefront/package.json ./apps/api-storefront/
 COPY apps/api-admin/package.json ./apps/api-admin/
@@ -23,6 +22,7 @@ RUN bun add -g pnpm && pnpm install --frozen-lockfile --prod --ignore-scripts
 COPY packages/tsconfig/ ./packages/tsconfig/
 COPY packages/ ./packages/
 COPY domains/ ./domains/
+COPY workflows/ ./workflows/
 COPY apps/ ./apps/
 
 ENV NODE_ENV=production

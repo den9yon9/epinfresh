@@ -13,7 +13,6 @@
     "@elysiajs/openapi": "^1.4.0",
     "@epinfresh/database": "workspace:*",
     "@epinfresh/product": "workspace:*",
-    "@epinfresh/queue": "workspace:*",
     "@epinfresh/session": "workspace:*",
     "@epinfresh/shared": "workspace:*",
     "@epinfresh/user": "workspace:*",
