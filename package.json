@@ -28,7 +28,6 @@
   },
   "packageManager": "pnpm@10.7.0",
   "engines": {
-    "bun": ">=1.2",
-    "node": ">=22"
+    "bun": ">=1.2"
   }
 }

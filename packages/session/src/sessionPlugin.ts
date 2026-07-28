@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { USER_ROLE, type UserRole, getEnv, logger } from '@epinfresh/shared'
 import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status, t } from 'elysia'
@@ -124,7 +123,7 @@ export interface SessionStore {
 export function createSessionStore(redis: Redis): SessionStore {
   return {
     async create(session) {
-      const sessionId = randomUUID()
+      const sessionId = crypto.randomUUID()
       await redis.set(`session:${sessionId}`, JSON.stringify(session), 'EX', SESSION_TTL_SECONDS)
       return sessionId
     },
