@@ -7,14 +7,14 @@ import {
 import { commonModel, getEnv } from '@epinfresh/shared'
 import { Elysia, status } from 'elysia'
 import { userModel } from './model'
-import { userService } from './service'
+import { getUserById, loginUser, registerUser } from './service'
 
 export const userStorefrontPlugin = new Elysia({ name: 'user-storefront', prefix: '/api/v1/auth' })
   .use(userModel)
   .use(commonModel)
   .use(sessionPlugin)
   .use(authRateLimit({ prefix: 'rl:auth' }))
-  .post('/register', ({ body }) => userService.register(body), {
+  .post('/register', ({ body }) => registerUser(body), {
     body: 'RegisterInput',
     response: { 200: 'UserResponse' },
     detail: { tags: ['Auth'] },
@@ -22,7 +22,7 @@ export const userStorefrontPlugin = new Elysia({ name: 'user-storefront', prefix
   .post(
     '/login',
     async ({ body, cookie, sessionStore }) => {
-      const result = await userService.login(body)
+      const result = await loginUser(body)
       return result.match(
         async (user) => {
           const sessionId = await sessionStore.create({ userId: user.id, role: user.role })
@@ -56,7 +56,7 @@ export const userStorefrontPlugin = new Elysia({ name: 'user-storefront', prefix
   .get(
     '/me',
     async ({ session }) => {
-      const result = await userService.getById(session.userId)
+      const result = await getUserById(session.userId)
       return result.match(
         (user) => user,
         (code) => status(404, { error: code, message: 'User not found' }),

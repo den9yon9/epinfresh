@@ -1,12 +1,12 @@
 import { commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 import { productModel } from './model'
-import { productService } from './service'
+import { getProductByIdPublic, listCategories, listProducts } from './service'
 
 export const productStorefrontPlugin = new Elysia({ name: 'product-storefront', prefix: '/api/v1' })
   .use(productModel)
   .use(commonModel)
-  .get('/products', async ({ query }) => productService.list({ ...query, status: 'published' }), {
+  .get('/products', async ({ query }) => listProducts({ ...query, status: 'published' }), {
     query: 'ProductListQuery',
     response: { 200: 'ProductListResponse' },
     detail: { tags: ['Products'] },
@@ -14,7 +14,7 @@ export const productStorefrontPlugin = new Elysia({ name: 'product-storefront', 
   .get(
     '/products/:id',
     async ({ params }) => {
-      const result = await productService.getByIdPublic(params.id)
+      const result = await getProductByIdPublic(params.id)
       return result.match(
         (p) => p,
         (code) => status(404, { error: code, message: 'Product not found' }),
@@ -26,7 +26,7 @@ export const productStorefrontPlugin = new Elysia({ name: 'product-storefront', 
       detail: { tags: ['Products'] },
     },
   )
-  .get('/categories', ({ query }) => productService.listCategories(query), {
+  .get('/categories', ({ query }) => listCategories(query), {
     query: 'CategoryListQuery',
     response: { 200: 'CategoryListResponse' },
     detail: { tags: ['Categories'] },

@@ -1,6 +1,6 @@
 import { db } from '@epinfresh/database'
-import { createProductService } from '@epinfresh/product'
-import { type Result, err, ok } from '@epinfresh/shared'
+import { reduceProductStock } from '@epinfresh/product'
+import { type Result, ok } from '@epinfresh/shared'
 
 export interface CheckoutInput {
   userId: string
@@ -8,14 +8,10 @@ export interface CheckoutInput {
   quantity: number
 }
 
-export async function checkoutWorkflow(
-  input: CheckoutInput,
-): Promise<Result<{ success: boolean }, string>> {
+export async function checkoutWorkflow(input: CheckoutInput): Promise<Result<void, string>> {
   return db.transaction(async (tx) => {
-    const productService = createProductService(tx)
-    const stockRes = await productService.reduceStock(input.skuId, input.quantity)
-    if (stockRes.isErr()) return err(stockRes.error)
-
-    return ok({ success: true })
+    const stockRes = await reduceProductStock(input.skuId, input.quantity, tx)
+    if (stockRes.isErr()) return stockRes
+    return ok()
   })
 }
