@@ -6,8 +6,8 @@ import {
   createCategory,
   createProduct,
   getProductById,
+  listAllProducts,
   listCategories,
-  listProducts,
   removeCategory,
   removeProduct,
   updateProduct,
@@ -19,7 +19,7 @@ export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/
   .use(productModel)
   .use(commonModel)
   .use(sessionPlugin)
-  .get('/products', async ({ query }) => listProducts(query), {
+  .get('/products', async ({ query }) => listAllProducts(query), {
     isAdmin: true,
     query: 'AdminProductListQuery',
     response: { 200: 'ProductListResponse', ...adminResponse },

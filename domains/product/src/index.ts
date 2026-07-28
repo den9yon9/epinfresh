@@ -2,7 +2,8 @@ export { productModel } from './model'
 export { productStorefrontPlugin } from './storefront'
 export { productAdminPlugin } from './admin'
 export {
-  listProducts,
+  listAllProducts,
+  listPublishedProducts,
   getProductById,
   getProductByIdPublic,
   reduceProductStock,

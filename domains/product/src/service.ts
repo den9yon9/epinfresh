@@ -3,7 +3,7 @@ import { type Result, err, ok } from '@epinfresh/shared'
 import { and, count, eq, gte, sql } from 'drizzle-orm'
 import type { ProductModel } from './model'
 
-export async function listProducts(
+export async function listAllProducts(
   query: ProductModel['AdminProductListQuery'],
   db: DbClient = defaultDb,
 ) {
@@ -24,6 +24,13 @@ export async function listProducts(
   })
   const [{ total }] = await db.select({ total: count() }).from(schema.products).where(where)
   return { items, total: Number(total), page, pageSize }
+}
+
+export function listPublishedProducts(
+  query: ProductModel['ProductListQuery'],
+  db: DbClient = defaultDb,
+) {
+  return listAllProducts({ ...query, status: 'published' }, db)
 }
 
 export async function getProductById(id: string, db: DbClient = defaultDb) {
@@ -109,20 +116,10 @@ export async function updateProduct(
   input: ProductModel['UpdateProductInput'],
   db: DbClient = defaultDb,
 ) {
-  const setPayload: Record<string, unknown> = {}
-  if (input.name !== undefined) setPayload.name = input.name
-  if (input.slug !== undefined) setPayload.slug = input.slug
-  if (input.description !== undefined) setPayload.description = input.description
-  if (input.categoryId !== undefined) setPayload.categoryId = input.categoryId
-  if (input.images !== undefined) setPayload.images = input.images
-  if (input.status !== undefined) setPayload.status = input.status
-  if (Object.keys(setPayload).length === 0) {
-    return getProductById(id, db)
-  }
   return db.transaction(async (tx) => {
     const [product] = await tx
       .update(schema.products)
-      .set(setPayload)
+      .set(input)
       .where(eq(schema.products.id, id))
       .returning()
     if (!product) return err('PRODUCT_NOT_FOUND')
@@ -136,9 +133,8 @@ export async function updateProduct(
 
 export async function removeProduct(id: string, db: DbClient = defaultDb) {
   return db.transaction(async (tx) => {
-    const [product] = await tx.select().from(schema.products).where(eq(schema.products.id, id))
+    const [product] = await tx.delete(schema.products).where(eq(schema.products.id, id)).returning()
     if (!product) return err('PRODUCT_NOT_FOUND')
-    await tx.delete(schema.products).where(eq(schema.products.id, id))
     return ok()
   })
 }
