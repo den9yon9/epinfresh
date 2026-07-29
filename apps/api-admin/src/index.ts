@@ -1,8 +1,8 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
-import { closeDb, initDb } from '@epinfresh/database'
+import { closeDb, db, initDb } from '@epinfresh/database'
 import { productAdminPlugin } from '@epinfresh/product'
-import { authRateLimit, closeRedis, initRedis } from '@epinfresh/session'
+import { authRateLimit, closeRedis, getRedis, initRedis } from '@epinfresh/session'
 import {
   type InferModelsMap,
   commonModel,
@@ -44,7 +44,21 @@ const app = new Elysia()
   )
   .use(commonModel)
   .use(authRateLimit({ prefix: 'rl:admin' }))
-  .get('/health', () => ({ status: 'ok', service: 'admin' }))
+  .get('/health', async ({ set }) => {
+    let dbOk = false
+    let redisOk = false
+    try {
+      await db.$primary`SELECT 1`
+      dbOk = true
+    } catch {}
+    try {
+      await getRedis().ping()
+      redisOk = true
+    } catch {}
+    const healthy = dbOk && redisOk
+    set.status = healthy ? 200 : 503
+    return { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk }
+  })
   .use(userAdminPlugin)
   .use(productAdminPlugin)
   .listen(port)

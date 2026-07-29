@@ -36,6 +36,13 @@
       "when": 1784981970882,
       "tag": "0004_goofy_ser_duncan",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785290788048,
+      "tag": "0005_lean_talon",
+      "breakpoints": true
     }
   ]
 }

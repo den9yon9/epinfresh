@@ -15,7 +15,7 @@ export default [
     settings: {
       'boundaries/elements': [
         { type: 'package', pattern: 'packages/(database|session|shared|queue)' },
-        { type: 'workflow', pattern: 'workflows/*' },
+        { type: 'usecase', pattern: 'usecases/*' },
         { type: 'domain-core', pattern: 'domains/(user|product)' },
         { type: 'domain-flow', pattern: 'domains/(order|cart|payment)' },
         { type: 'app', pattern: 'apps/*' },
@@ -30,8 +30,8 @@ export default [
             { from: 'package', allow: ['package'] },
             { from: 'domain-core', allow: ['package'] },
             { from: 'domain-flow', allow: ['package', 'domain-core'] },
-            { from: 'workflow', allow: ['package', 'domain-core', 'domain-flow'] },
-            { from: 'app', allow: ['package', 'workflow', 'domain-core', 'domain-flow'] },
+            { from: 'usecase', allow: ['package', 'domain-core', 'domain-flow'] },
+            { from: 'app', allow: ['package', 'usecase', 'domain-core', 'domain-flow'] },
           ],
         },
       ],

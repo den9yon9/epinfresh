@@ -1,9 +1,9 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { checkoutPlugin } from '@epinfresh/checkout'
-import { closeDb, initDb } from '@epinfresh/database'
+import { closeDb, db, initDb } from '@epinfresh/database'
 import { productStorefrontPlugin } from '@epinfresh/product'
-import { closeRedis, initRedis } from '@epinfresh/session'
+import { closeRedis, getRedis, initRedis } from '@epinfresh/session'
 import {
   type InferModelsMap,
   commonModel,
@@ -41,7 +41,21 @@ const app = new Elysia()
     }),
   )
   .use(commonModel)
-  .get('/health', () => ({ status: 'ok', service: 'storefront' }))
+  .get('/health', async ({ set }) => {
+    let dbOk = false
+    let redisOk = false
+    try {
+      await db.$primary`SELECT 1`
+      dbOk = true
+    } catch {}
+    try {
+      await getRedis().ping()
+      redisOk = true
+    } catch {}
+    const healthy = dbOk && redisOk
+    set.status = healthy ? 200 : 503
+    return { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk }
+  })
   .use(userStorefrontPlugin)
   .use(productStorefrontPlugin)
   .use(checkoutPlugin)

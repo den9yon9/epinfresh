@@ -12,7 +12,7 @@ export const products = pgTable(
     slug: varchar('slug', { length: 255 }).unique().notNull(),
     description: text('description'),
     categoryId: uuid('category_id').references(() => categories.id, {
-      onDelete: 'set null',
+      onDelete: 'restrict',
     }),
     images: jsonb('images').$type<string[]>().default([]).notNull(),
     status: productStatus('status').default('draft').notNull(),

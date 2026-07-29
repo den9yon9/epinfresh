@@ -34,20 +34,7 @@ export async function registerUser(input: UserModel['RegisterInput'], db: DbClie
 
 export async function loginUser(input: UserModel['LoginInput'], db: DbClient = defaultDb) {
   const email = input.email
-  const [user] = await db
-    .select({
-      id: schema.users.id,
-      name: schema.users.name,
-      email: schema.users.email,
-      phone: schema.users.phone,
-      avatar: schema.users.avatar,
-      role: schema.users.role,
-      passwordHash: schema.users.passwordHash,
-      createdAt: schema.users.createdAt,
-      updatedAt: schema.users.updatedAt,
-    })
-    .from(schema.users)
-    .where(eq(schema.users.email, email))
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email))
   if (!user) {
     await verifyPassword(input.password, await getDummyHash())
     return err('LOGIN_FAILED')
@@ -59,19 +46,7 @@ export async function loginUser(input: UserModel['LoginInput'], db: DbClient = d
 }
 
 export async function getUserById(id: string, db: DbClient = defaultDb) {
-  const [user] = await db
-    .select({
-      id: schema.users.id,
-      name: schema.users.name,
-      email: schema.users.email,
-      phone: schema.users.phone,
-      avatar: schema.users.avatar,
-      role: schema.users.role,
-      createdAt: schema.users.createdAt,
-      updatedAt: schema.users.updatedAt,
-    })
-    .from(schema.users)
-    .where(eq(schema.users.id, id))
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id))
   if (!user) return err('USER_NOT_FOUND')
   return ok(user)
 }
@@ -79,18 +54,8 @@ export async function getUserById(id: string, db: DbClient = defaultDb) {
 export async function listUsers(opts: UserModel['UserListQuery'], db: DbClient = defaultDb) {
   const { page, pageSize } = opts
   const offset = (page - 1) * pageSize
-  const columns = {
-    id: schema.users.id,
-    name: schema.users.name,
-    email: schema.users.email,
-    phone: schema.users.phone,
-    avatar: schema.users.avatar,
-    role: schema.users.role,
-    createdAt: schema.users.createdAt,
-    updatedAt: schema.users.updatedAt,
-  } as const
   const rows = await db
-    .select(columns)
+    .select()
     .from(schema.users)
     .orderBy(schema.users.createdAt)
     .limit(pageSize)
