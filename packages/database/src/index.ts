@@ -1,5 +1,4 @@
 import { fileURLToPath } from 'node:url'
-import { getEnv } from '@epinfresh/shared'
 import type { ExtractTablesWithRelations } from 'drizzle-orm'
 import type { PgTransaction } from 'drizzle-orm/pg-core'
 import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js'
@@ -13,9 +12,7 @@ export { table } from './model'
 
 type PgDatabase = PostgresJsDatabase<typeof schema>
 
-export type Db = PgDatabase & {
-  $primary: Sql
-}
+export type Db = PgDatabase
 
 export type DbTransaction = PgTransaction<
   PostgresJsQueryResultHKT,
@@ -25,76 +22,54 @@ export type DbTransaction = PgTransaction<
 
 export type DbClient = Db | DbTransaction
 
+// ponytail: initDb() runs before Elysia listens; never undefined at request time
+export let db!: Db
+
+export function setDb(d: Db): void {
+  db = d
+}
+
 let queryClient: Sql | null = null
-let dbInstance: Db | null = null
-let cachedDbUrl: string | null = null
 
-export interface DbOptions {
-  max?: number
-  idleTimeout?: number
-  connectTimeout?: number
-  prepare?: boolean
-}
-
-function makeDb(client: Sql): Db {
-  const instance = drizzle(client, { schema })
-  return Object.assign(instance, { $primary: client }) as unknown as Db
-}
-
-export function createDb(connectionString: string, opts: DbOptions = {}): Db {
+export function createDb(connectionString: string): Db {
   const client = postgres(connectionString, {
-    max: opts.max ?? 10,
-    idle_timeout: opts.idleTimeout ?? 30,
-    connect_timeout: opts.connectTimeout ?? 30,
-    prepare: opts.prepare ?? false,
+    max: 10,
+    idle_timeout: 30,
+    connect_timeout: 30,
+    prepare: false,
   })
-  return makeDb(client)
+  return drizzle(client, { schema })
 }
 
-export function initDb(
-  connectionString?: string,
-  opts: DbOptions = {},
-): { db: Db; queryClient: Sql } {
-  const url = connectionString ?? getEnv().DATABASE_URL
-  if (dbInstance && queryClient) {
-    if (cachedDbUrl !== url) {
-      throw new Error(`initDb called with different URL; already initialized with ${cachedDbUrl}`)
-    }
-    return { db: dbInstance, queryClient }
+export function initDb(connectionString: string): Db {
+  if (queryClient) {
+    queryClient.end({ timeout: 5 }).catch(() => {})
   }
-  cachedDbUrl = url
-  queryClient = postgres(url, {
-    max: opts.max ?? 10,
-    idle_timeout: opts.idleTimeout ?? 30,
-    connect_timeout: opts.connectTimeout ?? 30,
-    prepare: opts.prepare ?? false,
+  queryClient = postgres(connectionString, {
+    max: 10,
+    idle_timeout: 30,
+    connect_timeout: 30,
+    prepare: false,
   })
-  dbInstance = makeDb(queryClient)
-  return { db: dbInstance, queryClient }
+  db = drizzle(queryClient, { schema })
+  return db
+}
+
+export function getSql(): Sql {
+  if (!queryClient) throw new Error('initDb() not called')
+  return queryClient
 }
 
 export async function closeDb(): Promise<void> {
   if (queryClient) {
     await queryClient.end({ timeout: 5 })
     queryClient = null
-    dbInstance = null
   }
 }
 
 const migrationsFolder = fileURLToPath(new URL('./migrations', import.meta.url))
 
-export async function runMigrations(target?: Db): Promise<void> {
-  const instance = target ?? dbInstance ?? (db as unknown as Db)
-  await migrate(instance, { migrationsFolder })
+export async function runMigrations(): Promise<void> {
+  if (!db) throw new Error('initDb() must be called before runMigrations()')
+  await migrate(db, { migrationsFolder })
 }
-
-export const db = new Proxy({} as Db, {
-  get(_t, prop) {
-    if (!dbInstance) {
-      throw new Error(
-        'Database accessed before initDb(). Call initDb(env.DATABASE_URL) at app bootstrap.',
-      )
-    }
-    return Reflect.get(dbInstance, prop as string | symbol, dbInstance)
-  },
-})

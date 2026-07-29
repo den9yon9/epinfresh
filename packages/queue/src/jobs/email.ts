@@ -1,4 +1,5 @@
 import { logger } from '@epinfresh/shared'
+import type { Queue } from 'bullmq'
 import { createQueue, createWorker } from '../index'
 
 export interface SendEmailJobData {
@@ -9,7 +10,13 @@ export interface SendEmailJobData {
 
 export const EMAIL_QUEUE_NAME = 'email-tasks'
 
-export const emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME)
+// ponytail: lazy to defer getRedis() until after initRedis()
+let _emailQueue: Queue<SendEmailJobData> | null = null
+
+export function getEmailQueue(): Queue<SendEmailJobData> {
+  if (!_emailQueue) _emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME)
+  return _emailQueue
+}
 
 export function registerEmailWorker() {
   return createWorker<SendEmailJobData>(EMAIL_QUEUE_NAME, async (job) => {

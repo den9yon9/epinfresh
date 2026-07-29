@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@epinfresh/session": "workspace:*",
+    "@epinfresh/redis": "workspace:*",
     "@epinfresh/shared": "workspace:*",
     "bullmq": "^5.41.0"
   }

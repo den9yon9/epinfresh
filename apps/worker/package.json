@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@epinfresh/queue": "workspace:*",
+    "@epinfresh/redis": "workspace:*",
     "@epinfresh/session": "workspace:*",
     "@epinfresh/shared": "workspace:*"
   }

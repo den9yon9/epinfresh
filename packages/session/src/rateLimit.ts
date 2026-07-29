@@ -1,3 +1,4 @@
+import { getRedis } from '@epinfresh/redis'
 import { getEnv } from '@epinfresh/shared'
 import {
   type RateLimitPluginOptions,
@@ -5,7 +6,6 @@ import {
   rateLimit as nazliRateLimit,
 } from 'elysia-nazli'
 import { redisStore } from 'elysia-nazli/redis'
-import { getRedis } from './redis'
 
 export interface AuthRateLimitOptions {
   limit?: number

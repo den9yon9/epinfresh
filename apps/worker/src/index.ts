@@ -1,5 +1,5 @@
 import { registerEmailWorker } from '@epinfresh/queue'
-import { closeRedis, initRedis } from '@epinfresh/session'
+import { closeRedis, initRedis } from '@epinfresh/redis'
 import { baseEnvSchema, loadEnv, logger } from '@epinfresh/shared'
 
 const env = loadEnv(baseEnvSchema)

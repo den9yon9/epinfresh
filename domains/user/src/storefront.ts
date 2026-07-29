@@ -1,3 +1,4 @@
+import { getEmailQueue } from '@epinfresh/queue'
 import {
   authRateLimit,
   clearSessionCookie,
@@ -14,11 +15,23 @@ export const userStorefrontPlugin = new Elysia({ name: 'user-storefront', prefix
   .use(commonModel)
   .use(sessionPlugin)
   .use(authRateLimit({ prefix: 'rl:auth' }))
-  .post('/register', ({ body }) => registerUser(body), {
-    body: 'RegisterInput',
-    response: { 200: 'UserResponse' },
-    detail: { tags: ['Auth'] },
-  })
+  .post(
+    '/register',
+    async ({ body }) => {
+      const user = await registerUser(body)
+      await getEmailQueue().add('send-welcome-email', {
+        type: 'welcome',
+        to: user.email,
+        payload: { userId: user.id, name: user.name },
+      })
+      return user
+    },
+    {
+      body: 'RegisterInput',
+      response: { 200: 'UserResponse' },
+      detail: { tags: ['Auth'] },
+    },
+  )
   .post(
     '/login',
     async ({ body, cookie, sessionStore }) => {

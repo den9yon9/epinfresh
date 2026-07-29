@@ -1,5 +1,4 @@
 import { type DbClient, db as defaultDb, schema } from '@epinfresh/database'
-import { emailQueue } from '@epinfresh/queue'
 import { type Result, err, hashPassword, ok, verifyPassword } from '@epinfresh/shared'
 import { count, eq } from 'drizzle-orm'
 import type { UserModel } from './model'
@@ -24,11 +23,6 @@ export async function registerUser(input: UserModel['RegisterInput'], db: DbClie
       phone: input.phone ?? null,
     })
     .returning()
-  await emailQueue.add('send-welcome-email', {
-    type: 'welcome',
-    to: user.email,
-    payload: { userId: user.id, name: user.name },
-  })
   return user
 }
 

@@ -14,7 +14,7 @@ export default [
     },
     settings: {
       'boundaries/elements': [
-        { type: 'package', pattern: 'packages/(database|session|shared|queue)' },
+        { type: 'package', pattern: 'packages/(database|session|shared|queue|redis)' },
         { type: 'usecase', pattern: 'usecases/*' },
         { type: 'domain-core', pattern: 'domains/(user|product)' },
         { type: 'domain-flow', pattern: 'domains/(order|cart|payment)' },

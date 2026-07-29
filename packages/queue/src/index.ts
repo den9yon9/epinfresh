@@ -1,4 +1,4 @@
-import { getRedis } from '@epinfresh/session'
+import { getRedis } from '@epinfresh/redis'
 import { logger } from '@epinfresh/shared'
 import { type Processor, Queue, type QueueOptions, Worker, type WorkerOptions } from 'bullmq'
 

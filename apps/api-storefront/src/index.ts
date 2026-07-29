@@ -1,9 +1,9 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { checkoutPlugin } from '@epinfresh/checkout'
-import { closeDb, db, initDb } from '@epinfresh/database'
+import { closeDb, db, getSql, initDb } from '@epinfresh/database'
 import { productStorefrontPlugin } from '@epinfresh/product'
-import { closeRedis, getRedis, initRedis } from '@epinfresh/session'
+import { closeRedis, getRedis, initRedis } from '@epinfresh/redis'
 import {
   type InferModelsMap,
   commonModel,
@@ -45,7 +45,7 @@ const app = new Elysia()
     let dbOk = false
     let redisOk = false
     try {
-      await db.$primary`SELECT 1`
+      await getSql()`SELECT 1`
       dbOk = true
     } catch {}
     try {

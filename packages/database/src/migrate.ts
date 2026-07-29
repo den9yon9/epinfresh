@@ -1,12 +1,10 @@
 import { getEnv, logger } from '@epinfresh/shared'
-import { createDb, runMigrations } from './index'
+import { closeDb, initDb, runMigrations } from './index'
 
-const url = getEnv().DATABASE_URL
-
-const db = createDb(url)
+initDb(getEnv().DATABASE_URL)
 try {
-  await runMigrations(db)
+  await runMigrations()
   logger.info('migrations applied')
 } finally {
-  await db.$primary.end({ timeout: 5 })
+  await closeDb()
 }
