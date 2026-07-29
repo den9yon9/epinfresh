@@ -1,7 +1,6 @@
 import { getEnv } from '@epinfresh/shared'
 import {
   type RateLimitPluginOptions,
-  type RateLimitStore,
   type RedisClientLike,
   rateLimit as nazliRateLimit,
 } from 'elysia-nazli'
@@ -16,34 +15,15 @@ export interface AuthRateLimitOptions {
   trustProxy?: boolean
 }
 
-function lazyRedisStore(prefix: string): RateLimitStore {
-  let real: RateLimitStore | undefined
-  const ensure = (): RateLimitStore => {
-    if (!real) {
-      real = redisStore({
-        client: getRedis() as unknown as RedisClientLike,
-        adapter: 'ioredis',
-        prefix,
-      })
-    }
-    return real
-  }
-  return {
-    hit: (input) => ensure().hit(input),
-    cleanup: (now) => {
-      ensure().cleanup?.(now)
-    },
-    close: () => {
-      ensure().close?.()
-    },
-  } satisfies RateLimitStore
-}
-
 export function authRateLimit(opts: AuthRateLimitOptions = {}): ReturnType<typeof nazliRateLimit> {
   const trustProxy = opts.trustProxy ?? getEnv().TRUST_PROXY
   return nazliRateLimit({
     namespace: opts.namespace ?? 'epinfresh',
-    store: lazyRedisStore(opts.prefix ?? 'rl'),
+    store: redisStore({
+      client: getRedis() as unknown as RedisClientLike,
+      adapter: 'ioredis',
+      prefix: opts.prefix ?? 'rl',
+    }),
     trustProxy,
     limit: opts.limit ?? 120,
     window: opts.window ?? '1m',
