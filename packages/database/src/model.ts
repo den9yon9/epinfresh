@@ -6,6 +6,10 @@ import {
 } from 'drizzle-typebox'
 import * as schema from './schema'
 
+const emailSchema = Type.Transform(Type.String({ format: 'email', maxLength: 255 }))
+  .Decode((v) => v.toLowerCase().trim())
+  .Encode((v) => v)
+
 export const table = {
   select: {
     user: select(schema.users),
@@ -19,7 +23,7 @@ export const table = {
   },
   insert: {
     user: insert(schema.users, {
-      email: Type.String({ format: 'email', maxLength: 255 }),
+      email: emailSchema,
       name: Type.String({ minLength: 1, maxLength: 255 }),
       phone: Type.Optional(Type.String({ maxLength: 50 })),
     }),
@@ -36,7 +40,9 @@ export const table = {
     }),
   },
   update: {
-    user: update(schema.users),
+    user: update(schema.users, {
+      email: Type.Optional(emailSchema),
+    }),
     category: update(schema.categories),
     product: update(schema.products, {
       images: Type.Array(Type.String()),

@@ -19,7 +19,7 @@ export async function registerUser(input: UserModel['RegisterInput'], db: DbClie
     .insert(schema.users)
     .values({
       name: input.name,
-      email: input.email.toLowerCase().trim(),
+      email: input.email,
       passwordHash,
       phone: input.phone ?? null,
     })
@@ -33,7 +33,7 @@ export async function registerUser(input: UserModel['RegisterInput'], db: DbClie
 }
 
 export async function loginUser(input: UserModel['LoginInput'], db: DbClient = defaultDb) {
-  const email = input.email.toLowerCase().trim()
+  const email = input.email
   const [user] = await db
     .select({
       id: schema.users.id,

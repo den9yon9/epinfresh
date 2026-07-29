@@ -19,7 +19,10 @@ export const userModel = new Elysia({ name: 'user-model' }).model({
   ]),
 
   LoginInput: t.Object({
-    email: t.String({ format: 'email' }),
+    email: t
+      .Transform(t.String({ format: 'email' }))
+      .Decode((v) => v.toLowerCase().trim())
+      .Encode((v) => v),
     password: t.String(),
   }),
 
