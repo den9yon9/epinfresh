@@ -1,56 +1,53 @@
 import { table } from '@epinfresh/database'
-import {
-  type InferModelsMap,
-  PRODUCT_STATUS,
-  PaginatedResponse,
-  PaginationQuery,
-} from '@epinfresh/shared'
-import Elysia, { t } from 'elysia'
+import { PRODUCT_STATUS, PaginatedResponse, PaginationQuery } from '@epinfresh/shared'
+import { Type } from '@sinclair/typebox'
 
-const STATUS_LITERALS = PRODUCT_STATUS.map((s) => t.Literal(s))
+const statusLiteral = Type.Union(PRODUCT_STATUS.map((s) => Type.Literal(s)))
 
-const ProductResponseSchema = t.Intersect([
+const ProductResponseSchema = Type.Intersect([
   table.select.product,
-  t.Object({ skus: t.Array(table.select.productSku) }),
+  Type.Object({ skus: Type.Array(table.select.productSku) }),
 ])
 
-const skuInput = t.Intersect([
-  t.Omit(table.insert.productSku, ['id', 'productId', 'price', 'createdAt', 'updatedAt']),
-  t.Object({
-    price: t.Number({ minimum: 0 }),
+const skuInput = Type.Intersect([
+  Type.Omit(table.insert.productSku, ['id', 'productId', 'price', 'createdAt', 'updatedAt']),
+  Type.Object({
+    price: Type.Number({ minimum: 0 }),
   }),
 ])
 
-export const productModel = new Elysia({ name: 'product-model' }).model({
-  CreateProductInput: t.Intersect([
-    t.Omit(table.insert.product, ['id', 'createdAt', 'updatedAt']),
-    t.Object({
-      skus: t.Optional(t.Array(skuInput, { maxItems: 100 })),
-    }),
-  ]),
+export const CreateProductInputSchema = Type.Intersect([
+  Type.Omit(table.insert.product, ['id', 'createdAt', 'updatedAt']),
+  Type.Object({
+    skus: Type.Optional(Type.Array(skuInput, { maxItems: 100 })),
+  }),
+])
 
-  UpdateProductInput: t.Partial(t.Omit(table.update.product, ['id', 'createdAt', 'updatedAt'])),
+export const UpdateProductInputSchema = Type.Partial(
+  Type.Omit(table.update.product, ['id', 'createdAt', 'updatedAt']),
+)
 
-  CreateCategoryInput: t.Omit(table.insert.category, ['id', 'createdAt', 'updatedAt']),
+export const CreateCategoryInputSchema = Type.Omit(table.insert.category, [
+  'id',
+  'createdAt',
+  'updatedAt',
+])
 
-  ProductResponse: ProductResponseSchema,
-  ProductListResponse: PaginatedResponse(ProductResponseSchema),
-  CategoryResponse: table.select.category,
-  CategoryListResponse: PaginatedResponse(table.select.category),
-  CategoryListQuery: PaginationQuery,
+export { ProductResponseSchema }
+export const ProductListResponseSchema = PaginatedResponse(ProductResponseSchema)
+export const CategoryResponseSchema = table.select.category
+export const CategoryListResponseSchema = PaginatedResponse(table.select.category)
+export const CategoryListQuerySchema = PaginationQuery
 
-  ProductListQuery: t.Intersect([
-    PaginationQuery,
-    t.Object({ categoryId: t.Optional(t.String({ format: 'uuid' })) }),
-  ]),
+export const ProductListQuerySchema = Type.Intersect([
+  PaginationQuery,
+  Type.Object({ categoryId: Type.Optional(Type.String({ format: 'uuid' })) }),
+])
 
-  AdminProductListQuery: t.Intersect([
-    PaginationQuery,
-    t.Object({
-      categoryId: t.Optional(t.String({ format: 'uuid' })),
-      status: t.Optional(t.Union(STATUS_LITERALS)),
-    }),
-  ]),
-})
-
-export type ProductModel = InferModelsMap<typeof productModel>
+export const AdminProductListQuerySchema = Type.Intersect([
+  PaginationQuery,
+  Type.Object({
+    categoryId: Type.Optional(Type.String({ format: 'uuid' })),
+    status: Type.Optional(statusLiteral),
+  }),
+])

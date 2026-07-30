@@ -11,8 +11,8 @@
   "dependencies": {
     "@epinfresh/database": "workspace:*",
     "@epinfresh/shared": "workspace:*",
+    "@sinclair/typebox": "^0.34.0",
     "drizzle-orm": "^0.40.0",
-    "elysia": "^1.2.0",
     "neverthrow": "^8.2.0"
   }
 }

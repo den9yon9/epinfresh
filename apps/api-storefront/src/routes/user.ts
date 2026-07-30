@@ -5,12 +5,18 @@ import {
   sessionPlugin,
   setSessionCookie,
 } from '@epinfresh/session'
-import { commonModel } from '@epinfresh/shared'
-import { getUserById, loginUser, registerUser, userModel } from '@epinfresh/user'
+import { ErrorResponse, commonModel } from '@epinfresh/shared'
+import {
+  LoginInputSchema,
+  RegisterInputSchema,
+  UserResponseSchema,
+  getUserById,
+  loginUser,
+  registerUser,
+} from '@epinfresh/user'
 import { Elysia, status } from 'elysia'
 
 export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1/auth' })
-  .use(userModel)
   .use(commonModel)
   .use(sessionPlugin)
   .use(authRateLimit({ prefix: 'rl:auth' }))
@@ -26,8 +32,8 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
       return user
     },
     {
-      body: 'RegisterInput',
-      response: { 200: 'UserResponse' },
+      body: RegisterInputSchema,
+      response: { 200: UserResponseSchema },
       detail: { tags: ['Auth'] },
     },
   )
@@ -49,9 +55,9 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
       )
     },
     {
-      body: 'LoginInput',
+      body: LoginInputSchema,
       rateLimit: { limit: 10, window: '60s' },
-      response: { 200: 'UserResponse', 401: 'ErrorResponse', 429: 'ErrorResponse' },
+      response: { 200: UserResponseSchema, 401: ErrorResponse, 429: ErrorResponse },
       detail: { tags: ['Auth'] },
     },
   )
@@ -78,7 +84,7 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
     },
     {
       isAuth: true,
-      response: { 200: 'UserResponse', 401: 'ErrorResponse', 404: 'ErrorResponse' },
+      response: { 200: UserResponseSchema, 401: ErrorResponse, 404: ErrorResponse },
       detail: { tags: ['Auth'] },
     },
   )

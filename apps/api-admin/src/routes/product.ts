@@ -1,28 +1,35 @@
 import {
+  AdminProductListQuerySchema,
+  CategoryListQuerySchema,
+  CategoryListResponseSchema,
+  CategoryResponseSchema,
+  CreateCategoryInputSchema,
+  CreateProductInputSchema,
+  ProductListResponseSchema,
+  ProductResponseSchema,
+  UpdateProductInputSchema,
   createCategory,
   createProduct,
   getProductById,
   listAllProducts,
   listCategories,
-  productModel,
   removeCategory,
   removeProduct,
   updateProduct,
 } from '@epinfresh/product'
 import { sessionPlugin } from '@epinfresh/session'
-import { commonModel } from '@epinfresh/shared'
+import { ErrorResponse, commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
-const adminResponse = { 401: 'ErrorResponse', 403: 'ErrorResponse' } as const
+const adminResponse = { 401: ErrorResponse, 403: ErrorResponse } as const
 
 export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v1/admin' })
-  .use(productModel)
   .use(commonModel)
   .use(sessionPlugin)
   .get('/products', async ({ query }) => listAllProducts(query), {
     isAdmin: true,
-    query: 'AdminProductListQuery',
-    response: { 200: 'ProductListResponse', ...adminResponse },
+    query: AdminProductListQuerySchema,
+    response: { 200: ProductListResponseSchema, ...adminResponse },
     detail: { tags: ['Admin/Products'] },
   })
   .get(
@@ -37,14 +44,14 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
     {
       isAdmin: true,
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
-      response: { 200: 'ProductResponse', 404: 'ErrorResponse', ...adminResponse },
+      response: { 200: ProductResponseSchema, 404: ErrorResponse, ...adminResponse },
       detail: { tags: ['Admin/Products'] },
     },
   )
   .post('/products', async ({ body }) => status(201, await createProduct(body)), {
     isAdmin: true,
-    body: 'CreateProductInput',
-    response: { 201: 'ProductResponse', ...adminResponse },
+    body: CreateProductInputSchema,
+    response: { 201: ProductResponseSchema, ...adminResponse },
     detail: { tags: ['Admin/Products'] },
   })
   .put(
@@ -59,8 +66,8 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
     {
       isAdmin: true,
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
-      body: 'UpdateProductInput',
-      response: { 200: 'ProductResponse', 404: 'ErrorResponse', ...adminResponse },
+      body: UpdateProductInputSchema,
+      response: { 200: ProductResponseSchema, 404: ErrorResponse, ...adminResponse },
       detail: { tags: ['Admin/Products'] },
     },
   )
@@ -81,14 +88,14 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
   )
   .get('/categories', ({ query }) => listCategories(query), {
     isAdmin: true,
-    query: 'CategoryListQuery',
-    response: { 200: 'CategoryListResponse', ...adminResponse },
+    query: CategoryListQuerySchema,
+    response: { 200: CategoryListResponseSchema, ...adminResponse },
     detail: { tags: ['Admin/Categories'] },
   })
   .post('/categories', async ({ body }) => status(201, await createCategory(body)), {
     isAdmin: true,
-    body: 'CreateCategoryInput',
-    response: { 201: 'CategoryResponse', ...adminResponse },
+    body: CreateCategoryInputSchema,
+    response: { 201: CategoryResponseSchema, ...adminResponse },
     detail: { tags: ['Admin/Categories'] },
   })
   .delete(

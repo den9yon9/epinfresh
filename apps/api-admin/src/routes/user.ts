@@ -1,18 +1,23 @@
 import { sessionPlugin } from '@epinfresh/session'
-import { commonModel } from '@epinfresh/shared'
-import { getUserById, listUsers, userModel } from '@epinfresh/user'
+import { ErrorResponse, commonModel } from '@epinfresh/shared'
+import {
+  UserListQuerySchema,
+  UserListResponseSchema,
+  UserResponseSchema,
+  getUserById,
+  listUsers,
+} from '@epinfresh/user'
 import { Elysia, status, t } from 'elysia'
 
-const adminResponse = { 401: 'ErrorResponse', 403: 'ErrorResponse' } as const
+const adminResponse = { 401: ErrorResponse, 403: ErrorResponse } as const
 
 export const userRoutes = new Elysia({ name: 'user-admin', prefix: '/api/v1/admin' })
-  .use(userModel)
   .use(commonModel)
   .use(sessionPlugin)
   .get('/users', ({ query }) => listUsers(query), {
     isAdmin: true,
-    query: 'UserListQuery',
-    response: { 200: 'UserListResponse', ...adminResponse },
+    query: UserListQuerySchema,
+    response: { 200: UserListResponseSchema, ...adminResponse },
     detail: { tags: ['Admin/Users'] },
   })
   .get(
@@ -27,7 +32,7 @@ export const userRoutes = new Elysia({ name: 'user-admin', prefix: '/api/v1/admi
     {
       isAdmin: true,
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
-      response: { 200: 'UserResponse', 404: 'ErrorResponse', ...adminResponse },
+      response: { 200: UserResponseSchema, 404: ErrorResponse, ...adminResponse },
       detail: { tags: ['Admin/Users'] },
     },
   )

@@ -1,23 +1,23 @@
-import { type Static, type TSchema, t } from 'elysia'
+import { type TSchema, Type } from '@sinclair/typebox'
 
 export const DEFAULT_PAGE = 1
 export const DEFAULT_PAGE_SIZE = 20
 export const MAX_PAGE_SIZE = 100
 
-export const PaginationQuery = t.Object({
-  page: t.Number({ minimum: 1, default: DEFAULT_PAGE }),
-  pageSize: t.Number({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
+export const PaginationQuery = Type.Object({
+  page: Type.Number({ minimum: 1, default: DEFAULT_PAGE }),
+  pageSize: Type.Number({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
 })
 
 export const PaginatedResponse = <T extends TSchema>(item: T) =>
-  t.Object({
-    items: t.Array(item),
-    total: t.Number(),
-    page: t.Number(),
-    pageSize: t.Number(),
+  Type.Object({
+    items: Type.Array(item),
+    total: Type.Number(),
+    page: Type.Number(),
+    pageSize: Type.Number(),
   })
 
-export const ErrorResponse = t.Object({
-  error: t.String(),
-  message: t.String(),
+export const ErrorResponse = Type.Object({
+  error: Type.String(),
+  message: Type.String(),
 })

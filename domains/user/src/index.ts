@@ -1,3 +1,9 @@
-export { userModel } from './model'
+export {
+  RegisterInputSchema,
+  LoginInputSchema,
+  UserResponseSchema,
+  UserListResponseSchema,
+  UserListQuerySchema,
+} from './model'
 export { registerUser, loginUser, getUserById, listUsers } from './service'
-export type { UserModel, UserRole } from './model'
+export type { UserRole } from '@epinfresh/shared'

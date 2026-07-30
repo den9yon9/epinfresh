@@ -1,35 +1,25 @@
 import { table } from '@epinfresh/database'
-import {
-  type InferModelsMap,
-  PaginatedResponse,
-  PaginationQuery,
-  type UserRole,
-} from '@epinfresh/shared'
-import Elysia, { t } from 'elysia'
+import { PaginatedResponse, PaginationQuery } from '@epinfresh/shared'
+import { Type } from '@sinclair/typebox'
 
-const UserResponseSchema = t.Omit(table.select.user, ['passwordHash'])
+export const UserResponseSchema = Type.Omit(table.select.user, ['passwordHash'])
 
-export const userModel = new Elysia({ name: 'user-model' }).model({
-  RegisterInput: t.Intersect([
-    t.Omit(table.insert.user, ['id', 'passwordHash', 'role', 'avatar', 'createdAt', 'updatedAt']),
-    t.Object({
-      name: t.String({ minLength: 1, maxLength: 255 }),
-      password: t.String({ minLength: 8 }),
-    }),
-  ]),
-
-  LoginInput: t.Object({
-    email: t
-      .Transform(t.String({ format: 'email' }))
-      .Decode((v) => v.toLowerCase().trim())
-      .Encode((v) => v),
-    password: t.String(),
+export const RegisterInputSchema = Type.Intersect([
+  Type.Omit(table.insert.user, ['id', 'passwordHash', 'role', 'avatar', 'createdAt', 'updatedAt']),
+  Type.Object({
+    name: Type.String({ minLength: 1, maxLength: 255 }),
+    password: Type.String({ minLength: 8 }),
   }),
+])
 
-  UserResponse: UserResponseSchema,
-  UserListResponse: PaginatedResponse(UserResponseSchema),
-  UserListQuery: PaginationQuery,
+const emailTransform = Type.Transform(Type.String({ format: 'email', maxLength: 255 }))
+  .Decode((v: string) => v.toLowerCase().trim())
+  .Encode((v: string) => v)
+
+export const LoginInputSchema = Type.Object({
+  email: emailTransform,
+  password: Type.String(),
 })
 
-export type UserModel = InferModelsMap<typeof userModel>
-export type { UserRole }
+export const UserListResponseSchema = PaginatedResponse(UserResponseSchema)
+export const UserListQuerySchema = PaginationQuery

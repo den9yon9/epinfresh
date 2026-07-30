@@ -1,18 +1,21 @@
 import {
+  CategoryListQuerySchema,
+  CategoryListResponseSchema,
+  ProductListQuerySchema,
+  ProductListResponseSchema,
+  ProductResponseSchema,
   getProductByIdPublic,
   listCategories,
   listPublishedProducts,
-  productModel,
 } from '@epinfresh/product'
 import { commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
 export const productRoutes = new Elysia({ name: 'product-storefront', prefix: '/api/v1' })
-  .use(productModel)
   .use(commonModel)
   .get('/products', async ({ query }) => listPublishedProducts(query), {
-    query: 'ProductListQuery',
-    response: { 200: 'ProductListResponse' },
+    query: ProductListQuerySchema,
+    response: { 200: ProductListResponseSchema },
     detail: { tags: ['Products'] },
   })
   .get(
@@ -26,12 +29,12 @@ export const productRoutes = new Elysia({ name: 'product-storefront', prefix: '/
     },
     {
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
-      response: { 200: 'ProductResponse', 404: 'ErrorResponse' },
+      response: { 200: ProductResponseSchema, 404: 'ErrorResponse' as const },
       detail: { tags: ['Products'] },
     },
   )
   .get('/categories', ({ query }) => listCategories(query), {
-    query: 'CategoryListQuery',
-    response: { 200: 'CategoryListResponse' },
+    query: CategoryListQuerySchema,
+    response: { 200: CategoryListResponseSchema },
     detail: { tags: ['Categories'] },
   })

@@ -1,7 +1,8 @@
 import { db, schema } from '@epinfresh/database'
 import { type Result, err, hashPassword, ok, verifyPassword } from '@epinfresh/shared'
+import type { Static } from '@sinclair/typebox'
 import { count, eq } from 'drizzle-orm'
-import type { UserModel } from './model'
+import type { LoginInputSchema, RegisterInputSchema, UserListQuerySchema } from './model'
 
 let dummyHash: string | null = null
 
@@ -12,7 +13,7 @@ async function getDummyHash(): Promise<string> {
   return dummyHash
 }
 
-export async function registerUser(input: UserModel['RegisterInput']) {
+export async function registerUser(input: Static<typeof RegisterInputSchema>) {
   const passwordHash = await hashPassword(input.password)
   const [user] = await db
     .insert(schema.users)
@@ -26,7 +27,7 @@ export async function registerUser(input: UserModel['RegisterInput']) {
   return user
 }
 
-export async function loginUser(input: UserModel['LoginInput']) {
+export async function loginUser(input: Static<typeof LoginInputSchema>) {
   const email = input.email
   const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email))
   if (!user) {
@@ -45,7 +46,7 @@ export async function getUserById(id: string) {
   return ok(user)
 }
 
-export async function listUsers(opts: UserModel['UserListQuery']) {
+export async function listUsers(opts: Static<typeof UserListQuerySchema>) {
   const { page, pageSize } = opts
   const offset = (page - 1) * pageSize
   const rows = await db

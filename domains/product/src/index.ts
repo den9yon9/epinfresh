@@ -1,4 +1,15 @@
-export { productModel } from './model'
+export {
+  CreateProductInputSchema,
+  UpdateProductInputSchema,
+  CreateCategoryInputSchema,
+  ProductResponseSchema,
+  ProductListResponseSchema,
+  CategoryResponseSchema,
+  CategoryListResponseSchema,
+  CategoryListQuerySchema,
+  ProductListQuerySchema,
+  AdminProductListQuerySchema,
+} from './model'
 export {
   listAllProducts,
   listPublishedProducts,
@@ -12,4 +23,3 @@ export {
   createCategory,
   removeCategory,
 } from './service'
-export type { ProductModel } from './model'

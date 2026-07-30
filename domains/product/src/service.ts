@@ -1,9 +1,16 @@
 import { type DbClient, db, schema } from '@epinfresh/database'
 import { type Result, err, ok } from '@epinfresh/shared'
+import type { Static } from '@sinclair/typebox'
 import { and, count, eq, gte, sql } from 'drizzle-orm'
-import type { ProductModel } from './model'
+import type {
+  AdminProductListQuerySchema,
+  CreateCategoryInputSchema,
+  CreateProductInputSchema,
+  ProductListQuerySchema,
+  UpdateProductInputSchema,
+} from './model'
 
-export async function listAllProducts(query: ProductModel['AdminProductListQuery']) {
+export async function listAllProducts(query: Static<typeof AdminProductListQuerySchema>) {
   const { page, pageSize } = query
   const offset = (page - 1) * pageSize
 
@@ -23,7 +30,7 @@ export async function listAllProducts(query: ProductModel['AdminProductListQuery
   return { items, total: Number(total), page, pageSize }
 }
 
-export function listPublishedProducts(query: ProductModel['ProductListQuery']) {
+export function listPublishedProducts(query: Static<typeof ProductListQuerySchema>) {
   return listAllProducts({ ...query, status: 'published' })
 }
 
@@ -69,7 +76,7 @@ export async function reduceProductStock(
   return ok()
 }
 
-export async function createProduct(input: ProductModel['CreateProductInput']) {
+export async function createProduct(input: Static<typeof CreateProductInputSchema>) {
   return db.transaction(async (tx) => {
     const [product] = await tx
       .insert(schema.products)
@@ -102,7 +109,7 @@ export async function createProduct(input: ProductModel['CreateProductInput']) {
   })
 }
 
-export async function updateProduct(id: string, input: ProductModel['UpdateProductInput']) {
+export async function updateProduct(id: string, input: Static<typeof UpdateProductInputSchema>) {
   return db.transaction(async (tx) => {
     const [product] = await tx
       .update(schema.products)
@@ -139,7 +146,7 @@ export async function listCategories(opts: { page: number; pageSize: number }) {
   return { items, total: Number(total), page, pageSize }
 }
 
-export async function createCategory(input: ProductModel['CreateCategoryInput']) {
+export async function createCategory(input: Static<typeof CreateCategoryInputSchema>) {
   const [cat] = await db.insert(schema.categories).values(input).returning()
   return cat
 }
