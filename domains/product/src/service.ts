@@ -1,12 +1,9 @@
-import { type DbClient, db as defaultDb, schema } from '@epinfresh/database'
+import { db, schema } from '@epinfresh/database'
 import { type Result, err, ok } from '@epinfresh/shared'
 import { and, count, eq, gte, sql } from 'drizzle-orm'
 import type { ProductModel } from './model'
 
-export async function listAllProducts(
-  query: ProductModel['AdminProductListQuery'],
-  db: DbClient = defaultDb,
-) {
+export async function listAllProducts(query: ProductModel['AdminProductListQuery']) {
   const { page, pageSize } = query
   const offset = (page - 1) * pageSize
 
@@ -26,14 +23,11 @@ export async function listAllProducts(
   return { items, total: Number(total), page, pageSize }
 }
 
-export function listPublishedProducts(
-  query: ProductModel['ProductListQuery'],
-  db: DbClient = defaultDb,
-) {
-  return listAllProducts({ ...query, status: 'published' }, db)
+export function listPublishedProducts(query: ProductModel['ProductListQuery']) {
+  return listAllProducts({ ...query, status: 'published' })
 }
 
-export async function getProductById(id: string, db: DbClient = defaultDb) {
+export async function getProductById(id: string) {
   const product = await db.query.products.findFirst({
     where: eq(schema.products.id, id),
     with: { skus: true },
@@ -42,7 +36,7 @@ export async function getProductById(id: string, db: DbClient = defaultDb) {
   return ok(product)
 }
 
-export async function getProductByIdPublic(id: string, db: DbClient = defaultDb) {
+export async function getProductByIdPublic(id: string) {
   const product = await db.query.products.findFirst({
     where: and(eq(schema.products.id, id), eq(schema.products.status, 'published')),
     with: { skus: true },
@@ -54,7 +48,6 @@ export async function getProductByIdPublic(id: string, db: DbClient = defaultDb)
 export async function reduceProductStock(
   skuId: string,
   quantity: number,
-  db: DbClient = defaultDb,
 ): Promise<Result<void, 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'>> {
   const updated = await db
     .update(schema.productSkus)
@@ -75,10 +68,7 @@ export async function reduceProductStock(
   return ok()
 }
 
-export async function createProduct(
-  input: ProductModel['CreateProductInput'],
-  db: DbClient = defaultDb,
-) {
+export async function createProduct(input: ProductModel['CreateProductInput']) {
   return db.transaction(async (tx) => {
     const [product] = await tx
       .insert(schema.products)
@@ -111,11 +101,7 @@ export async function createProduct(
   })
 }
 
-export async function updateProduct(
-  id: string,
-  input: ProductModel['UpdateProductInput'],
-  db: DbClient = defaultDb,
-) {
+export async function updateProduct(id: string, input: ProductModel['UpdateProductInput']) {
   return db.transaction(async (tx) => {
     const [product] = await tx
       .update(schema.products)
@@ -131,7 +117,7 @@ export async function updateProduct(
   })
 }
 
-export async function removeProduct(id: string, db: DbClient = defaultDb) {
+export async function removeProduct(id: string) {
   return db.transaction(async (tx) => {
     const [product] = await tx.delete(schema.products).where(eq(schema.products.id, id)).returning()
     if (!product) return err('PRODUCT_NOT_FOUND')
@@ -139,10 +125,7 @@ export async function removeProduct(id: string, db: DbClient = defaultDb) {
   })
 }
 
-export async function listCategories(
-  opts: { page: number; pageSize: number },
-  db: DbClient = defaultDb,
-) {
+export async function listCategories(opts: { page: number; pageSize: number }) {
   const { page, pageSize } = opts
   const offset = (page - 1) * pageSize
   const items = await db
@@ -155,15 +138,12 @@ export async function listCategories(
   return { items, total: Number(total), page, pageSize }
 }
 
-export async function createCategory(
-  input: ProductModel['CreateCategoryInput'],
-  db: DbClient = defaultDb,
-) {
+export async function createCategory(input: ProductModel['CreateCategoryInput']) {
   const [cat] = await db.insert(schema.categories).values(input).returning()
   return cat
 }
 
-export async function removeCategory(id: string, db: DbClient = defaultDb) {
+export async function removeCategory(id: string) {
   return db.transaction(async (tx) => {
     const [cat] = await tx.select().from(schema.categories).where(eq(schema.categories.id, id))
     if (!cat) return err('CATEGORY_NOT_FOUND')

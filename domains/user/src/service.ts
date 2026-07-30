@@ -1,4 +1,4 @@
-import { type DbClient, db as defaultDb, schema } from '@epinfresh/database'
+import { db, schema } from '@epinfresh/database'
 import { type Result, err, hashPassword, ok, verifyPassword } from '@epinfresh/shared'
 import { count, eq } from 'drizzle-orm'
 import type { UserModel } from './model'
@@ -12,7 +12,7 @@ async function getDummyHash(): Promise<string> {
   return dummyHash
 }
 
-export async function registerUser(input: UserModel['RegisterInput'], db: DbClient = defaultDb) {
+export async function registerUser(input: UserModel['RegisterInput']) {
   const passwordHash = await hashPassword(input.password)
   const [user] = await db
     .insert(schema.users)
@@ -26,7 +26,7 @@ export async function registerUser(input: UserModel['RegisterInput'], db: DbClie
   return user
 }
 
-export async function loginUser(input: UserModel['LoginInput'], db: DbClient = defaultDb) {
+export async function loginUser(input: UserModel['LoginInput']) {
   const email = input.email
   const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email))
   if (!user) {
@@ -39,13 +39,13 @@ export async function loginUser(input: UserModel['LoginInput'], db: DbClient = d
   return ok(safeUser)
 }
 
-export async function getUserById(id: string, db: DbClient = defaultDb) {
+export async function getUserById(id: string) {
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id))
   if (!user) return err('USER_NOT_FOUND')
   return ok(user)
 }
 
-export async function listUsers(opts: UserModel['UserListQuery'], db: DbClient = defaultDb) {
+export async function listUsers(opts: UserModel['UserListQuery']) {
   const { page, pageSize } = opts
   const offset = (page - 1) * pageSize
   const rows = await db
