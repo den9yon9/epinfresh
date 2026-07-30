@@ -1,5 +1,3 @@
 export { userModel } from './model'
-export { userStorefrontPlugin } from './storefront'
-export { userAdminPlugin } from './admin'
 export { registerUser, loginUser, getUserById, listUsers } from './service'
 export type { UserModel, UserRole } from './model'

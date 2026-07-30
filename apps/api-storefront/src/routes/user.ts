@@ -6,11 +6,10 @@ import {
   setSessionCookie,
 } from '@epinfresh/session'
 import { commonModel } from '@epinfresh/shared'
+import { getUserById, loginUser, registerUser, userModel } from '@epinfresh/user'
 import { Elysia, status } from 'elysia'
-import { userModel } from './model'
-import { getUserById, loginUser, registerUser } from './service'
 
-export const userStorefrontPlugin = new Elysia({ name: 'user-storefront', prefix: '/api/v1/auth' })
+export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1/auth' })
   .use(userModel)
   .use(commonModel)
   .use(sessionPlugin)

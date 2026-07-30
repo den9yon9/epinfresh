@@ -1,8 +1,6 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
-import { checkoutPlugin } from '@epinfresh/checkout'
 import { closeDb, db, getSql, initDb } from '@epinfresh/database'
-import { productStorefrontPlugin } from '@epinfresh/product'
 import { closeRedis, getRedis, initRedis } from '@epinfresh/redis'
 import {
   type InferModelsMap,
@@ -13,7 +11,9 @@ import {
   requestLogger,
   securityHeaders,
 } from '@epinfresh/shared'
-import { userStorefrontPlugin } from '@epinfresh/user'
+import { checkoutRoutes } from './routes/checkout'
+import { productRoutes } from './routes/product'
+import { userRoutes } from './routes/user'
 
 import { Elysia, status } from 'elysia'
 import { storefrontEnvSchema } from './env'
@@ -56,9 +56,9 @@ const app = new Elysia()
     set.status = healthy ? 200 : 503
     return { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk }
   })
-  .use(userStorefrontPlugin)
-  .use(productStorefrontPlugin)
-  .use(checkoutPlugin)
+  .use(userRoutes)
+  .use(productRoutes)
+  .use(checkoutRoutes)
   .listen(port)
 
 logger.info({ port, service: 'storefront' }, 'API listening')

@@ -1,9 +1,13 @@
+import {
+  getProductByIdPublic,
+  listCategories,
+  listPublishedProducts,
+  productModel,
+} from '@epinfresh/product'
 import { commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
-import { productModel } from './model'
-import { getProductByIdPublic, listCategories, listPublishedProducts } from './service'
 
-export const productStorefrontPlugin = new Elysia({ name: 'product-storefront', prefix: '/api/v1' })
+export const productRoutes = new Elysia({ name: 'product-storefront', prefix: '/api/v1' })
   .use(productModel)
   .use(commonModel)
   .get('/products', async ({ query }) => listPublishedProducts(query), {

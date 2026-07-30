@@ -1,7 +1,6 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { closeDb, db, getSql, initDb } from '@epinfresh/database'
-import { productAdminPlugin } from '@epinfresh/product'
 import { closeRedis, getRedis, initRedis } from '@epinfresh/redis'
 import { authRateLimit } from '@epinfresh/session'
 import {
@@ -13,9 +12,10 @@ import {
   requestLogger,
   securityHeaders,
 } from '@epinfresh/shared'
-import { userAdminPlugin } from '@epinfresh/user'
 import { Elysia, status } from 'elysia'
 import { adminEnvSchema } from './env'
+import { productRoutes } from './routes/product'
+import { userRoutes } from './routes/user'
 
 const env = loadEnv(adminEnvSchema)
 
@@ -60,8 +60,8 @@ const app = new Elysia()
     set.status = healthy ? 200 : 503
     return { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk }
   })
-  .use(userAdminPlugin)
-  .use(productAdminPlugin)
+  .use(userRoutes)
+  .use(productRoutes)
   .listen(port)
 
 logger.info({ port, service: 'admin' }, 'API listening')

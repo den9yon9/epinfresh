@@ -9,10 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@epinfresh/database": "workspace:*",
     "@epinfresh/product": "workspace:*",
-    "@epinfresh/session": "workspace:*",
-    "@epinfresh/shared": "workspace:*",
-    "elysia": "^1.2.0"
+    "@epinfresh/shared": "workspace:*"
   }
 }

@@ -1,21 +1,21 @@
-import { sessionPlugin } from '@epinfresh/session'
-import { commonModel } from '@epinfresh/shared'
-import { Elysia, status, t } from 'elysia'
-import { productModel } from './model'
 import {
   createCategory,
   createProduct,
   getProductById,
   listAllProducts,
   listCategories,
+  productModel,
   removeCategory,
   removeProduct,
   updateProduct,
-} from './service'
+} from '@epinfresh/product'
+import { sessionPlugin } from '@epinfresh/session'
+import { commonModel } from '@epinfresh/shared'
+import { Elysia, status, t } from 'elysia'
 
 const adminResponse = { 401: 'ErrorResponse', 403: 'ErrorResponse' } as const
 
-export const productAdminPlugin = new Elysia({ name: 'product-admin', prefix: '/api/v1/admin' })
+export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v1/admin' })
   .use(productModel)
   .use(commonModel)
   .use(sessionPlugin)

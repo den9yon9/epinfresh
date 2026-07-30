@@ -1,12 +1,11 @@
 import { sessionPlugin } from '@epinfresh/session'
 import { commonModel } from '@epinfresh/shared'
+import { getUserById, listUsers, userModel } from '@epinfresh/user'
 import { Elysia, status, t } from 'elysia'
-import { userModel } from './model'
-import { getUserById, listUsers } from './service'
 
 const adminResponse = { 401: 'ErrorResponse', 403: 'ErrorResponse' } as const
 
-export const userAdminPlugin = new Elysia({ name: 'user-admin', prefix: '/api/v1/admin' })
+export const userRoutes = new Elysia({ name: 'user-admin', prefix: '/api/v1/admin' })
   .use(userModel)
   .use(commonModel)
   .use(sessionPlugin)

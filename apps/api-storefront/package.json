@@ -14,6 +14,7 @@
     "@epinfresh/database": "workspace:*",
     "@epinfresh/checkout": "workspace:*",
     "@epinfresh/product": "workspace:*",
+    "@epinfresh/queue": "workspace:*",
     "@epinfresh/redis": "workspace:*",
     "@epinfresh/session": "workspace:*",
     "@epinfresh/shared": "workspace:*",

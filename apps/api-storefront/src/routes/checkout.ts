@@ -1,9 +1,9 @@
+import { checkoutWorkflow } from '@epinfresh/checkout'
 import { sessionPlugin } from '@epinfresh/session'
 import { commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
-import { checkoutWorkflow } from './service'
 
-export const checkoutPlugin = new Elysia({ name: 'checkout', prefix: '/api/v1' })
+export const checkoutRoutes = new Elysia({ name: 'checkout', prefix: '/api/v1' })
   .use(commonModel)
   .use(sessionPlugin)
   .post(

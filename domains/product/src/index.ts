@@ -1,6 +1,4 @@
 export { productModel } from './model'
-export { productStorefrontPlugin } from './storefront'
-export { productAdminPlugin } from './admin'
 export {
   listAllProducts,
   listPublishedProducts,
