@@ -1,47 +1,27 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
-import { closeDb, db, getSql, initDb } from '@epinfresh/database'
+import { closeDb, getSql, initDb } from '@epinfresh/database'
 import { closeRedis, getRedis, initRedis } from '@epinfresh/redis'
-import {
-  type InferModelsMap,
-  commonModel,
-  loadEnv,
-  logger,
-  mapDbError,
-  requestLogger,
-  securityHeaders,
-} from '@epinfresh/shared'
+import { type InferModelsMap, createApiServer, loadEnv } from '@epinfresh/shared'
+import { storefrontEnvSchema } from './env'
 import { checkoutRoutes } from './routes/checkout'
 import { productRoutes } from './routes/product'
 import { userRoutes } from './routes/user'
 
-import { Elysia, status } from 'elysia'
-import { storefrontEnvSchema } from './env'
 const env = loadEnv(storefrontEnvSchema)
 
-initDb(env.DATABASE_URL)
-initRedis(env.REDIS_URL)
-
-const port = Number(env.STOREFRONT_PORT)
-
-const app = new Elysia()
-  .use(requestLogger())
-  .use(securityHeaders())
-  .onError(({ error }) => {
-    const mapped = mapDbError(error)
-    if (mapped) return status(mapped.status, mapped.body)
-  })
-  .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
-  .use(
-    openapi({
-      path: '/docs',
-      documentation: {
-        info: { title: 'Epinfresh Storefront API', version: '1.0.0' },
-      },
-    }),
-  )
-  .use(commonModel)
-  .get('/health', async ({ set }) => {
+const app = createApiServer({
+  serviceName: 'storefront',
+  port: Number(env.STOREFRONT_PORT),
+  initResources: () => {
+    initDb(env.DATABASE_URL)
+    initRedis(env.REDIS_URL)
+  },
+  closeResources: async () => {
+    await closeDb()
+    await closeRedis()
+  },
+  healthCheck: async () => {
     let dbOk = false
     let redisOk = false
     try {
@@ -52,38 +32,23 @@ const app = new Elysia()
       await getRedis().ping()
       redisOk = true
     } catch {}
-    const healthy = dbOk && redisOk
-    set.status = healthy ? 200 : 503
-    return { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk }
-  })
-  .use(userRoutes)
-  .use(productRoutes)
-  .use(checkoutRoutes)
-  .listen(port)
-
-logger.info({ port, service: 'storefront' }, 'API listening')
-
-const SHUTDOWN_TIMEOUT_MS = 10_000
-
-async function shutdown() {
-  const forceExit = setTimeout(() => {
-    logger.error('shutdown timed out, forcing exit')
-    process.exit(1)
-  }, SHUTDOWN_TIMEOUT_MS)
-  forceExit.unref()
-  try {
-    await app.stop()
-    await closeDb()
-    await closeRedis()
-  } catch (err) {
-    logger.error({ err }, 'shutdown error')
-    process.exit(1)
-  }
-  process.exit(0)
-}
-
-process.on('SIGTERM', shutdown)
-process.on('SIGINT', shutdown)
+    return { db: dbOk, redis: redisOk }
+  },
+  setup: (app) =>
+    app
+      .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
+      .use(
+        openapi({
+          path: '/docs',
+          documentation: {
+            info: { title: 'Epinfresh Storefront API', version: '1.0.0' },
+          },
+        }),
+      )
+      .use(userRoutes)
+      .use(productRoutes)
+      .use(checkoutRoutes),
+})
 
 export type App = typeof app
 export type StorefrontModels = InferModelsMap<typeof app>

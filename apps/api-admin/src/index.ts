@@ -1,51 +1,28 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
-import { closeDb, db, getSql, initDb } from '@epinfresh/database'
+import { closeDb, getSql, initDb } from '@epinfresh/database'
 import { closeRedis, getRedis, initRedis } from '@epinfresh/redis'
 import { authRateLimit } from '@epinfresh/session'
-import {
-  type InferModelsMap,
-  commonModel,
-  loadEnv,
-  logger,
-  mapDbError,
-  requestLogger,
-  securityHeaders,
-} from '@epinfresh/shared'
-import { Elysia, status } from 'elysia'
+import { type InferModelsMap, createApiServer, loadEnv } from '@epinfresh/shared'
+import { Elysia } from 'elysia'
 import { adminEnvSchema } from './env'
 import { productRoutes } from './routes/product'
 import { userRoutes } from './routes/user'
 
 const env = loadEnv(adminEnvSchema)
 
-initDb(env.DATABASE_URL)
-initRedis(env.REDIS_URL)
-
-const port = Number(env.ADMIN_PORT)
-const enableDocs = env.NODE_ENV !== 'production'
-
-const app = new Elysia()
-  .use(requestLogger())
-  .use(securityHeaders())
-  .onError(({ error }) => {
-    const mapped = mapDbError(error)
-    if (mapped) return status(mapped.status, mapped.body)
-  })
-  .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
-  .use(
-    enableDocs
-      ? openapi({
-          path: '/docs',
-          documentation: {
-            info: { title: 'Epinfresh Admin API', version: '1.0.0' },
-          },
-        })
-      : new Elysia(),
-  )
-  .use(commonModel)
-  .use(authRateLimit({ prefix: 'rl:admin' }))
-  .get('/health', async ({ set }) => {
+const app = createApiServer({
+  serviceName: 'admin',
+  port: Number(env.ADMIN_PORT),
+  initResources: () => {
+    initDb(env.DATABASE_URL)
+    initRedis(env.REDIS_URL)
+  },
+  closeResources: async () => {
+    await closeDb()
+    await closeRedis()
+  },
+  healthCheck: async () => {
     let dbOk = false
     let redisOk = false
     try {
@@ -56,37 +33,27 @@ const app = new Elysia()
       await getRedis().ping()
       redisOk = true
     } catch {}
-    const healthy = dbOk && redisOk
-    set.status = healthy ? 200 : 503
-    return { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk }
-  })
-  .use(userRoutes)
-  .use(productRoutes)
-  .listen(port)
-
-logger.info({ port, service: 'admin' }, 'API listening')
-
-const SHUTDOWN_TIMEOUT_MS = 10_000
-
-async function shutdown() {
-  const forceExit = setTimeout(() => {
-    logger.error('shutdown timed out, forcing exit')
-    process.exit(1)
-  }, SHUTDOWN_TIMEOUT_MS)
-  forceExit.unref()
-  try {
-    await app.stop()
-    await closeDb()
-    await closeRedis()
-  } catch (err) {
-    logger.error({ err }, 'shutdown error')
-    process.exit(1)
-  }
-  process.exit(0)
-}
-
-process.on('SIGTERM', shutdown)
-process.on('SIGINT', shutdown)
+    return { db: dbOk, redis: redisOk }
+  },
+  setup: (app) => {
+    const enableDocs = env.NODE_ENV !== 'production'
+    return app
+      .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
+      .use(
+        enableDocs
+          ? openapi({
+              path: '/docs',
+              documentation: {
+                info: { title: 'Epinfresh Admin API', version: '1.0.0' },
+              },
+            })
+          : new Elysia(),
+      )
+      .use(authRateLimit({ prefix: 'rl:admin' }))
+      .use(userRoutes)
+      .use(productRoutes)
+  },
+})
 
 export type App = typeof app
 export type AdminModels = InferModelsMap<typeof app>

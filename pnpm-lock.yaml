@@ -239,6 +239,9 @@ importers:
 
   usecases/checkout:
     dependencies:
+      '@epinfresh/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@epinfresh/product':
         specifier: workspace:*
         version: link:../../domains/product

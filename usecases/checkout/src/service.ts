@@ -1,3 +1,4 @@
+import { db } from '@epinfresh/database'
 import { reduceProductStock } from '@epinfresh/product'
 import type { Result } from '@epinfresh/shared'
 
@@ -11,5 +12,5 @@ export interface CheckoutInput {
 export async function checkoutWorkflow(
   input: CheckoutInput,
 ): Promise<Result<void, 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'>> {
-  return reduceProductStock(input.skuId, input.quantity)
+  return db.transaction(async (tx) => reduceProductStock(input.skuId, input.quantity, tx))
 }

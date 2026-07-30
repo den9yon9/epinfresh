@@ -57,7 +57,20 @@ export function createSessionPlugin(options: SessionPluginOptions = {}) {
       }
       try {
         const raw = await redis.get(`session:${sessionId}`)
-        return { session: parseSession(raw) } satisfies { session: Session | null }
+        const session = parseSession(raw)
+        if (session) {
+          // ponytail: fire-and-forget sliding renewal, TTL under half → async refresh
+          void (async () => {
+            try {
+              const ttl = await redis.ttl(`session:${sessionId}`)
+              if (ttl > 0 && ttl < SESSION_TTL_SECONDS / 2) {
+                await redis.expire(`session:${sessionId}`, SESSION_TTL_SECONDS)
+                setSessionCookie(cookie.session_id, sessionId)
+              }
+            } catch {}
+          })()
+        }
+        return { session } satisfies { session: Session | null }
       } catch (err) {
         logger.error({ err }, 'session redis lookup failed')
         return { session: null } satisfies { session: Session | null }

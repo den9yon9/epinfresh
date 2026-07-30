@@ -1,4 +1,4 @@
-import { db, schema } from '@epinfresh/database'
+import { type DbClient, db, schema } from '@epinfresh/database'
 import { type Result, err, ok } from '@epinfresh/shared'
 import { and, count, eq, gte, sql } from 'drizzle-orm'
 import type { ProductModel } from './model'
@@ -48,8 +48,9 @@ export async function getProductByIdPublic(id: string) {
 export async function reduceProductStock(
   skuId: string,
   quantity: number,
+  client: DbClient = db,
 ): Promise<Result<void, 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'>> {
-  const updated = await db
+  const updated = await client
     .update(schema.productSkus)
     .set({
       stock: sql`${schema.productSkus.stock} - ${quantity}`,
@@ -59,7 +60,7 @@ export async function reduceProductStock(
     .returning()
 
   if (updated.length === 0) {
-    const sku = await db.query.productSkus.findFirst({
+    const sku = await client.query.productSkus.findFirst({
       where: eq(schema.productSkus.id, skuId),
     })
     if (!sku) return err('SKU_NOT_FOUND')

@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@epinfresh/database": "workspace:*",
     "@epinfresh/product": "workspace:*",
     "@epinfresh/shared": "workspace:*"
   }
