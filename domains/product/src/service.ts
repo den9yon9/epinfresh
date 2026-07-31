@@ -1,4 +1,4 @@
-import { type DbClient, db, schema } from '@epinfresh/database'
+import { type DbClient, schema } from '@epinfresh/database'
 import { type Result, err, ok } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
 import { and, count, eq, gte, sql } from 'drizzle-orm'
@@ -10,7 +10,10 @@ import type {
   UpdateProductInputSchema,
 } from './model'
 
-export async function listAllProducts(query: Static<typeof AdminProductListQuerySchema>) {
+export async function listAllProducts(
+  query: Static<typeof AdminProductListQuerySchema>,
+  client: DbClient,
+) {
   const { page, pageSize } = query
   const offset = (page - 1) * pageSize
 
@@ -19,23 +22,26 @@ export async function listAllProducts(query: Static<typeof AdminProductListQuery
   if (query.status) filters.push(eq(schema.products.status, query.status))
   const where = filters.length > 0 ? and(...filters) : undefined
 
-  const items = await db.query.products.findMany({
+  const items = await client.query.products.findMany({
     where,
     orderBy: (products, { asc }) => asc(products.createdAt),
     limit: pageSize,
     offset,
     with: { skus: true },
   })
-  const [{ total }] = await db.select({ total: count() }).from(schema.products).where(where)
+  const [{ total }] = await client.select({ total: count() }).from(schema.products).where(where)
   return { items, total: Number(total), page, pageSize }
 }
 
-export function listPublishedProducts(query: Static<typeof ProductListQuerySchema>) {
-  return listAllProducts({ ...query, status: 'published' })
+export function listPublishedProducts(
+  query: Static<typeof ProductListQuerySchema>,
+  client: DbClient,
+) {
+  return listAllProducts({ ...query, status: 'published' }, client)
 }
 
-export async function getProductById(id: string) {
-  const product = await db.query.products.findFirst({
+export async function getProductById(id: string, client: DbClient) {
+  const product = await client.query.products.findFirst({
     where: eq(schema.products.id, id),
     with: { skus: true },
   })
@@ -43,8 +49,8 @@ export async function getProductById(id: string) {
   return ok(product)
 }
 
-export async function getProductByIdPublic(id: string) {
-  const product = await db.query.products.findFirst({
+export async function getProductByIdPublic(id: string, client: DbClient) {
+  const product = await client.query.products.findFirst({
     where: and(eq(schema.products.id, id), eq(schema.products.status, 'published')),
     with: { skus: true },
   })
@@ -55,7 +61,7 @@ export async function getProductByIdPublic(id: string) {
 export async function reduceProductStock(
   skuId: string,
   quantity: number,
-  client: DbClient = db,
+  client: DbClient,
 ): Promise<Result<void, 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'>> {
   const updated = await client
     .update(schema.productSkus)
@@ -76,8 +82,11 @@ export async function reduceProductStock(
   return ok()
 }
 
-export async function createProduct(input: Static<typeof CreateProductInputSchema>) {
-  return db.transaction(async (tx) => {
+export async function createProduct(
+  input: Static<typeof CreateProductInputSchema>,
+  client: DbClient,
+) {
+  return client.transaction(async (tx) => {
     const [product] = await tx
       .insert(schema.products)
       .values({
@@ -109,8 +118,12 @@ export async function createProduct(input: Static<typeof CreateProductInputSchem
   })
 }
 
-export async function updateProduct(id: string, input: Static<typeof UpdateProductInputSchema>) {
-  return db.transaction(async (tx) => {
+export async function updateProduct(
+  id: string,
+  input: Static<typeof UpdateProductInputSchema>,
+  client: DbClient,
+) {
+  return client.transaction(async (tx) => {
     const [product] = await tx
       .update(schema.products)
       .set(input)
@@ -125,34 +138,37 @@ export async function updateProduct(id: string, input: Static<typeof UpdateProdu
   })
 }
 
-export async function removeProduct(id: string) {
-  return db.transaction(async (tx) => {
+export async function removeProduct(id: string, client: DbClient) {
+  return client.transaction(async (tx) => {
     const [product] = await tx.delete(schema.products).where(eq(schema.products.id, id)).returning()
     if (!product) return err('PRODUCT_NOT_FOUND')
     return ok()
   })
 }
 
-export async function listCategories(opts: { page: number; pageSize: number }) {
+export async function listCategories(opts: { page: number; pageSize: number }, client: DbClient) {
   const { page, pageSize } = opts
   const offset = (page - 1) * pageSize
-  const items = await db
+  const items = await client
     .select()
     .from(schema.categories)
     .orderBy(schema.categories.sortOrder)
     .limit(pageSize)
     .offset(offset)
-  const [{ total }] = await db.select({ total: count() }).from(schema.categories)
+  const [{ total }] = await client.select({ total: count() }).from(schema.categories)
   return { items, total: Number(total), page, pageSize }
 }
 
-export async function createCategory(input: Static<typeof CreateCategoryInputSchema>) {
-  const [cat] = await db.insert(schema.categories).values(input).returning()
+export async function createCategory(
+  input: Static<typeof CreateCategoryInputSchema>,
+  client: DbClient,
+) {
+  const [cat] = await client.insert(schema.categories).values(input).returning()
   return cat
 }
 
-export async function removeCategory(id: string) {
-  return db.transaction(async (tx) => {
+export async function removeCategory(id: string, client: DbClient) {
+  return client.transaction(async (tx) => {
     const [cat] = await tx.select().from(schema.categories).where(eq(schema.categories.id, id))
     if (!cat) return err('CATEGORY_NOT_FOUND')
     const [ref] = await tx

@@ -1,10 +1,10 @@
 import { getEnv, logger } from '@epinfresh/shared'
-import { closeDb, initDb, runMigrations } from './index'
+import { runMigrations } from './index'
 
-initDb(getEnv().DATABASE_URL)
 try {
-  await runMigrations()
+  await runMigrations(getEnv().DATABASE_URL)
   logger.info('migrations applied')
-} finally {
-  await closeDb()
+} catch (err) {
+  logger.error({ err }, 'migration failed')
+  process.exit(1)
 }

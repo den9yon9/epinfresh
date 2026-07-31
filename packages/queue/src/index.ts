@@ -1,28 +1,29 @@
-import { type RedisOptions, createRedis, getRedis } from '@epinfresh/redis'
+import type { RedisOptions } from '@epinfresh/redis'
 import { logger } from '@epinfresh/shared'
-import { type Processor, Queue, type QueueOptions, Worker, type WorkerOptions } from 'bullmq'
+import {
+  type ConnectionOptions,
+  type Processor,
+  Queue,
+  type QueueOptions,
+  Worker,
+  type WorkerOptions,
+} from 'bullmq'
 
 interface QueueConnectionOpts {
   redisUrl?: string
   redisOptions?: RedisOptions
 }
 
-function resolveRedisConnection(opts?: QueueConnectionOpts) {
-  if (opts?.redisUrl) return createRedis(opts.redisUrl, opts.redisOptions)
-  try {
-    return getRedis()
-  } catch (cause) {
-    throw new Error(
-      'Queue requires Redis. Pass { redisUrl } to createQueue/createWorker, or call initRedis() first.',
-      { cause },
-    )
-  }
+function resolveRedisConnection(opts?: QueueConnectionOpts): ConnectionOptions {
+  if (opts?.redisOptions) return opts.redisOptions
+  if (opts?.redisUrl) return { url: opts.redisUrl } as unknown as ConnectionOptions
+  throw new Error('Queue requires Redis. Pass { redisUrl } to createQueue/createWorker.')
 }
 
 export function createQueue<T = unknown>(
   name: string,
   opts?: Partial<QueueOptions> & QueueConnectionOpts,
-): Queue<T> {
+) {
   const { redisUrl, redisOptions, ...queueOpts } = opts ?? {}
   const connection = resolveRedisConnection({ redisUrl, redisOptions })
   return new Queue<T>(name, {
@@ -44,7 +45,7 @@ export function createWorker<T = unknown>(
   name: string,
   processor: Processor<T>,
   opts?: Partial<WorkerOptions> & QueueConnectionOpts,
-): Worker<T> {
+) {
   const { redisUrl, redisOptions, ...workerOpts } = opts ?? {}
   const connection = resolveRedisConnection({ redisUrl, redisOptions })
   const worker = new Worker<T>(name, processor, {

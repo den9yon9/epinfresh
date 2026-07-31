@@ -4,13 +4,14 @@ import type { PgTransaction } from 'drizzle-orm/pg-core'
 import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js'
 import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import { Elysia } from 'elysia'
 import postgres, { type Sql } from 'postgres'
 import * as schema from './schema'
 
 export { schema }
 export { table } from './model'
 
-type PgDatabase = PostgresJsDatabase<typeof schema>
+type PgDatabase = PostgresJsDatabase<typeof schema> & { $client: Sql }
 
 export type Db = PgDatabase
 
@@ -22,15 +23,6 @@ export type DbTransaction = PgTransaction<
 
 export type DbClient = Db | DbTransaction
 
-// ponytail: initDb() runs before Elysia listens; never undefined at request time
-export let db!: Db
-
-export function setDb(d: Db): void {
-  db = d
-}
-
-let queryClient: Sql | null = null
-
 export function createDb(connectionString: string): Db {
   const client = postgres(connectionString, {
     max: 10,
@@ -41,35 +33,24 @@ export function createDb(connectionString: string): Db {
   return drizzle(client, { schema })
 }
 
-export function initDb(connectionString: string): Db {
-  if (queryClient) {
-    queryClient.end({ timeout: 5 }).catch(() => {})
-  }
-  queryClient = postgres(connectionString, {
-    max: 10,
-    idle_timeout: 30,
-    connect_timeout: 30,
-    prepare: false,
+export async function closeDb(db: Db): Promise<void> {
+  await db.$client.end({ timeout: 5 }).catch(() => {})
+}
+
+export function dbPlugin(connection: string | Db) {
+  const client = typeof connection === 'string' ? createDb(connection) : connection
+  return new Elysia({ name: 'infra-db' }).decorate('db', client).onStop(async () => {
+    await closeDb(client)
   })
-  db = drizzle(queryClient, { schema })
-  return db
-}
-
-export function getSql(): Sql {
-  if (!queryClient) throw new Error('initDb() not called')
-  return queryClient
-}
-
-export async function closeDb(): Promise<void> {
-  if (queryClient) {
-    await queryClient.end({ timeout: 5 })
-    queryClient = null
-  }
 }
 
 const migrationsFolder = fileURLToPath(new URL('./migrations', import.meta.url))
 
-export async function runMigrations(): Promise<void> {
-  if (!db) throw new Error('initDb() must be called before runMigrations()')
-  await migrate(db, { migrationsFolder })
+export async function runMigrations(connectionString: string): Promise<void> {
+  const db = createDb(connectionString)
+  try {
+    await migrate(db, { migrationsFolder })
+  } finally {
+    await closeDb(db)
+  }
 }

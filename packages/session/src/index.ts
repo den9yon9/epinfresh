@@ -4,7 +4,6 @@ export {
   type SessionStore,
   type SessionPluginOptions,
   createSessionPlugin,
-  sessionPlugin,
   createSessionStore,
   setSessionCookie,
   clearSessionCookie,

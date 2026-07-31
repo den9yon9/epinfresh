@@ -1,20 +1,16 @@
 import { registerEmailWorker } from '@epinfresh/queue'
-import { closeRedis, initRedis } from '@epinfresh/redis'
 import { baseEnvSchema, loadEnv, logger } from '@epinfresh/shared'
 
 const env = loadEnv(baseEnvSchema)
 
-initRedis(env.REDIS_URL)
-
 logger.info('Worker application starting...')
 
-const emailWorker = registerEmailWorker()
+const emailWorker = registerEmailWorker(env.REDIS_URL)
 
 async function shutdown() {
   logger.info('Shutting down worker...')
   try {
     await emailWorker.close()
-    await closeRedis()
   } catch (err) {
     logger.error({ err }, 'Error during worker shutdown')
   }

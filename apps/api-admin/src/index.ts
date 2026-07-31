@@ -1,8 +1,8 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
-import { closeDb, getSql, initDb } from '@epinfresh/database'
-import { closeRedis, getRedis, initRedis } from '@epinfresh/redis'
-import { authRateLimit } from '@epinfresh/session'
+import { createDb, dbPlugin } from '@epinfresh/database'
+import { createRedisClient, redisPlugin } from '@epinfresh/redis'
+import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
 import { type InferModelsMap, createApiServer, loadEnv } from '@epinfresh/shared'
 import { Elysia } from 'elysia'
 import { adminEnvSchema } from './env'
@@ -11,30 +11,13 @@ import { userRoutes } from './routes/user'
 
 const env = loadEnv(adminEnvSchema)
 
+const redis = createRedisClient(env.REDIS_URL)
+const db = createDb(env.DATABASE_URL)
+
 const app = createApiServer({
   serviceName: 'admin',
   port: Number(env.ADMIN_PORT),
-  initResources: () => {
-    initDb(env.DATABASE_URL)
-    initRedis(env.REDIS_URL)
-  },
-  closeResources: async () => {
-    await closeDb()
-    await closeRedis()
-  },
-  healthCheck: async () => {
-    let dbOk = false
-    let redisOk = false
-    try {
-      await getSql()`SELECT 1`
-      dbOk = true
-    } catch {}
-    try {
-      await getRedis().ping()
-      redisOk = true
-    } catch {}
-    return { db: dbOk, redis: redisOk }
-  },
+  plugins: [redisPlugin(redis), dbPlugin(db)],
   setup: (app) => {
     const enableDocs = env.NODE_ENV !== 'production'
     return app
@@ -49,9 +32,9 @@ const app = createApiServer({
             })
           : new Elysia(),
       )
-      .use(authRateLimit({ prefix: 'rl:admin' }))
-      .use(userRoutes)
-      .use(productRoutes)
+      .use(authRateLimit({ redis, prefix: 'rl:admin' }))
+      .use(userRoutes({ db, redis }))
+      .use(productRoutes({ db, redis }))
   },
 })
 

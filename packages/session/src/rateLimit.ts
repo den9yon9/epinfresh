@@ -1,4 +1,4 @@
-import { getRedis } from '@epinfresh/redis'
+import type { Redis } from '@epinfresh/redis'
 import { getEnv } from '@epinfresh/shared'
 import {
   type RateLimitPluginOptions,
@@ -8,6 +8,7 @@ import {
 import { redisStore } from 'elysia-nazli/redis'
 
 export interface AuthRateLimitOptions {
+  redis: Redis
   limit?: number
   window?: RateLimitPluginOptions['window']
   prefix?: string
@@ -15,12 +16,12 @@ export interface AuthRateLimitOptions {
   trustProxy?: boolean
 }
 
-export function authRateLimit(opts: AuthRateLimitOptions = {}): ReturnType<typeof nazliRateLimit> {
+export function authRateLimit(opts: AuthRateLimitOptions): ReturnType<typeof nazliRateLimit> {
   const trustProxy = opts.trustProxy ?? getEnv().TRUST_PROXY
   return nazliRateLimit({
     namespace: opts.namespace ?? 'epinfresh',
     store: redisStore({
-      client: getRedis() as unknown as RedisClientLike,
+      client: opts.redis as unknown as RedisClientLike,
       adapter: 'ioredis',
       prefix: opts.prefix ?? 'rl',
     }),

@@ -8,19 +8,17 @@ import { securityHeaders } from './securityHeaders'
 interface CreateApiServerOptions {
   serviceName: string
   port: number
-  initResources: () => void
-  closeResources: () => Promise<void>
-  healthCheck: () => Promise<{ db: boolean; redis: boolean }>
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia generic types diverge per .use() chain
+  plugins: any[]
   // biome-ignore lint/suspicious/noExplicitAny: Elysia generic types diverge per .use() chain
   setup: (app: any) => any
 }
 
 export function createApiServer(options: CreateApiServerOptions) {
-  const { serviceName, port, initResources, closeResources, healthCheck, setup } = options
+  const { serviceName, port, plugins, setup } = options
 
-  initResources()
-
-  const app = new Elysia()
+  // biome-ignore lint/suspicious/noExplicitAny: infra plugins contribute runtime context decorators
+  let app: any = new Elysia()
     .use(requestLogger())
     .use(securityHeaders())
     .onError(({ error }) => {
@@ -28,12 +26,34 @@ export function createApiServer(options: CreateApiServerOptions) {
       if (mapped) return status(mapped.status, mapped.body)
     })
     .use(commonModel)
-    .get('/health', async ({ set }) => {
-      const { db: dbOk, redis: redisOk } = await healthCheck()
+
+  for (const plugin of plugins) {
+    app = app.use(plugin)
+  }
+
+  app = app.get(
+    '/health',
+    async (ctx: {
+      redis: { ping: () => Promise<unknown> }
+      db: { execute: (sql: string) => Promise<unknown> }
+      set: { status: number }
+    }) => {
+      const { redis, db, set } = ctx
+      let dbOk = false
+      let redisOk = false
+      try {
+        await db.execute('SELECT 1')
+        dbOk = true
+      } catch {}
+      try {
+        await redis.ping()
+        redisOk = true
+      } catch {}
       const healthy = dbOk && redisOk
       set.status = healthy ? 200 : 503
       return { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk }
-    })
+    },
+  )
 
   const configured = setup(app) as Elysia
   configured.listen(port)
@@ -50,7 +70,6 @@ export function createApiServer(options: CreateApiServerOptions) {
     forceExit.unref()
     try {
       await configured.stop()
-      await closeResources()
     } catch (err) {
       logger.error({ err }, 'shutdown error')
       process.exit(1)

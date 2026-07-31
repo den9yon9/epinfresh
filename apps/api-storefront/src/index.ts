@@ -1,7 +1,9 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
-import { closeDb, getSql, initDb } from '@epinfresh/database'
-import { closeRedis, getRedis, initRedis } from '@epinfresh/redis'
+import { createDb, dbPlugin } from '@epinfresh/database'
+import { getEmailQueue } from '@epinfresh/queue'
+import { createRedisClient, redisPlugin } from '@epinfresh/redis'
+import { createSessionPlugin } from '@epinfresh/session'
 import { type InferModelsMap, createApiServer, loadEnv } from '@epinfresh/shared'
 import { storefrontEnvSchema } from './env'
 import { checkoutRoutes } from './routes/checkout'
@@ -10,30 +12,14 @@ import { userRoutes } from './routes/user'
 
 const env = loadEnv(storefrontEnvSchema)
 
+const redis = createRedisClient(env.REDIS_URL)
+const db = createDb(env.DATABASE_URL)
+const emailQueue = getEmailQueue(env.REDIS_URL)
+
 const app = createApiServer({
   serviceName: 'storefront',
   port: Number(env.STOREFRONT_PORT),
-  initResources: () => {
-    initDb(env.DATABASE_URL)
-    initRedis(env.REDIS_URL)
-  },
-  closeResources: async () => {
-    await closeDb()
-    await closeRedis()
-  },
-  healthCheck: async () => {
-    let dbOk = false
-    let redisOk = false
-    try {
-      await getSql()`SELECT 1`
-      dbOk = true
-    } catch {}
-    try {
-      await getRedis().ping()
-      redisOk = true
-    } catch {}
-    return { db: dbOk, redis: redisOk }
-  },
+  plugins: [redisPlugin(redis), dbPlugin(db)],
   setup: (app) =>
     app
       .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
@@ -45,9 +31,9 @@ const app = createApiServer({
           },
         }),
       )
-      .use(userRoutes)
-      .use(productRoutes)
-      .use(checkoutRoutes),
+      .use(userRoutes({ db, redis, emailQueue }))
+      .use(productRoutes({ db }))
+      .use(checkoutRoutes({ db, redis })),
 })
 
 export type App = typeof app

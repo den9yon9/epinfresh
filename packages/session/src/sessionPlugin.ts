@@ -1,4 +1,4 @@
-import { type Redis, getRedis } from '@epinfresh/redis'
+import type { Redis } from '@epinfresh/redis'
 import { USER_ROLE, type UserRole, getEnv, logger } from '@epinfresh/shared'
 import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status, t } from 'elysia'
@@ -34,14 +34,13 @@ function resolveSecret(secret?: string): string {
 }
 
 export interface SessionPluginOptions {
-  redis?: Redis
+  redis: Redis
   sessionSecret?: string
 }
 
-export function createSessionPlugin(options: SessionPluginOptions = {}) {
-  const resolveRedis = (): Redis => options.redis ?? getRedis()
+export function createSessionPlugin(options: SessionPluginOptions) {
+  const { redis } = options
   const secret = resolveSecret(options.sessionSecret)
-  const redis = resolveRedis()
   return new Elysia({
     name: 'session',
     cookie: {
@@ -59,16 +58,11 @@ export function createSessionPlugin(options: SessionPluginOptions = {}) {
         const raw = await redis.get(`session:${sessionId}`)
         const session = parseSession(raw)
         if (session) {
-          // ponytail: fire-and-forget sliding renewal, TTL under half → async refresh
-          void (async () => {
-            try {
-              const ttl = await redis.ttl(`session:${sessionId}`)
-              if (ttl > 0 && ttl < SESSION_TTL_SECONDS / 2) {
-                await redis.expire(`session:${sessionId}`, SESSION_TTL_SECONDS)
-                setSessionCookie(cookie.session_id, sessionId)
-              }
-            } catch {}
-          })()
+          const ttl = await redis.ttl(`session:${sessionId}`)
+          if (ttl > 0 && ttl < SESSION_TTL_SECONDS / 2) {
+            await redis.expire(`session:${sessionId}`, SESSION_TTL_SECONDS)
+            setSessionCookie(cookie.session_id, sessionId)
+          }
         }
         return { session } satisfies { session: Session | null }
       } catch (err) {
@@ -93,8 +87,6 @@ export function createSessionPlugin(options: SessionPluginOptions = {}) {
       },
     })
 }
-
-export const sessionPlugin = createSessionPlugin()
 
 export function setSessionCookie(cookie: Cookie<unknown> | undefined, sessionId: string): void {
   if (!cookie) return

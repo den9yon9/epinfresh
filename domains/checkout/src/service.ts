@@ -1,4 +1,4 @@
-import { db } from '@epinfresh/database'
+import type { DbClient } from '@epinfresh/database'
 import { reduceProductStock } from '@epinfresh/product'
 import type { Result } from '@epinfresh/shared'
 
@@ -11,6 +11,7 @@ export interface CheckoutInput {
 // ponytail: placeholder for future order creation; userId will be used then
 export async function checkoutWorkflow(
   input: CheckoutInput,
+  client: DbClient,
 ): Promise<Result<void, 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'>> {
-  return db.transaction(async (tx) => reduceProductStock(input.skuId, input.quantity, tx))
+  return client.transaction(async (tx) => reduceProductStock(input.skuId, input.quantity, tx))
 }

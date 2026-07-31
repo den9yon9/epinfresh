@@ -1,48 +1,36 @@
 import { logger } from '@epinfresh/shared'
+import { Elysia } from 'elysia'
 import { Redis, type RedisOptions } from 'ioredis'
 
 export type { Redis, RedisOptions }
 
-let instance: Redis | null = null
-
-export function setRedis(r: Redis): void {
-  if (instance) instance.disconnect()
-  instance = r
-  r.on('error', (err) => {
-    logger.error({ err }, 'redis connection error')
-  })
-}
-
-export function createRedis(url: string, opts: RedisOptions = {}): Redis {
+export function createRedisClient(url: string, opts: RedisOptions = {}): Redis {
   return new Redis(url, {
     maxRetriesPerRequest: 3,
     enableOfflineQueue: true,
-    lazyConnect: false,
+    lazyConnect: true,
     connectTimeout: 2_000,
     retryStrategy: (times) => Math.min(times * 200, 1_000),
     ...opts,
   })
 }
 
-export function initRedis(url: string, opts: RedisOptions = {}): Redis {
-  if (instance) {
-    instance.disconnect()
-  }
-  instance = createRedis(url, opts)
-  instance.on('error', (err) => {
+export function redisPlugin(connection: string | Redis, opts: RedisOptions = {}) {
+  const client = typeof connection === 'string' ? createRedisClient(connection, opts) : connection
+  client.on('error', (err) => {
     logger.error({ err }, 'redis connection error')
   })
-  return instance
-}
-
-export function getRedis(): Redis {
-  if (!instance) throw new Error('Redis not initialized. Call initRedis(env.REDIS_URL) first.')
-  return instance
-}
-
-export async function closeRedis(): Promise<void> {
-  if (instance) {
-    await instance.quit()
-    instance = null
-  }
+  return new Elysia({ name: 'infra-redis' })
+    .decorate('redis', client)
+    .onStart(async () => {
+      if (client.status !== 'wait') return
+      try {
+        await client.connect()
+      } catch (err) {
+        logger.error({ err }, 'redis initial connect failed; retrying in background')
+      }
+    })
+    .onStop(async () => {
+      await client.quit()
+    })
 }
