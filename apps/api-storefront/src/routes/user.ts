@@ -7,7 +7,7 @@ import {
   createSessionPlugin,
   setSessionCookie,
 } from '@epinfresh/session'
-import { ErrorResponse, commonModel } from '@epinfresh/shared'
+import { ErrorResponse, type Logger, commonModel } from '@epinfresh/shared'
 import {
   LoginInputSchema,
   RegisterInputSchema,
@@ -22,14 +22,19 @@ export interface UserRoutesDeps {
   db: Db
   redis: Redis
   emailQueue: ReturnType<typeof getEmailQueue>
+  logger: Logger
+  sessionSecret: string
+  isProduction: boolean
+  trustProxy: boolean
 }
 
 export function userRoutes(deps: UserRoutesDeps) {
+  const { logger, sessionSecret, isProduction, trustProxy } = deps
   return new Elysia({ name: 'user-storefront', prefix: '/api/v1/auth' })
     .use(commonModel)
     .decorate('db', deps.db)
-    .use(createSessionPlugin({ redis: deps.redis }))
-    .use(authRateLimit({ redis: deps.redis, prefix: 'rl:auth' }))
+    .use(createSessionPlugin({ redis: deps.redis, sessionSecret, isProduction, logger }))
+    .use(authRateLimit({ redis: deps.redis, prefix: 'rl:auth', trustProxy }))
     .post(
       '/register',
       async ({ body, db }) => {
@@ -58,7 +63,7 @@ export function userRoutes(deps: UserRoutesDeps) {
               await sessionStore.destroy(oldSid)
             }
             const sessionId = await sessionStore.create({ userId: user.id, role: user.role })
-            setSessionCookie(cookie.session_id, sessionId)
+            setSessionCookie(cookie.session_id, sessionId, isProduction)
             return user
           },
           (code) => status(401, { error: code, message: 'Invalid email or password' }),
@@ -78,7 +83,7 @@ export function userRoutes(deps: UserRoutesDeps) {
           const sid = cookie.session_id?.value
           if (typeof sid === 'string' && sid.length > 0) await sessionStore.destroy(sid)
         }
-        clearSessionCookie(cookie.session_id)
+        clearSessionCookie(cookie.session_id, isProduction)
         return status(204)
       },
       { detail: { tags: ['Auth'] } },

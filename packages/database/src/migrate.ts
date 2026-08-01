@@ -1,8 +1,11 @@
-import { getEnv, logger } from '@epinfresh/shared'
+import { baseEnvSchema, createLogger, parseEnv } from '@epinfresh/shared'
 import { runMigrations } from './index'
 
+const env = parseEnv(baseEnvSchema)
+const logger = createLogger(env.LOG_LEVEL)
+
 try {
-  await runMigrations(getEnv().DATABASE_URL)
+  await runMigrations(env.DATABASE_URL)
   logger.info('migrations applied')
 } catch (err) {
   logger.error({ err }, 'migration failed')

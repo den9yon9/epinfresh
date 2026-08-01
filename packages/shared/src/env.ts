@@ -40,11 +40,8 @@ export const baseEnvSchema = t.Object({
     .Encode((v) => (v ? 'true' : 'false')),
 })
 
-type BaseEnv = Static<typeof baseEnvSchema>
 type Schema = TObject
 type Source = Record<string, string | undefined>
-
-let cachedEnv: BaseEnv | null = null
 
 function collectErrors(schema: Schema, source: Source): string[] {
   const seen = new Set<string>()
@@ -58,7 +55,10 @@ function collectErrors(schema: Schema, source: Source): string[] {
   return out
 }
 
-export function loadEnv<T extends Schema>(schema: T, source: Source = process.env as Source) {
+export function parseEnv<T extends Schema>(
+  schema: T,
+  source: Source = process.env as Source,
+): Static<T> {
   const withDefaults = Value.Default(schema, source) as Source
   const missing = collectErrors(schema, withDefaults)
   if (missing.length > 0) throw new Error(`[ENV] missing or invalid: ${missing.join(', ')}`)
@@ -69,13 +69,5 @@ export function loadEnv<T extends Schema>(schema: T, source: Source = process.en
       '[ENV] CORS_ORIGIN cannot be "*" in production; set an explicit origin or comma-separated allowlist',
     )
   }
-  cachedEnv = decoded as BaseEnv
-  return decoded
-}
-
-export function getEnv(): BaseEnv {
-  if (!cachedEnv) {
-    cachedEnv = loadEnv(baseEnvSchema)
-  }
-  return cachedEnv
+  return decoded as Static<T>
 }

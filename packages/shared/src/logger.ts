@@ -1,28 +1,23 @@
 import pino, { type Level, type Logger } from 'pino'
-import { getEnv } from './env'
+
+export type { Logger } from 'pino'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent'
 
 const ALLOWED = new Set<LogLevel>(['debug', 'info', 'warn', 'error', 'silent'])
 
-function readInitialLevel(): string {
-  try {
-    return getEnv().LOG_LEVEL
-  } catch {
-    return 'info'
-  }
+export function createLogger(level: LogLevel): Logger {
+  return pino({
+    level: ALLOWED.has(level) ? (level as Level) : 'info',
+    base: { service: 'epinfresh' },
+    redact: {
+      paths: [
+        'req.headers.authorization',
+        'req.headers.cookie',
+        'headers.authorization',
+        'headers.cookie',
+      ],
+      censor: '[REDACTED]',
+    },
+  })
 }
-
-export const logger: Logger = pino({
-  level: readInitialLevel() as Level,
-  base: { service: 'epinfresh' },
-  redact: {
-    paths: [
-      'req.headers.authorization',
-      'req.headers.cookie',
-      'headers.authorization',
-      'headers.cookie',
-    ],
-    censor: '[REDACTED]',
-  },
-})

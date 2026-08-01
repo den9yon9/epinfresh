@@ -1,11 +1,12 @@
 import { registerEmailWorker } from '@epinfresh/queue'
-import { baseEnvSchema, loadEnv, logger } from '@epinfresh/shared'
+import { baseEnvSchema, createLogger, parseEnv } from '@epinfresh/shared'
 
-const env = loadEnv(baseEnvSchema)
+const env = parseEnv(baseEnvSchema)
+const logger = createLogger(env.LOG_LEVEL)
 
 logger.info('Worker application starting...')
 
-const emailWorker = registerEmailWorker(env.REDIS_URL)
+const emailWorker = registerEmailWorker(env.REDIS_URL, logger)
 
 async function shutdown() {
   logger.info('Shutting down worker...')

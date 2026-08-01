@@ -1,5 +1,4 @@
 import type { Redis } from '@epinfresh/redis'
-import { getEnv } from '@epinfresh/shared'
 import {
   type RateLimitPluginOptions,
   type RedisClientLike,
@@ -17,7 +16,7 @@ export interface AuthRateLimitOptions {
 }
 
 export function authRateLimit(opts: AuthRateLimitOptions): ReturnType<typeof nazliRateLimit> {
-  const trustProxy = opts.trustProxy ?? getEnv().TRUST_PROXY
+  const trustProxy = opts.trustProxy ?? false
   return nazliRateLimit({
     namespace: opts.namespace ?? 'epinfresh',
     store: redisStore({

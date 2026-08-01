@@ -1,4 +1,4 @@
-import { logger } from '@epinfresh/shared'
+import type { Logger } from '@epinfresh/shared'
 import { createQueue, createWorker } from '../index'
 
 export interface SendEmailJobData {
@@ -13,7 +13,7 @@ export function getEmailQueue(redisUrl: string) {
   return createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl })
 }
 
-export function registerEmailWorker(redisUrl: string) {
+export function registerEmailWorker(redisUrl: string, logger: Logger) {
   return createWorker<SendEmailJobData>(
     EMAIL_QUEUE_NAME,
     async (job) => {
@@ -26,6 +26,6 @@ export function registerEmailWorker(redisUrl: string) {
           break
       }
     },
-    { redisUrl },
+    { redisUrl, logger },
   )
 }

@@ -2,14 +2,21 @@ import { checkoutWorkflow } from '@epinfresh/checkout'
 import type { Db } from '@epinfresh/database'
 import type { Redis } from '@epinfresh/redis'
 import { createSessionPlugin } from '@epinfresh/session'
-import { commonModel } from '@epinfresh/shared'
+import { type Logger, commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
-export function checkoutRoutes(deps: { db: Db; redis: Redis }) {
+export function checkoutRoutes(deps: {
+  db: Db
+  redis: Redis
+  logger: Logger
+  sessionSecret: string
+  isProduction: boolean
+}) {
+  const { logger, sessionSecret, isProduction } = deps
   return new Elysia({ name: 'checkout', prefix: '/api/v1' })
     .use(commonModel)
     .decorate('db', deps.db)
-    .use(createSessionPlugin({ redis: deps.redis }))
+    .use(createSessionPlugin({ redis: deps.redis, sessionSecret, isProduction, logger }))
     .post(
       '/checkout',
       async ({ body, session, db }) => {

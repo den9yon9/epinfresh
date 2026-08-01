@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { logger } from './logger'
+import type { Logger } from './logger'
 
 interface RequestContext {
   requestId: string
@@ -22,7 +22,7 @@ function getPath(request: Request): string {
   }
 }
 
-export const requestLogger = () =>
+export const requestLogger = (logger: Logger) =>
   new Elysia({ name: 'request-logger' })
     .onRequest((ctx) => {
       const requestId = crypto.randomUUID()

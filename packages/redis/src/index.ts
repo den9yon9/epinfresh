@@ -1,4 +1,4 @@
-import { logger } from '@epinfresh/shared'
+import type { Logger } from '@epinfresh/shared'
 import { Elysia } from 'elysia'
 import { Redis, type RedisOptions } from 'ioredis'
 
@@ -15,8 +15,10 @@ export function createRedisClient(url: string, opts: RedisOptions = {}): Redis {
   })
 }
 
-export function redisPlugin(connection: string | Redis, opts: RedisOptions = {}) {
-  const client = typeof connection === 'string' ? createRedisClient(connection, opts) : connection
+export function redisPlugin(connection: string | Redis, opts: RedisOptions & { logger: Logger }) {
+  const { logger, ...redisOpts } = opts
+  const client =
+    typeof connection === 'string' ? createRedisClient(connection, redisOpts) : connection
   client.on('error', (err) => {
     logger.error({ err }, 'redis connection error')
   })

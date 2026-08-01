@@ -3,13 +3,14 @@ import { openapi } from '@elysiajs/openapi'
 import { createDb, dbPlugin } from '@epinfresh/database'
 import { createRedisClient, redisPlugin } from '@epinfresh/redis'
 import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
-import { type InferModelsMap, createApiServer, loadEnv } from '@epinfresh/shared'
+import { type InferModelsMap, createApiServer, createLogger } from '@epinfresh/shared'
 import { Elysia } from 'elysia'
-import { adminEnvSchema } from './env'
+import { env } from './env'
 import { productRoutes } from './routes/product'
 import { userRoutes } from './routes/user'
 
-const env = loadEnv(adminEnvSchema)
+const logger = createLogger(env.LOG_LEVEL)
+const isProduction = env.NODE_ENV === 'production'
 
 const redis = createRedisClient(env.REDIS_URL)
 const db = createDb(env.DATABASE_URL)
@@ -17,9 +18,11 @@ const db = createDb(env.DATABASE_URL)
 const app = createApiServer({
   serviceName: 'admin',
   port: Number(env.ADMIN_PORT),
-  plugins: [redisPlugin(redis), dbPlugin(db)],
+  logger,
+  isProduction,
+  plugins: [redisPlugin(redis, { logger }), dbPlugin(db)],
   setup: (app) => {
-    const enableDocs = env.NODE_ENV !== 'production'
+    const enableDocs = !isProduction
     return app
       .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
       .use(
@@ -32,9 +35,25 @@ const app = createApiServer({
             })
           : new Elysia(),
       )
-      .use(authRateLimit({ redis, prefix: 'rl:admin' }))
-      .use(userRoutes({ db, redis }))
-      .use(productRoutes({ db, redis }))
+      .use(authRateLimit({ redis, prefix: 'rl:admin', trustProxy: env.TRUST_PROXY }))
+      .use(
+        userRoutes({
+          db,
+          redis,
+          logger,
+          sessionSecret: env.SESSION_SECRET,
+          isProduction,
+        }),
+      )
+      .use(
+        productRoutes({
+          db,
+          redis,
+          logger,
+          sessionSecret: env.SESSION_SECRET,
+          isProduction,
+        }),
+      )
   },
 })
 

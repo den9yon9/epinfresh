@@ -1,7 +1,7 @@
 import type { Db } from '@epinfresh/database'
 import type { Redis } from '@epinfresh/redis'
 import { createSessionPlugin } from '@epinfresh/session'
-import { ErrorResponse, commonModel } from '@epinfresh/shared'
+import { ErrorResponse, type Logger, commonModel } from '@epinfresh/shared'
 import {
   UserListQuerySchema,
   UserListResponseSchema,
@@ -13,11 +13,18 @@ import { Elysia, status, t } from 'elysia'
 
 const adminResponse = { 401: ErrorResponse, 403: ErrorResponse } as const
 
-export function userRoutes(deps: { db: Db; redis: Redis }) {
+export function userRoutes(deps: {
+  db: Db
+  redis: Redis
+  logger: Logger
+  sessionSecret: string
+  isProduction: boolean
+}) {
+  const { logger, sessionSecret, isProduction } = deps
   return new Elysia({ name: 'user-admin', prefix: '/api/v1/admin' })
     .use(commonModel)
     .decorate('db', deps.db)
-    .use(createSessionPlugin({ redis: deps.redis }))
+    .use(createSessionPlugin({ redis: deps.redis, sessionSecret, isProduction, logger }))
     .get('/users', ({ query, db }) => listUsers(query, db), {
       isAdmin: true,
       query: UserListQuerySchema,

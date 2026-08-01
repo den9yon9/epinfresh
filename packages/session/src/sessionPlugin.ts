@@ -1,5 +1,5 @@
 import type { Redis } from '@epinfresh/redis'
-import { USER_ROLE, type UserRole, getEnv, logger } from '@epinfresh/shared'
+import { type Logger, USER_ROLE, type UserRole } from '@epinfresh/shared'
 import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status, t } from 'elysia'
 
@@ -23,23 +23,22 @@ function parseSession(raw: string | null): Session | null {
   }
 }
 
-function resolveSecret(secret?: string): string {
-  const resolved = secret ?? getEnv().SESSION_SECRET
-  if (!resolved || resolved.length < 32) {
-    throw new Error(
-      '[session] SESSION_SECRET is required (min 32 chars). Pass it via options or getEnv().',
-    )
+function resolveSecret(secret: string): string {
+  if (!secret || secret.length < 32) {
+    throw new Error('[session] SESSION_SECRET is required (min 32 chars). Pass it via options.')
   }
-  return resolved
+  return secret
 }
 
 export interface SessionPluginOptions {
   redis: Redis
-  sessionSecret?: string
+  sessionSecret: string
+  isProduction: boolean
+  logger: Logger
 }
 
 export function createSessionPlugin(options: SessionPluginOptions) {
-  const { redis } = options
+  const { redis, isProduction, logger } = options
   const secret = resolveSecret(options.sessionSecret)
   return new Elysia({
     name: 'session',
@@ -61,7 +60,7 @@ export function createSessionPlugin(options: SessionPluginOptions) {
           const ttl = await redis.ttl(`session:${sessionId}`)
           if (ttl > 0 && ttl < SESSION_TTL_SECONDS / 2) {
             await redis.expire(`session:${sessionId}`, SESSION_TTL_SECONDS)
-            setSessionCookie(cookie.session_id, sessionId)
+            setSessionCookie(cookie.session_id, sessionId, isProduction)
           }
         }
         return { session } satisfies { session: Session | null }
@@ -88,9 +87,12 @@ export function createSessionPlugin(options: SessionPluginOptions) {
     })
 }
 
-export function setSessionCookie(cookie: Cookie<unknown> | undefined, sessionId: string): void {
+export function setSessionCookie(
+  cookie: Cookie<unknown> | undefined,
+  sessionId: string,
+  secure: boolean,
+): void {
   if (!cookie) return
-  const secure = getEnv().NODE_ENV === 'production'
   cookie.set({
     value: sessionId,
     httpOnly: true,
@@ -101,9 +103,8 @@ export function setSessionCookie(cookie: Cookie<unknown> | undefined, sessionId:
   })
 }
 
-export function clearSessionCookie(cookie: Cookie<unknown> | undefined): void {
+export function clearSessionCookie(cookie: Cookie<unknown> | undefined, secure: boolean): void {
   if (!cookie) return
-  const secure = getEnv().NODE_ENV === 'production'
   cookie.set({
     value: '',
     httpOnly: true,

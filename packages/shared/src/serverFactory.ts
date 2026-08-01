@@ -1,13 +1,15 @@
 import { Elysia, status } from 'elysia'
 import { commonModel } from './commonModel'
 import { mapDbError } from './dbError'
-import { logger } from './logger'
+import type { Logger } from './logger'
 import { requestLogger } from './requestLogger'
 import { securityHeaders } from './securityHeaders'
 
 interface CreateApiServerOptions {
   serviceName: string
   port: number
+  logger: Logger
+  isProduction: boolean
   // biome-ignore lint/suspicious/noExplicitAny: Elysia generic types diverge per .use() chain
   plugins: any[]
   // biome-ignore lint/suspicious/noExplicitAny: Elysia generic types diverge per .use() chain
@@ -15,12 +17,12 @@ interface CreateApiServerOptions {
 }
 
 export function createApiServer(options: CreateApiServerOptions) {
-  const { serviceName, port, plugins, setup } = options
+  const { serviceName, port, logger, isProduction, plugins, setup } = options
 
   // biome-ignore lint/suspicious/noExplicitAny: infra plugins contribute runtime context decorators
   let app: any = new Elysia()
-    .use(requestLogger())
-    .use(securityHeaders())
+    .use(requestLogger(logger))
+    .use(securityHeaders(isProduction))
     .onError(({ error }) => {
       const mapped = mapDbError(error)
       if (mapped) return status(mapped.status, mapped.body)

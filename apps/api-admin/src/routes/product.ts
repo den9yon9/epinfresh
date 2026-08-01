@@ -20,16 +20,23 @@ import {
 } from '@epinfresh/product'
 import type { Redis } from '@epinfresh/redis'
 import { createSessionPlugin } from '@epinfresh/session'
-import { ErrorResponse, commonModel } from '@epinfresh/shared'
+import { ErrorResponse, type Logger, commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
 const adminResponse = { 401: ErrorResponse, 403: ErrorResponse } as const
 
-export function productRoutes(deps: { db: Db; redis: Redis }) {
+export function productRoutes(deps: {
+  db: Db
+  redis: Redis
+  logger: Logger
+  sessionSecret: string
+  isProduction: boolean
+}) {
+  const { logger, sessionSecret, isProduction } = deps
   return new Elysia({ name: 'product-admin', prefix: '/api/v1/admin' })
     .use(commonModel)
     .decorate('db', deps.db)
-    .use(createSessionPlugin({ redis: deps.redis }))
+    .use(createSessionPlugin({ redis: deps.redis, sessionSecret, isProduction, logger }))
     .get('/products', async ({ query, db }) => listAllProducts(query, db), {
       isAdmin: true,
       query: AdminProductListQuerySchema,

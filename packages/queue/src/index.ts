@@ -1,5 +1,5 @@
 import type { RedisOptions } from '@epinfresh/redis'
-import { logger } from '@epinfresh/shared'
+import type { Logger } from '@epinfresh/shared'
 import {
   type ConnectionOptions,
   type Processor,
@@ -44,9 +44,9 @@ export function createQueue<T = unknown>(
 export function createWorker<T = unknown>(
   name: string,
   processor: Processor<T>,
-  opts?: Partial<WorkerOptions> & QueueConnectionOpts,
+  opts: Partial<WorkerOptions> & QueueConnectionOpts & { logger: Logger },
 ) {
-  const { redisUrl, redisOptions, ...workerOpts } = opts ?? {}
+  const { redisUrl, redisOptions, logger, ...workerOpts } = opts ?? {}
   const connection = resolveRedisConnection({ redisUrl, redisOptions })
   const worker = new Worker<T>(name, processor, {
     connection,
