@@ -1,4 +1,4 @@
-import { Elysia, status } from 'elysia'
+import { type AnyElysia, Elysia, status } from 'elysia'
 import { commonModel } from './commonModel'
 import { mapDbError } from './dbError'
 import type { Logger } from './logger'
@@ -10,17 +10,18 @@ interface CreateApiServerOptions {
   port: number
   logger: Logger
   isProduction: boolean
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia generic types diverge per .use() chain
-  plugins: any[]
-  // biome-ignore lint/suspicious/noExplicitAny: Elysia generic types diverge per .use() chain
-  setup: (app: any) => any
 }
 
-export function createApiServer(options: CreateApiServerOptions) {
-  const { serviceName, port, logger, isProduction, plugins, setup } = options
+// `App` 用 AnyElysia 约束: setup 返回的完整装饰链(redis/db/session + 所有路由)
+// 无法赋给裸 `Elysia`(Elysia 类型参数逆变),any 参数才能接住完整链。
+export function createApiServer<App extends AnyElysia>(
+  options: CreateApiServerOptions & {
+    setup: (app: Elysia) => App
+  },
+): App {
+  const { serviceName, port, logger, isProduction, setup } = options
 
-  // biome-ignore lint/suspicious/noExplicitAny: infra plugins contribute runtime context decorators
-  let app: any = new Elysia()
+  const base = new Elysia()
     .use(requestLogger(logger))
     .use(securityHeaders(isProduction))
     .onError(({ error }) => {
@@ -29,36 +30,32 @@ export function createApiServer(options: CreateApiServerOptions) {
     })
     .use(commonModel)
 
-  for (const plugin of plugins) {
-    app = app.use(plugin)
-  }
+  // ponytail: base 的 model/hook 类型无法赋给 setup 的普通 `Elysia` 参数
+  // (Elysia 类型参数逆变);setup 里重挂插件把 decorator/route 类型累积回 `App`。
+  const app = setup(base as unknown as Elysia)
 
-  app = app.get(
-    '/health',
-    async (ctx: {
+  app.get('/health', async (ctx) => {
+    const { redis, db, set } = ctx as unknown as {
       redis: { ping: () => Promise<unknown> }
       db: { execute: (sql: string) => Promise<unknown> }
       set: { status: number }
-    }) => {
-      const { redis, db, set } = ctx
-      let dbOk = false
-      let redisOk = false
-      try {
-        await db.execute('SELECT 1')
-        dbOk = true
-      } catch {}
-      try {
-        await redis.ping()
-        redisOk = true
-      } catch {}
-      const healthy = dbOk && redisOk
-      set.status = healthy ? 200 : 503
-      return { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk }
-    },
-  )
+    }
+    let dbOk = false
+    let redisOk = false
+    try {
+      await db.execute('SELECT 1')
+      dbOk = true
+    } catch {}
+    try {
+      await redis.ping()
+      redisOk = true
+    } catch {}
+    const healthy = dbOk && redisOk
+    set.status = healthy ? 200 : 503
+    return { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk }
+  })
 
-  const configured = setup(app) as Elysia
-  configured.listen(port)
+  app.listen(port)
 
   logger.info({ port, service: serviceName }, 'API listening')
 
@@ -71,7 +68,7 @@ export function createApiServer(options: CreateApiServerOptions) {
     }, SHUTDOWN_TIMEOUT_MS)
     forceExit.unref()
     try {
-      await configured.stop()
+      await app.stop()
     } catch (err) {
       logger.error({ err }, 'shutdown error')
       process.exit(1)
@@ -82,5 +79,5 @@ export function createApiServer(options: CreateApiServerOptions) {
   process.on('SIGTERM', shutdown)
   process.on('SIGINT', shutdown)
 
-  return configured
+  return app
 }

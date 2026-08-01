@@ -4,6 +4,7 @@ import { createDb, dbPlugin } from '@epinfresh/database'
 import { getEmailQueue } from '@epinfresh/queue'
 import { createRedisClient, redisPlugin } from '@epinfresh/redis'
 import { type InferModelsMap, createApiServer, createLogger } from '@epinfresh/shared'
+import { Elysia } from 'elysia'
 import { env } from './env'
 import { checkoutRoutes } from './routes/checkout'
 import { productRoutes } from './routes/product'
@@ -21,17 +22,21 @@ const app = createApiServer({
   port: Number(env.STOREFRONT_PORT),
   logger,
   isProduction,
-  plugins: [redisPlugin(redis, { logger }), dbPlugin(db)],
-  setup: (app) =>
-    app
+  setup: (app) => {
+    const enableDocs = !isProduction
+    return app
+      .use(redisPlugin(redis, { logger }))
+      .use(dbPlugin(db))
       .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
       .use(
-        openapi({
-          path: '/docs',
-          documentation: {
-            info: { title: 'Epinfresh Storefront API', version: '1.0.0' },
-          },
-        }),
+        enableDocs
+          ? openapi({
+              path: '/docs',
+              documentation: {
+                info: { title: 'Epinfresh Storefront API', version: '1.0.0' },
+              },
+            })
+          : new Elysia(),
       )
       .use(
         userRoutes({
@@ -53,7 +58,8 @@ const app = createApiServer({
           sessionSecret: env.SESSION_SECRET,
           isProduction,
         }),
-      ),
+      )
+  },
 })
 
 export type App = typeof app

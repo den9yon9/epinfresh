@@ -9,7 +9,7 @@ import postgres, { type Sql } from 'postgres'
 import * as schema from './schema'
 
 export { schema }
-export { table } from './model'
+export { table, emailSchema } from './model'
 
 type PgDatabase = PostgresJsDatabase<typeof schema> & { $client: Sql }
 

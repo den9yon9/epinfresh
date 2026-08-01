@@ -2,7 +2,7 @@ import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { createDb, dbPlugin } from '@epinfresh/database'
 import { createRedisClient, redisPlugin } from '@epinfresh/redis'
-import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
+import { authRateLimit } from '@epinfresh/session'
 import { type InferModelsMap, createApiServer, createLogger } from '@epinfresh/shared'
 import { Elysia } from 'elysia'
 import { env } from './env'
@@ -20,10 +20,11 @@ const app = createApiServer({
   port: Number(env.ADMIN_PORT),
   logger,
   isProduction,
-  plugins: [redisPlugin(redis, { logger }), dbPlugin(db)],
   setup: (app) => {
     const enableDocs = !isProduction
     return app
+      .use(redisPlugin(redis, { logger }))
+      .use(dbPlugin(db))
       .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
       .use(
         enableDocs

@@ -1,4 +1,4 @@
-import { table } from '@epinfresh/database'
+import { emailSchema, table } from '@epinfresh/database'
 import { PaginatedResponse, PaginationQuery } from '@epinfresh/shared'
 import { Type } from '@sinclair/typebox'
 
@@ -12,12 +12,8 @@ export const RegisterInputSchema = Type.Intersect([
   }),
 ])
 
-const emailTransform = Type.Transform(Type.String({ format: 'email', maxLength: 255 }))
-  .Decode((v: string) => v.toLowerCase().trim())
-  .Encode((v: string) => v)
-
 export const LoginInputSchema = Type.Object({
-  email: emailTransform,
+  email: emailSchema,
   password: Type.String(),
 })
 

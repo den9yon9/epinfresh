@@ -22,8 +22,7 @@ import type { Redis } from '@epinfresh/redis'
 import { createSessionPlugin } from '@epinfresh/session'
 import { ErrorResponse, type Logger, commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
-
-const adminResponse = { 401: ErrorResponse, 403: ErrorResponse } as const
+import { adminResponse } from '../common'
 
 export function productRoutes(deps: {
   db: Db

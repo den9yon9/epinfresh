@@ -9,7 +9,7 @@ import {
   listCategories,
   listPublishedProducts,
 } from '@epinfresh/product'
-import { commonModel } from '@epinfresh/shared'
+import { ErrorResponse, commonModel } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
 export function productRoutes(deps: { db: Db }) {
@@ -32,7 +32,7 @@ export function productRoutes(deps: { db: Db }) {
       },
       {
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
-        response: { 200: ProductResponseSchema, 404: 'ErrorResponse' as const },
+        response: { 200: ProductResponseSchema, 404: ErrorResponse },
         detail: { tags: ['Products'] },
       },
     )

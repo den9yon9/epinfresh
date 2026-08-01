@@ -10,8 +10,7 @@ import {
   listUsers,
 } from '@epinfresh/user'
 import { Elysia, status, t } from 'elysia'
-
-const adminResponse = { 401: ErrorResponse, 403: ErrorResponse } as const
+import { adminResponse } from '../common'
 
 export function userRoutes(deps: {
   db: Db

@@ -6,7 +6,7 @@ import {
 } from 'drizzle-typebox'
 import * as schema from './schema'
 
-const emailSchema = Type.Transform(Type.String({ format: 'email', maxLength: 255 }))
+export const emailSchema = Type.Transform(Type.String({ format: 'email', maxLength: 255 }))
   .Decode((v) => v.toLowerCase().trim())
   .Encode((v) => v)
 
