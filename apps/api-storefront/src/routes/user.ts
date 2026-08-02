@@ -1,8 +1,9 @@
 import { clearSessionCookie, setSessionCookie } from '@epinfresh/session'
-import { ErrorResponse, commonModel } from '@epinfresh/shared'
+import { ErrorResponse, commonModel, toError } from '@epinfresh/shared'
 import {
   LoginInputSchema,
   RegisterInputSchema,
+  USER_ERRORS,
   UserResponseSchema,
   getUserById,
   loginUser,
@@ -27,6 +28,7 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
     '/register',
     async ({ body, db, emailQueue }) => {
       const user = await registerUser(body, db)
+      // ponytail: debt — job 不带 requestId, 无法回溯到请求; 接真邮件/支付回执时在 payload 里带上 requestId
       await emailQueue.add('send-welcome-email', {
         type: 'welcome',
         to: user.email,
@@ -54,7 +56,7 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
           setSessionCookie(cookie.session_id, sessionId, isProduction)
           return user
         },
-        (code) => status(401, { error: code, message: 'Invalid email or password' }),
+        (code) => toError(USER_ERRORS, code),
       )
     },
     {
@@ -82,7 +84,7 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
       const result = await getUserById(session.userId, db)
       return result.match(
         (user) => user,
-        (code) => status(404, { error: code, message: 'User not found' }),
+        (code) => toError(USER_ERRORS, code),
       )
     },
     {

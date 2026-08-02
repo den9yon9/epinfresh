@@ -1,6 +1,7 @@
 import {
   CategoryListQuerySchema,
   CategoryListResponseSchema,
+  PRODUCT_ERRORS,
   ProductListQuerySchema,
   ProductListResponseSchema,
   ProductResponseSchema,
@@ -8,7 +9,7 @@ import {
   listCategories,
   listPublishedProducts,
 } from '@epinfresh/product'
-import { ErrorResponse, commonModel } from '@epinfresh/shared'
+import { ErrorResponse, commonModel, toError } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 import { storeDb } from '../plugins'
 
@@ -26,7 +27,7 @@ export const productRoutes = new Elysia({ name: 'product-storefront', prefix: '/
       const result = await getProductByIdPublic(params.id, db)
       return result.match(
         (p) => p,
-        (code) => status(404, { error: code, message: 'Product not found' }),
+        (code) => toError(PRODUCT_ERRORS, code),
       )
     },
     {

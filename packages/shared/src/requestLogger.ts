@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia'
+import { mapDbError } from './dbError'
 import type { Logger } from './logger'
 
 interface RequestContext {
@@ -55,7 +56,8 @@ export const requestLogger = (logger: Logger) =>
       const requestId = rc?.requestId ?? '-'
       const durationMs = rc ? Date.now() - rc.start : 0
       const err = ctx.error as Error & { code?: string }
-      logger.error(
+      const log = mapDbError(ctx.error) ? logger.warn.bind(logger) : logger.error.bind(logger)
+      log(
         {
           requestId,
           msg: 'error',

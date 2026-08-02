@@ -5,6 +5,7 @@ import {
   CategoryResponseSchema,
   CreateCategoryInputSchema,
   CreateProductInputSchema,
+  PRODUCT_ERRORS,
   ProductListResponseSchema,
   ProductResponseSchema,
   UpdateProductInputSchema,
@@ -17,7 +18,7 @@ import {
   removeProduct,
   updateProduct,
 } from '@epinfresh/product'
-import { ErrorResponse, commonModel } from '@epinfresh/shared'
+import { ErrorResponse, commonModel, toError } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 import { adminResponse } from '../common'
 import { adminDb, adminSession } from '../plugins'
@@ -38,7 +39,7 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await getProductById(params.id, db)
       return result.match(
         (p) => p,
-        (code) => status(404, { error: code, message: 'Product not found' }),
+        (code) => toError(PRODUCT_ERRORS, code),
       )
     },
     {
@@ -60,7 +61,7 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await updateProduct(params.id, body, db)
       return result.match(
         (p) => p,
-        (code) => status(404, { error: code, message: 'Product not found' }),
+        (code) => toError(PRODUCT_ERRORS, code),
       )
     },
     {
@@ -77,7 +78,7 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await removeProduct(params.id, db)
       return result.match(
         () => status(204),
-        (code) => status(404, { error: code, message: 'Product not found' }),
+        (code) => toError(PRODUCT_ERRORS, code),
       )
     },
     {
@@ -104,17 +105,7 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await removeCategory(params.id, db)
       return result.match(
         () => status(204),
-        (code) => {
-          switch (code) {
-            case 'CATEGORY_NOT_FOUND':
-              return status(404, { error: code, message: 'Category not found' })
-            case 'CATEGORY_HAS_PRODUCTS':
-              return status(409, {
-                error: code,
-                message: 'Category still has products',
-              })
-          }
-        },
+        (code) => toError(PRODUCT_ERRORS, code),
       )
     },
     {

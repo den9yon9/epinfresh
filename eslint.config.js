@@ -14,7 +14,9 @@ export default [
     },
     settings: {
       'boundaries/elements': [
-        { type: 'package', pattern: 'packages/(database|session|shared|queue|redis)' },
+        { type: 'package-data', pattern: 'packages/database' },
+        { type: 'package-shared', pattern: 'packages/shared' },
+        { type: 'package-infra', pattern: 'packages/(session|queue|redis)' },
         { type: 'domain-core', pattern: 'domains/(user|product)' },
         { type: 'domain-flow', pattern: 'domains/(order|cart|payment|checkout)' },
         { type: 'app', pattern: 'apps/*' },
@@ -26,10 +28,21 @@ export default [
         {
           default: 'disallow',
           policies: [
-            { from: 'package', allow: ['package'] },
-            { from: 'domain-core', allow: ['package'] },
-            { from: 'domain-flow', allow: ['package', 'domain-core'] },
-            { from: 'app', allow: ['package', 'domain-core', 'domain-flow'] },
+            { from: 'package-data', allow: ['package-shared', 'package-data'] },
+            { from: 'package-shared', allow: ['package-shared'] },
+            { from: 'package-infra', allow: ['package-shared', 'package-infra'] },
+            { from: 'domain-core', allow: ['package-data', 'package-shared'] },
+            { from: 'domain-flow', allow: ['package-data', 'package-shared', 'domain-core'] },
+            {
+              from: 'app',
+              allow: [
+                'package-data',
+                'package-shared',
+                'package-infra',
+                'domain-core',
+                'domain-flow',
+              ],
+            },
           ],
         },
       ],

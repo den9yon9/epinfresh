@@ -10,6 +10,7 @@ export {
   ProductListQuerySchema,
   AdminProductListQuerySchema,
 } from './model'
+export { PRODUCT_ERRORS } from './errors'
 export {
   listAllProducts,
   listPublishedProducts,

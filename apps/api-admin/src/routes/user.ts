@@ -1,5 +1,6 @@
-import { ErrorResponse, commonModel } from '@epinfresh/shared'
+import { ErrorResponse, commonModel, toError } from '@epinfresh/shared'
 import {
+  USER_ERRORS,
   UserListQuerySchema,
   UserListResponseSchema,
   UserResponseSchema,
@@ -26,7 +27,7 @@ export const userRoutes = new Elysia({ name: 'user-admin', prefix: '/api/v1/admi
       const result = await getUserById(params.id, db)
       return result.match(
         (user) => user,
-        (code) => status(404, { error: code, message: 'User not found' }),
+        (code) => toError(USER_ERRORS, code),
       )
     },
     {
