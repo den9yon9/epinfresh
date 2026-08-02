@@ -1,7 +1,22 @@
-import { baseEnvSchema, createLogger, parseEnv } from '@epinfresh/shared'
+import { createLogger, parseEnv } from '@epinfresh/shared'
+import { Type } from '@sinclair/typebox'
 import { runMigrations } from './index'
 
-const env = parseEnv(baseEnvSchema)
+const env = parseEnv(
+  Type.Object({
+    DATABASE_URL: Type.String({ format: 'uri' }),
+    LOG_LEVEL: Type.Union(
+      [
+        Type.Literal('debug'),
+        Type.Literal('info'),
+        Type.Literal('warn'),
+        Type.Literal('error'),
+        Type.Literal('silent'),
+      ],
+      { default: 'info' },
+    ),
+  }),
+)
 const logger = createLogger(env.LOG_LEVEL)
 
 try {

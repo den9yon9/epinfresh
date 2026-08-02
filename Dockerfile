@@ -8,6 +8,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/tsconfig/package.json ./packages/tsconfig/
 COPY packages/database/package.json ./packages/database/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/http/package.json ./packages/http/
 COPY domains/product/package.json ./domains/product/
 COPY packages/session/package.json ./packages/session/
 COPY packages/queue/package.json ./packages/queue/

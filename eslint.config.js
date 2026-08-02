@@ -16,7 +16,7 @@ export default [
       'boundaries/elements': [
         { type: 'package-data', pattern: 'packages/database' },
         { type: 'package-shared', pattern: 'packages/shared' },
-        { type: 'package-infra', pattern: 'packages/(session|queue|redis)' },
+        { type: 'package-infra', pattern: 'packages/(session|queue|redis|http)' },
         { type: 'domain-core', pattern: 'domains/(user|product)' },
         { type: 'domain-flow', pattern: 'domains/(order|cart|payment|checkout)' },
         { type: 'app', pattern: 'apps/*' },

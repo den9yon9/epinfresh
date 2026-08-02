@@ -1,5 +1,6 @@
+import { commonModel } from '@epinfresh/http'
 import { clearSessionCookie, setSessionCookie } from '@epinfresh/session'
-import { ErrorResponse, commonModel, toError } from '@epinfresh/shared'
+import { ErrorResponse } from '@epinfresh/shared'
 import {
   LoginInputSchema,
   RegisterInputSchema,
@@ -56,7 +57,8 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
           setSessionCookie(cookie.session_id, sessionId, isProduction)
           return user
         },
-        (code) => toError(USER_ERRORS, code),
+        (code) =>
+          status(USER_ERRORS[code].status, { error: code, message: USER_ERRORS[code].message }),
       )
     },
     {
@@ -84,7 +86,8 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
       const result = await getUserById(session.userId, db)
       return result.match(
         (user) => user,
-        (code) => toError(USER_ERRORS, code),
+        (code) =>
+          status(USER_ERRORS[code].status, { error: code, message: USER_ERRORS[code].message }),
       )
     },
     {

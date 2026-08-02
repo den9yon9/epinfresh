@@ -1,3 +1,4 @@
+import { commonModel } from '@epinfresh/http'
 import {
   AdminProductListQuerySchema,
   CategoryListQuerySchema,
@@ -18,7 +19,7 @@ import {
   removeProduct,
   updateProduct,
 } from '@epinfresh/product'
-import { ErrorResponse, commonModel, toError } from '@epinfresh/shared'
+import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 import { adminResponse } from '../common'
 import { adminDb, adminSession } from '../plugins'
@@ -39,7 +40,11 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await getProductById(params.id, db)
       return result.match(
         (p) => p,
-        (code) => toError(PRODUCT_ERRORS, code),
+        (code) =>
+          status(PRODUCT_ERRORS[code].status, {
+            error: code,
+            message: PRODUCT_ERRORS[code].message,
+          }),
       )
     },
     {
@@ -61,7 +66,11 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await updateProduct(params.id, body, db)
       return result.match(
         (p) => p,
-        (code) => toError(PRODUCT_ERRORS, code),
+        (code) =>
+          status(PRODUCT_ERRORS[code].status, {
+            error: code,
+            message: PRODUCT_ERRORS[code].message,
+          }),
       )
     },
     {
@@ -78,7 +87,11 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await removeProduct(params.id, db)
       return result.match(
         () => status(204),
-        (code) => toError(PRODUCT_ERRORS, code),
+        (code) =>
+          status(PRODUCT_ERRORS[code].status, {
+            error: code,
+            message: PRODUCT_ERRORS[code].message,
+          }),
       )
     },
     {
@@ -105,7 +118,11 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await removeCategory(params.id, db)
       return result.match(
         () => status(204),
-        (code) => toError(PRODUCT_ERRORS, code),
+        (code) =>
+          status(PRODUCT_ERRORS[code].status, {
+            error: code,
+            message: PRODUCT_ERRORS[code].message,
+          }),
       )
     },
     {

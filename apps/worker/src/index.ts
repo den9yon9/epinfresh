@@ -1,7 +1,7 @@
 import { registerEmailWorker } from '@epinfresh/queue'
-import { baseEnvSchema, createLogger, parseEnv } from '@epinfresh/shared'
+import { createLogger } from '@epinfresh/shared'
+import { env } from './env'
 
-const env = parseEnv(baseEnvSchema)
 const logger = createLogger(env.LOG_LEVEL)
 
 logger.info('Worker application starting...')

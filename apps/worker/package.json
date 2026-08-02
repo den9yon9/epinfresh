@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@epinfresh/queue": "workspace:*",
-    "@epinfresh/shared": "workspace:*"
+    "@epinfresh/shared": "workspace:*",
+    "@sinclair/typebox": "^0.34.0"
   }
 }

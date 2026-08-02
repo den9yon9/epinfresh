@@ -1,5 +1,5 @@
+import type { Logger } from '@epinfresh/shared'
 import type { AnyElysia } from 'elysia'
-import type { Logger } from './logger'
 
 export interface StartServerOptions {
   port: number

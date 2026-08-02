@@ -1,4 +1,5 @@
-import { ErrorResponse, commonModel, toError } from '@epinfresh/shared'
+import { commonModel } from '@epinfresh/http'
+import { ErrorResponse } from '@epinfresh/shared'
 import {
   USER_ERRORS,
   UserListQuerySchema,
@@ -27,7 +28,8 @@ export const userRoutes = new Elysia({ name: 'user-admin', prefix: '/api/v1/admi
       const result = await getUserById(params.id, db)
       return result.match(
         (user) => user,
-        (code) => toError(USER_ERRORS, code),
+        (code) =>
+          status(USER_ERRORS[code].status, { error: code, message: USER_ERRORS[code].message }),
       )
     },
     {

@@ -1,15 +1,13 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import {
-  type InferModelsMap,
   commonModel,
   healthCheck,
-  mapDbError,
   requestLogger,
   securityHeaders,
   startServer,
-} from '@epinfresh/shared'
-import { Elysia, status } from 'elysia'
+} from '@epinfresh/http'
+import { Elysia } from 'elysia'
 import { env } from './env'
 import { adminDb, adminRateLimit, adminRedis, isProduction, logger } from './plugins'
 import { productRoutes } from './routes/product'
@@ -21,10 +19,6 @@ export function buildApp() {
     .use(requestLogger(logger))
     .use(securityHeaders(isProduction))
     .use(commonModel)
-    .onError(({ error }) => {
-      const mapped = mapDbError(error)
-      if (mapped) return status(mapped.status, mapped.body)
-    })
     .use(adminRedis)
     .use(adminDb)
     .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
@@ -53,4 +47,3 @@ if (import.meta.main) {
 }
 
 export type App = ReturnType<typeof buildApp>
-export type AdminModels = InferModelsMap<App>
