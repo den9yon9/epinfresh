@@ -1,5 +1,22 @@
-import type { Static, TObject } from '@sinclair/typebox'
+import { FormatRegistry, type Static, type TObject } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
+
+// ponytail: elysia 进程里会自注册 format; 非 elysia 消费者 (worker) 需要这里补注册
+if (!FormatRegistry.Has('uri'))
+  FormatRegistry.Set('uri', (v) => {
+    try {
+      return typeof v === 'string' && new URL(v).protocol.length > 0
+    } catch {
+      return false
+    }
+  })
+if (!FormatRegistry.Has('uuid'))
+  FormatRegistry.Set(
+    'uuid',
+    (v) => typeof v === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(v),
+  )
+if (!FormatRegistry.Has('email'))
+  FormatRegistry.Set('email', (v) => typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
 
 type Source = Record<string, string | undefined>
 
