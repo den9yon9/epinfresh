@@ -1,14 +1,6 @@
 import { commonModel } from '@epinfresh/http'
-import {
-  CategoryListQuerySchema,
-  CategoryListResponseSchema,
-  ProductListQuerySchema,
-  ProductListResponseSchema,
-  ProductResponseSchema,
-  getProductByIdPublic,
-  listCategories,
-  listPublishedProducts,
-} from '@epinfresh/product'
+import { getProductByIdPublic, listCategories, listPublishedProducts } from '@epinfresh/product'
+import * as ProductModel from '@epinfresh/product/model'
 import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 import { storeDb } from '../plugins'
@@ -17,8 +9,8 @@ export const productRoutes = new Elysia({ name: 'product-storefront', prefix: '/
   .use(commonModel)
   .use(storeDb)
   .get('/products', async ({ query, db }) => listPublishedProducts(query, db), {
-    query: ProductListQuerySchema,
-    response: { 200: ProductListResponseSchema },
+    query: ProductModel.ProductListQuerySchema,
+    response: { 200: ProductModel.ProductListResponseSchema },
     detail: { tags: ['Products'] },
   })
   .get(
@@ -37,12 +29,12 @@ export const productRoutes = new Elysia({ name: 'product-storefront', prefix: '/
     },
     {
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
-      response: { 200: ProductResponseSchema, 404: ErrorResponse },
+      response: { 200: ProductModel.ProductResponseSchema, 404: ErrorResponse },
       detail: { tags: ['Products'] },
     },
   )
   .get('/categories', ({ query, db }) => listCategories(query, db), {
-    query: CategoryListQuerySchema,
-    response: { 200: CategoryListResponseSchema },
+    query: ProductModel.CategoryListQuerySchema,
+    response: { 200: ProductModel.CategoryListResponseSchema },
     detail: { tags: ['Categories'] },
   })

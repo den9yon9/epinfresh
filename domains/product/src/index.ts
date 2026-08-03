@@ -1,16 +1,4 @@
 export {
-  CreateProductInputSchema,
-  UpdateProductInputSchema,
-  CreateCategoryInputSchema,
-  ProductResponseSchema,
-  ProductListResponseSchema,
-  CategoryResponseSchema,
-  CategoryListResponseSchema,
-  CategoryListQuerySchema,
-  ProductListQuerySchema,
-  AdminProductListQuerySchema,
-} from './model'
-export {
   listAllProducts,
   listPublishedProducts,
   getProductById,

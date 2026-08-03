@@ -1,6 +1,7 @@
 import { checkoutWorkflow } from '@epinfresh/checkout'
+import { CheckoutInputSchema } from '@epinfresh/checkout/model'
 import { commonModel } from '@epinfresh/http'
-import { Elysia, status, t } from 'elysia'
+import { Elysia, status } from 'elysia'
 import { storeDb, storeSession } from '../plugins'
 
 export const checkoutRoutes = new Elysia({ name: 'checkout', prefix: '/api/v1' })
@@ -25,10 +26,7 @@ export const checkoutRoutes = new Elysia({ name: 'checkout', prefix: '/api/v1' }
     },
     {
       isAuth: true,
-      body: t.Object({
-        skuId: t.String({ format: 'uuid' }),
-        quantity: t.Number({ minimum: 1, maximum: 9999 }),
-      }),
+      body: CheckoutInputSchema,
       detail: { tags: ['Checkout'] },
     },
   )

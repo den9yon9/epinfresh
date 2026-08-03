@@ -1,12 +1,7 @@
 import { commonModel } from '@epinfresh/http'
 import { ErrorResponse } from '@epinfresh/shared'
-import {
-  UserListQuerySchema,
-  UserListResponseSchema,
-  UserResponseSchema,
-  getUserById,
-  listUsers,
-} from '@epinfresh/user'
+import { getUserById, listUsers } from '@epinfresh/user'
+import * as UserModel from '@epinfresh/user/model'
 import { Elysia, status, t } from 'elysia'
 import { adminResponse } from '../common'
 import { adminDb, adminSession } from '../plugins'
@@ -17,8 +12,8 @@ export const userRoutes = new Elysia({ name: 'user-admin', prefix: '/api/v1/admi
   .use(adminSession)
   .get('/users', ({ query, db }) => listUsers(query, db), {
     isAdmin: true,
-    query: UserListQuerySchema,
-    response: { 200: UserListResponseSchema, ...adminResponse },
+    query: UserModel.UserListQuerySchema,
+    response: { 200: UserModel.UserListResponseSchema, ...adminResponse },
     detail: { tags: ['Admin/Users'] },
   })
   .get(
@@ -38,7 +33,7 @@ export const userRoutes = new Elysia({ name: 'user-admin', prefix: '/api/v1/admi
     {
       isAdmin: true,
       params: t.Object({ id: t.String({ format: 'uuid' }) }),
-      response: { 200: UserResponseSchema, 404: ErrorResponse, ...adminResponse },
+      response: { 200: UserModel.UserResponseSchema, 404: ErrorResponse, ...adminResponse },
       detail: { tags: ['Admin/Users'] },
     },
   )

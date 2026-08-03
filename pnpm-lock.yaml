@@ -137,6 +137,9 @@ importers:
       '@epinfresh/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@sinclair/typebox':
+        specifier: ^0.34.0
+        version: 0.34.52
 
   domains/product:
     dependencies:
