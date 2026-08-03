@@ -6,7 +6,6 @@ import {
   CategoryResponseSchema,
   CreateCategoryInputSchema,
   CreateProductInputSchema,
-  PRODUCT_ERRORS,
   ProductListResponseSchema,
   ProductResponseSchema,
   UpdateProductInputSchema,
@@ -40,11 +39,12 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await getProductById(params.id, db)
       return result.match(
         (p) => p,
-        (code) =>
-          status(PRODUCT_ERRORS[code].status, {
-            error: code,
-            message: PRODUCT_ERRORS[code].message,
-          }),
+        (code) => {
+          switch (code) {
+            case 'PRODUCT_NOT_FOUND':
+              return status(404, { error: code, message: 'Product not found' })
+          }
+        },
       )
     },
     {
@@ -66,11 +66,12 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await updateProduct(params.id, body, db)
       return result.match(
         (p) => p,
-        (code) =>
-          status(PRODUCT_ERRORS[code].status, {
-            error: code,
-            message: PRODUCT_ERRORS[code].message,
-          }),
+        (code) => {
+          switch (code) {
+            case 'PRODUCT_NOT_FOUND':
+              return status(404, { error: code, message: 'Product not found' })
+          }
+        },
       )
     },
     {
@@ -87,11 +88,12 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await removeProduct(params.id, db)
       return result.match(
         () => status(204),
-        (code) =>
-          status(PRODUCT_ERRORS[code].status, {
-            error: code,
-            message: PRODUCT_ERRORS[code].message,
-          }),
+        (code) => {
+          switch (code) {
+            case 'PRODUCT_NOT_FOUND':
+              return status(404, { error: code, message: 'Product not found' })
+          }
+        },
       )
     },
     {
@@ -118,11 +120,14 @@ export const productRoutes = new Elysia({ name: 'product-admin', prefix: '/api/v
       const result = await removeCategory(params.id, db)
       return result.match(
         () => status(204),
-        (code) =>
-          status(PRODUCT_ERRORS[code].status, {
-            error: code,
-            message: PRODUCT_ERRORS[code].message,
-          }),
+        (code) => {
+          switch (code) {
+            case 'CATEGORY_NOT_FOUND':
+              return status(404, { error: code, message: 'Category not found' })
+            case 'CATEGORY_HAS_PRODUCTS':
+              return status(409, { error: code, message: 'Category still has products' })
+          }
+        },
       )
     },
     {

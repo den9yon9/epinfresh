@@ -35,7 +35,7 @@ export function buildApp() {
     .use(adminRateLimit)
     .use(userRoutes)
     .use(productRoutes)
-    .get('/health', ({ db, redis, set }) => healthCheck({ db, redis, set }))
+    .get('/health', ({ db, redis }) => healthCheck({ db, redis }))
 }
 
 if (import.meta.main) {

@@ -4,7 +4,6 @@ import { ErrorResponse } from '@epinfresh/shared'
 import {
   LoginInputSchema,
   RegisterInputSchema,
-  USER_ERRORS,
   UserResponseSchema,
   getUserById,
   loginUser,
@@ -57,8 +56,12 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
           setSessionCookie(cookie.session_id, sessionId, isProduction)
           return user
         },
-        (code) =>
-          status(USER_ERRORS[code].status, { error: code, message: USER_ERRORS[code].message }),
+        (code) => {
+          switch (code) {
+            case 'LOGIN_FAILED':
+              return status(401, { error: code, message: 'Invalid email or password' })
+          }
+        },
       )
     },
     {
@@ -86,8 +89,12 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
       const result = await getUserById(session.userId, db)
       return result.match(
         (user) => user,
-        (code) =>
-          status(USER_ERRORS[code].status, { error: code, message: USER_ERRORS[code].message }),
+        (code) => {
+          switch (code) {
+            case 'USER_NOT_FOUND':
+              return status(404, { error: code, message: 'User not found' })
+          }
+        },
       )
     },
     {

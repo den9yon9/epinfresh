@@ -2,7 +2,6 @@ import { commonModel } from '@epinfresh/http'
 import {
   CategoryListQuerySchema,
   CategoryListResponseSchema,
-  PRODUCT_ERRORS,
   ProductListQuerySchema,
   ProductListResponseSchema,
   ProductResponseSchema,
@@ -28,11 +27,12 @@ export const productRoutes = new Elysia({ name: 'product-storefront', prefix: '/
       const result = await getProductByIdPublic(params.id, db)
       return result.match(
         (p) => p,
-        (code) =>
-          status(PRODUCT_ERRORS[code].status, {
-            error: code,
-            message: PRODUCT_ERRORS[code].message,
-          }),
+        (code) => {
+          switch (code) {
+            case 'PRODUCT_NOT_FOUND':
+              return status(404, { error: code, message: 'Product not found' })
+          }
+        },
       )
     },
     {

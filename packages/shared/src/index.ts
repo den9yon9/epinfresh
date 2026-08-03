@@ -16,6 +16,5 @@ export {
   PaginatedResponse,
   ErrorResponse,
 } from './schemas'
-export type { ErrorContract } from './errors'
 export { createLogger, type Logger } from './logger'
 export { hashPassword, verifyPassword } from './crypto'

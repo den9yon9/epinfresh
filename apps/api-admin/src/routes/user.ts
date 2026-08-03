@@ -1,7 +1,6 @@
 import { commonModel } from '@epinfresh/http'
 import { ErrorResponse } from '@epinfresh/shared'
 import {
-  USER_ERRORS,
   UserListQuerySchema,
   UserListResponseSchema,
   UserResponseSchema,
@@ -28,8 +27,12 @@ export const userRoutes = new Elysia({ name: 'user-admin', prefix: '/api/v1/admi
       const result = await getUserById(params.id, db)
       return result.match(
         (user) => user,
-        (code) =>
-          status(USER_ERRORS[code].status, { error: code, message: USER_ERRORS[code].message }),
+        (code) => {
+          switch (code) {
+            case 'USER_NOT_FOUND':
+              return status(404, { error: code, message: 'User not found' })
+          }
+        },
       )
     },
     {

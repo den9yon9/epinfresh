@@ -36,10 +36,9 @@ export function startServer<App extends AnyElysia>(app: App, options: StartServe
 export interface HealthCheckDeps {
   db: { execute: (sql: string) => Promise<unknown> }
   redis: { ping: () => Promise<unknown> }
-  set: { status?: number | string }
 }
 
-export async function healthCheck({ db, redis, set }: HealthCheckDeps) {
+export async function healthCheck({ db, redis }: HealthCheckDeps): Promise<Response> {
   let dbOk = false
   let redisOk = false
   try {
@@ -51,6 +50,8 @@ export async function healthCheck({ db, redis, set }: HealthCheckDeps) {
     redisOk = true
   } catch {}
   const healthy = dbOk && redisOk
-  set.status = healthy ? 200 : 503
-  return { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk }
+  return Response.json(
+    { status: healthy ? 'ok' : 'degraded', db: dbOk, redis: redisOk },
+    { status: healthy ? 200 : 503 },
+  )
 }
