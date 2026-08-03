@@ -66,4 +66,3 @@ export function createWorker<T = unknown>(
 }
 
 export type { Job } from 'bullmq'
-export * from './jobs/email'

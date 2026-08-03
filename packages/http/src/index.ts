@@ -1,4 +1,6 @@
 export { commonModel } from './commonModel'
+export { dbPlugin } from './dbPlugin'
+export { redisPlugin } from './redisPlugin'
 export { requestLogger } from './requestLogger'
 export { securityHeaders } from './securityHeaders'
 export { startServer, healthCheck } from './serverFactory'

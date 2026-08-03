@@ -1,5 +1,6 @@
-import { createDb, dbPlugin } from '@epinfresh/database'
-import { createRedisClient, redisPlugin } from '@epinfresh/redis'
+import { createDb } from '@epinfresh/database'
+import { dbPlugin, redisPlugin } from '@epinfresh/http'
+import { createRedisClient } from '@epinfresh/redis'
 import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
 import { createLogger } from '@epinfresh/shared'
 import { env } from './env'

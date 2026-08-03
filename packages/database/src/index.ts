@@ -4,7 +4,6 @@ import type { PgTransaction } from 'drizzle-orm/pg-core'
 import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js'
 import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import { Elysia } from 'elysia'
 import postgres, { type Sql } from 'postgres'
 import * as schema from './schema'
 
@@ -35,13 +34,6 @@ export function createDb(connectionString: string): Db {
 
 export async function closeDb(db: Db): Promise<void> {
   await db.$client.end({ timeout: 5 }).catch(() => {})
-}
-
-export function dbPlugin(connection: string | Db) {
-  const client = typeof connection === 'string' ? createDb(connection) : connection
-  return new Elysia({ name: 'infra-db' }).decorate('db', client).onStop(async () => {
-    await closeDb(client)
-  })
 }
 
 const migrationsFolder = fileURLToPath(new URL('./migrations', import.meta.url))

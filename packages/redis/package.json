@@ -9,8 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@epinfresh/shared": "workspace:*",
-    "elysia": "^1.2.0",
     "ioredis": "^5.5.0"
   }
 }

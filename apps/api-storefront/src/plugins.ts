@@ -1,8 +1,10 @@
-import { createDb, dbPlugin } from '@epinfresh/database'
-import { type SendEmailJobData, getEmailQueue } from '@epinfresh/queue'
-import { createRedisClient, redisPlugin } from '@epinfresh/redis'
+import { createDb } from '@epinfresh/database'
+import { dbPlugin, redisPlugin } from '@epinfresh/http'
+import { createQueue } from '@epinfresh/queue'
+import { createRedisClient } from '@epinfresh/redis'
 import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
 import { createLogger } from '@epinfresh/shared'
+import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 import { Elysia } from 'elysia'
 import { env } from './env'
 
@@ -11,7 +13,7 @@ const isProduction = env.NODE_ENV === 'production'
 
 const redis = createRedisClient(env.REDIS_URL)
 const db = createDb(env.DATABASE_URL)
-const emailQueue = getEmailQueue(env.REDIS_URL)
+const emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl: env.REDIS_URL })
 
 // ponytail: 只暴露 add,免得 bullmq 的复杂类型顺着 plugin 类型泄漏出去(TS2742)
 export interface EmailQueueLike {

@@ -1,6 +1,6 @@
-import { registerEmailWorker } from '@epinfresh/queue'
 import { createLogger } from '@epinfresh/shared'
 import { env } from './env'
+import { registerEmailWorker } from './jobs/email'
 
 const logger = createLogger(env.LOG_LEVEL)
 

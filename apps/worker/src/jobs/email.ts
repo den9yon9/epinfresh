@@ -1,19 +1,13 @@
+import { createWorker } from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
-import { createQueue, createWorker } from '../index'
+import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 
-export interface SendEmailJobData {
-  type: 'welcome' | 'reset-password'
-  to: string
-  payload: Record<string, unknown>
+// ponytail: 只暴露 close, 免得 bullmq 的复杂类型顺着返回类型泄漏出去 (TS2742)
+export interface EmailWorker {
+  close: () => Promise<void>
 }
 
-export const EMAIL_QUEUE_NAME = 'email-tasks'
-
-export function getEmailQueue(redisUrl: string) {
-  return createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl })
-}
-
-export function registerEmailWorker(redisUrl: string, logger: Logger) {
+export function registerEmailWorker(redisUrl: string, logger: Logger): EmailWorker {
   return createWorker<SendEmailJobData>(
     EMAIL_QUEUE_NAME,
     async (job) => {
@@ -27,5 +21,5 @@ export function registerEmailWorker(redisUrl: string, logger: Logger) {
       }
     },
     { redisUrl, logger },
-  )
+  ) as EmailWorker
 }
