@@ -17,8 +17,8 @@ epinfresh 是生鲜电商后端，pnpm + Turborepo Monorepo，Bun 运行时。
 
 ```
 apps/                    # 可部署服务（薄壳：只做装配，不含业务逻辑）
-├── api-storefront/      # 前台 API（端口 3000）
-├── api-admin/           # 管理后台 API（端口 3001）
+├── storefront-api/      # 前台 API（端口 3000）
+├── admin-api/           # 管理后台 API（端口 3001）
 └── worker/              # BullMQ 消费者
 domains/                 # 业务领域
 ├── user/                # domain-core：用户/认证

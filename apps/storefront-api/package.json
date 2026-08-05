@@ -1,5 +1,5 @@
 {
-  "name": "@epinfresh/api-admin",
+  "name": "@epinfresh/storefront-api",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,9 +11,11 @@
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
     "@elysiajs/openapi": "^1.4.0",
+    "@epinfresh/checkout": "workspace:*",
     "@epinfresh/database": "workspace:*",
     "@epinfresh/http": "workspace:*",
     "@epinfresh/product": "workspace:*",
+    "@epinfresh/queue": "workspace:*",
     "@epinfresh/redis": "workspace:*",
     "@epinfresh/session": "workspace:*",
     "@epinfresh/shared": "workspace:*",

@@ -42,12 +42,12 @@ services:
         condition: service_healthy
     restart: 'no'
 
-  api-storefront:
+  storefront-api:
     build:
       context: ..
       dockerfile: Dockerfile
       args:
-        APP: api-storefront
+        APP: storefront-api
     env_file: ../.env
     ports:
       - '3000:3000'
@@ -66,12 +66,12 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  api-admin:
+  admin-api:
     build:
       context: ..
       dockerfile: Dockerfile
       args:
-        APP: api-admin
+        APP: admin-api
     env_file: ../.env
     ports:
       - '3001:3001'
