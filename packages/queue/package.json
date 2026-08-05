@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@epinfresh/redis": "workspace:*",
     "@epinfresh/shared": "workspace:*",
     "bullmq": "^5.41.0"
   }

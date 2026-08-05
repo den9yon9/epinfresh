@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./jobs": "./src/jobs.ts",
-    "./model": "./src/model.ts"
+    "./model": "./src/model.ts",
+    "./worker": "./src/worker.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "@epinfresh/database": "workspace:*",
+    "@epinfresh/queue": "workspace:*",
     "@epinfresh/shared": "workspace:*",
     "@sinclair/typebox": "^0.34.0",
     "drizzle-orm": "^0.40.0",

@@ -1,7 +1,11 @@
 export const EMAIL_QUEUE_NAME = 'email-tasks'
 
+export const EMAIL_JOB_NAMES = {
+  WELCOME: 'welcome',
+  RESET_PASSWORD: 'reset-password',
+} as const
+
 export interface SendEmailJobData {
-  type: 'welcome' | 'reset-password'
   to: string
   payload: Record<string, unknown>
 }

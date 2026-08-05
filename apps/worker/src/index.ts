@@ -1,22 +1,23 @@
 import { createLogger } from '@epinfresh/shared'
 import { env } from './env'
-import { registerEmailWorker } from './jobs/email'
+import { registerWorkers } from './registry'
 
 const logger = createLogger(env.LOG_LEVEL)
 
 logger.info('Worker application starting...')
 
-const emailWorker = registerEmailWorker(env.REDIS_URL, logger)
+const workers = registerWorkers(env.REDIS_URL, logger)
 
-async function shutdown() {
-  logger.info('Shutting down worker...')
-  try {
-    await emailWorker.close()
-  } catch (err) {
-    logger.error({ err }, 'Error during worker shutdown')
+async function shutdown(signal: string) {
+  logger.info({ signal }, 'Shutting down worker...')
+  const results = await Promise.allSettled(workers.map((worker) => worker.close()))
+  const failed = results.filter((result) => result.status === 'rejected')
+  if (failed.length > 0) {
+    logger.error({ count: failed.length }, 'Errors during worker shutdown')
+    process.exit(1)
   }
   process.exit(0)
 }
 
-process.on('SIGTERM', shutdown)
-process.on('SIGINT', shutdown)
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))

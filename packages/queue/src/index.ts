@@ -1,6 +1,7 @@
 import type { Logger } from '@epinfresh/shared'
 import {
   type ConnectionOptions,
+  type Job,
   type Processor,
   Queue,
   type QueueOptions,
@@ -35,6 +36,21 @@ export function createQueue<T = unknown>(
   })
 }
 
+export type JobHandler<T = unknown> = (job: Job<T>, logger: Logger) => Promise<void> | void
+
+export function createDispatcher<T = unknown>(
+  handlers: Record<string, JobHandler<T>>,
+  logger: Logger,
+): Processor<T> {
+  return async (job) => {
+    const handler = handlers[job.name]
+    if (!handler) {
+      throw new Error(`No handler registered for job name "${job.name}"`)
+    }
+    await handler(job, logger)
+  }
+}
+
 export function createWorker<T = unknown>(
   name: string,
   processor: Processor<T>,
@@ -52,6 +68,15 @@ export function createWorker<T = unknown>(
     logger.error({ jobId: job?.id, jobName: job?.name, err: err.message }, 'BullMQ job failed')
   })
 
+  worker.on('completed', (job) => {
+    const duration = job.finishedOn ? job.finishedOn - job.timestamp : undefined
+    logger.info({ jobId: job.id, jobName: job.name, duration }, 'BullMQ job completed')
+  })
+
+  worker.on('stalled', (jobId) => {
+    logger.warn({ jobId }, 'BullMQ job stalled')
+  })
+
   worker.on('error', (err) => {
     logger.error({ err }, 'BullMQ worker error')
   })
@@ -59,4 +84,4 @@ export function createWorker<T = unknown>(
   return worker
 }
 
-export type { Job, Queue, Worker } from 'bullmq'
+export type { Job, Processor, Queue, Worker } from 'bullmq'

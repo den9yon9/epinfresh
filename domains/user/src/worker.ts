@@ -1,21 +1,21 @@
-import { createWorker } from '@epinfresh/queue'
-import type { Worker } from '@epinfresh/queue'
+import { type Worker, createDispatcher, createWorker } from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
-import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
+import { EMAIL_JOB_NAMES, EMAIL_QUEUE_NAME, type SendEmailJobData } from './jobs'
 
 export function registerEmailWorker(redisUrl: string, logger: Logger): Worker {
   return createWorker<SendEmailJobData>(
     EMAIL_QUEUE_NAME,
-    async (job) => {
-      switch (job.data.type) {
-        case 'welcome':
+    createDispatcher<SendEmailJobData>(
+      {
+        [EMAIL_JOB_NAMES.WELCOME]: (job) => {
           logger.info({ to: job.data.to, payload: job.data.payload }, 'welcome email queued')
-          break
-        case 'reset-password':
+        },
+        [EMAIL_JOB_NAMES.RESET_PASSWORD]: (job) => {
           logger.info({ to: job.data.to, payload: job.data.payload }, 'reset-password email queued')
-          break
-      }
-    },
+        },
+      },
+      logger,
+    ),
     { redisUrl, logger },
   )
 }

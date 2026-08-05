@@ -31,8 +31,11 @@ export default [
             { from: 'package-data', allow: ['package-shared', 'package-data'] },
             { from: 'package-shared', allow: ['package-shared'] },
             { from: 'package-infra', allow: ['package-shared', 'package-infra', 'package-data'] },
-            { from: 'domain-core', allow: ['package-data', 'package-shared'] },
-            { from: 'domain-flow', allow: ['package-data', 'package-shared', 'domain-core'] },
+            { from: 'domain-core', allow: ['package-data', 'package-shared', 'package-infra'] },
+            {
+              from: 'domain-flow',
+              allow: ['package-data', 'package-shared', 'package-infra', 'domain-core'],
+            },
             {
               from: 'app',
               allow: [

@@ -2,6 +2,7 @@ import { commonModel } from '@epinfresh/http'
 import { clearSessionCookie, setSessionCookie } from '@epinfresh/session'
 import { ErrorResponse } from '@epinfresh/shared'
 import { getUserById, loginUser, registerUser } from '@epinfresh/user'
+import { EMAIL_JOB_NAMES } from '@epinfresh/user/jobs'
 import * as UserModel from '@epinfresh/user/model'
 import { Elysia, status } from 'elysia'
 import {
@@ -23,11 +24,14 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
     async ({ body, db, emailQueue }) => {
       const user = await registerUser(body, db)
       // ponytail: debt — job 不带 requestId, 无法回溯到请求; 接真邮件/支付回执时在 payload 里带上 requestId
-      await emailQueue.add('send-welcome-email', {
-        type: 'welcome',
-        to: user.email,
-        payload: { userId: user.id, name: user.name },
-      })
+      await emailQueue.add(
+        EMAIL_JOB_NAMES.WELCOME,
+        {
+          to: user.email,
+          payload: { userId: user.id, name: user.name },
+        },
+        { jobId: `welcome:${user.id}` },
+      )
       return user
     },
     {
