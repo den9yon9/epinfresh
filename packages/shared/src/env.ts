@@ -1,4 +1,4 @@
-import { FormatRegistry, type Static, type TObject } from '@sinclair/typebox'
+import { FormatRegistry, type StaticDecode, type TObject } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
 
 // ponytail: elysia 进程里会自注册 format; 非 elysia 消费者 (worker) 需要这里补注册
@@ -35,9 +35,9 @@ function collectErrors(schema: TObject, source: Source): string[] {
 export function parseEnv<T extends TObject>(
   schema: T,
   source: Source = process.env as Source,
-): Static<T> {
+): StaticDecode<T> {
   const withDefaults = Value.Default(schema, source) as Source
   const missing = collectErrors(schema, withDefaults)
   if (missing.length > 0) throw new Error(`[ENV] missing or invalid: ${missing.join(', ')}`)
-  return Value.Decode(schema, Value.Cast(schema, withDefaults)) as Static<T>
+  return Value.Decode(schema, Value.Cast(schema, withDefaults)) as StaticDecode<T>
 }

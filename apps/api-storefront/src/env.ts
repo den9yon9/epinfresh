@@ -1,8 +1,7 @@
 import { parseEnv } from '@epinfresh/shared'
-import { t } from 'elysia'
+import { Type } from '@sinclair/typebox'
 
-const corsOrigin = t
-  .Transform(t.String({ default: '*' }))
+const corsOrigin = Type.Transform(Type.String({ default: '*' }))
   .Decode((raw: string) => {
     const s = raw.trim()
     if (s === '*') return true
@@ -16,31 +15,33 @@ const corsOrigin = t
   })
   .Encode((v) => (typeof v === 'boolean' ? '*' : Array.isArray(v) ? v.join(',') : v))
 
-const trustProxy = t
-  .Transform(t.String({ default: 'false' }))
+const trustProxy = Type.Transform(Type.String({ default: 'false' }))
   .Decode((raw: string) => raw.trim() === 'true')
   .Encode((v) => (v ? 'true' : 'false'))
 
-export const storefrontEnvSchema = t.Object({
-  DATABASE_URL: t.String({ format: 'uri' }),
-  REDIS_URL: t.String({ format: 'uri' }),
-  SESSION_SECRET: t.String({ minLength: 32 }),
-  NODE_ENV: t.Union([t.Literal('development'), t.Literal('production'), t.Literal('test')], {
-    default: 'development',
-  }),
-  LOG_LEVEL: t.Union(
+export const storefrontEnvSchema = Type.Object({
+  DATABASE_URL: Type.String({ format: 'uri' }),
+  REDIS_URL: Type.String({ format: 'uri' }),
+  SESSION_SECRET: Type.String({ minLength: 32 }),
+  NODE_ENV: Type.Union(
+    [Type.Literal('development'), Type.Literal('production'), Type.Literal('test')],
+    {
+      default: 'development',
+    },
+  ),
+  LOG_LEVEL: Type.Union(
     [
-      t.Literal('debug'),
-      t.Literal('info'),
-      t.Literal('warn'),
-      t.Literal('error'),
-      t.Literal('silent'),
+      Type.Literal('debug'),
+      Type.Literal('info'),
+      Type.Literal('warn'),
+      Type.Literal('error'),
+      Type.Literal('silent'),
     ],
     { default: 'info' },
   ),
   CORS_ORIGIN: corsOrigin,
   TRUST_PROXY: trustProxy,
-  STOREFRONT_PORT: t.String({ pattern: '^\\d+$' }),
+  STOREFRONT_PORT: Type.String({ pattern: '^\\d+$' }),
 })
 
 export const env = parseEnv(storefrontEnvSchema)

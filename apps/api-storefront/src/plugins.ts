@@ -15,11 +15,6 @@ const redis = createRedisClient(env.REDIS_URL)
 const db = createDb(env.DATABASE_URL)
 const emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl: env.REDIS_URL })
 
-// ponytail: 只暴露 add,免得 bullmq 的复杂类型顺着 plugin 类型泄漏出去(TS2742)
-export interface EmailQueueLike {
-  add: (name: string, data: SendEmailJobData) => Promise<unknown>
-}
-
 export const storeDb = dbPlugin(db)
 export const storeRedis = redisPlugin(redis, { logger })
 export const storeSession = createSessionPlugin({
@@ -29,7 +24,7 @@ export const storeSession = createSessionPlugin({
   logger,
 })
 export const storeEmailQueue = new Elysia({ name: 'infra-email-queue' })
-  .decorate('emailQueue', emailQueue as EmailQueueLike)
+  .decorate('emailQueue', emailQueue)
   .onStop(async () => {
     await emailQueue.close()
   })

@@ -1,11 +1,12 @@
 import type { Redis } from '@epinfresh/redis'
 import { type Logger, USER_ROLE, type UserRole } from '@epinfresh/shared'
+import { Type } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
-import { type Cookie, Elysia, status, t } from 'elysia'
+import { type Cookie, Elysia, status } from 'elysia'
 
-const SessionSchema = t.Object({
-  userId: t.String(),
-  role: t.Union(USER_ROLE.map((r) => t.Literal(r))),
+const SessionSchema = Type.Object({
+  userId: Type.String(),
+  role: Type.Union(USER_ROLE.map((r) => Type.Literal(r))),
 })
 
 export type Session = { userId: string; role: UserRole }

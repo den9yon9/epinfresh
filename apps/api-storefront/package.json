@@ -11,8 +11,8 @@
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
     "@elysiajs/openapi": "^1.4.0",
-    "@epinfresh/database": "workspace:*",
     "@epinfresh/checkout": "workspace:*",
+    "@epinfresh/database": "workspace:*",
     "@epinfresh/http": "workspace:*",
     "@epinfresh/product": "workspace:*",
     "@epinfresh/queue": "workspace:*",
@@ -20,6 +20,7 @@
     "@epinfresh/session": "workspace:*",
     "@epinfresh/shared": "workspace:*",
     "@epinfresh/user": "workspace:*",
+    "@sinclair/typebox": "^0.34.0",
     "elysia": "^1.2.0"
   }
 }
