@@ -27,7 +27,7 @@ domains/                 # 业务领域
 packages/                # 基础设施包
 ├── database/            # package-data：schema、迁移、DbClient
 ├── shared/              # package-shared：纯工具（零 Elysia）
-├── queue/               # package-queue：BullMQ 封装（领域的消息端口）
+├── queue/               # package-infra：BullMQ 封装
 ├── http/                # package-infra：Elysia 插件、服务工厂
 ├── session/             # package-infra：会话、限流
 ├── redis/               # package-infra：ioredis 封装
@@ -38,12 +38,12 @@ packages/                # 基础设施包
 
 ```
 package-data ← package-shared
-                  ↖  domain-core(user/product) 可依赖 data/shared/queue
-                  ↖  domain-flow(checkout)     可依赖 data/shared/queue + domain-core
+                  ↖  domain-core(user/product) 可依赖 data/shared
+                  ↖  domain-flow(checkout)     可依赖 data/shared + domain-core
                   ↖  app 可依赖一切上层
 ```
 
-**domain-core / domain-flow 只允许依赖 `package-data` / `package-shared` / `package-queue`**；http/session/redis 对领域层封死。改动依赖关系必须同步修改 `eslint.config.js`（新增元素或调整白名单），并跑 `pnpm lint:boundaries` 验证。
+**domain-core / domain-flow 只允许依赖 `package-data` / `package-shared`**（domain-flow 另加 domain-core）；queue/http/session/redis 全部归入 package-infra，领域层编译期封死。改动依赖关系必须同步修改 `eslint.config.js`（新增元素或调整白名单），并跑 `pnpm lint:boundaries` 验证。
 
 ## 环境要求
 
@@ -135,7 +135,8 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 ### 队列与 Job
 
 - 队列名、job 名、payload 类型定义在**领域内的 `jobs.ts`**（纯契约，零依赖）
-- handler 只消费**纯数据**（`(data, logger)`），不接触 BullMQ 类型；BullMQ 适配只在 `createWorker` / `createDispatcher` 调用点出现
+- handler 只消费**纯数据**（`(data, logger)`），不接触 BullMQ 类型，放在**领域内**（如 `domains/user/src/handlers.ts`）
+- BullMQ 适配（`createWorker` / `createDispatcher` / Redis 连接）在 `apps/worker` 侧完成，与领域契约解耦
 - 消费者在 `apps/worker/src/registry.ts` 统一注册；队列生产方在 app 侧通过 `createQueue` 使用（默认 3 次重试 + 指数退避）
 
 ### 技术债标注
