@@ -1,4 +1,5 @@
 import { relations } from 'drizzle-orm'
+
 import { categories } from './categories'
 import { productSkus } from './product-skus'
 import { products } from './products'

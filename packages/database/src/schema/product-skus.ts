@@ -8,6 +8,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core'
+
 import { products } from './products'
 
 export const productSkus = pgTable(

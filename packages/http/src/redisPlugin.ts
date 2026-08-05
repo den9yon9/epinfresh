@@ -1,4 +1,4 @@
-import { type Redis, type RedisOptions, createRedisClient } from '@epinfresh/redis'
+import { createRedisClient, type Redis, type RedisOptions } from '@epinfresh/redis'
 import type { Logger } from '@epinfresh/shared'
 import { Elysia } from 'elysia'
 

@@ -1,7 +1,8 @@
 import { type DbClient, schema } from '@epinfresh/database'
-import { type Result, err, hashPassword, ok, verifyPassword } from '@epinfresh/shared'
+import { err, hashPassword, ok, verifyPassword } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
 import { count, eq } from 'drizzle-orm'
+
 import type { LoginInputSchema, RegisterInputSchema, UserListQuerySchema } from './model'
 
 let dummyHash: string | null = null

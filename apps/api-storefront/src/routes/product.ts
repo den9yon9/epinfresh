@@ -3,6 +3,7 @@ import { getProductByIdPublic, listCategories, listPublishedProducts } from '@ep
 import * as ProductModel from '@epinfresh/product/model'
 import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
+
 import { storeDb } from '../plugins'
 
 export const productRoutes = new Elysia({ name: 'product-storefront', prefix: '/api/v1' })

@@ -1,5 +1,6 @@
 import { createLogger, parseEnv } from '@epinfresh/shared'
 import { Type } from '@sinclair/typebox'
+
 import { runMigrations } from './index'
 
 const env = parseEnv(

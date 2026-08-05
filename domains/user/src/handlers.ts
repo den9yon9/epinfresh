@@ -1,4 +1,5 @@
 import type { Logger } from '@epinfresh/shared'
+
 import { EMAIL_JOB_NAMES, type SendEmailJobData } from './jobs'
 
 export type EmailJobHandler = (data: SendEmailJobData, logger: Logger) => void | Promise<void>

@@ -1,2 +1,2 @@
-export { registerUser, loginUser, getUserById, listUsers } from './service'
+export { getUserById, listUsers, loginUser, registerUser } from './service'
 export type { UserRole } from '@epinfresh/shared'

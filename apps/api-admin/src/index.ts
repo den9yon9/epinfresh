@@ -8,6 +8,7 @@ import {
   startServer,
 } from '@epinfresh/http'
 import { Elysia } from 'elysia'
+
 import { env } from './env'
 import { adminDb, adminRateLimit, adminRedis, isProduction, logger } from './plugins'
 import { productRoutes } from './routes/product'

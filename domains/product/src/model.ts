@@ -1,5 +1,5 @@
 import { table } from '@epinfresh/database'
-import { PRODUCT_STATUS, PaginatedResponse, PaginationQuery } from '@epinfresh/shared'
+import { PaginatedResponse, PaginationQuery, PRODUCT_STATUS } from '@epinfresh/shared'
 import { Type } from '@sinclair/typebox'
 
 const statusLiteral = Type.Union(PRODUCT_STATUS.map((s) => Type.Literal(s)))

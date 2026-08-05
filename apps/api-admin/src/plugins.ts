@@ -3,6 +3,7 @@ import { dbPlugin, redisPlugin } from '@epinfresh/http'
 import { createRedisClient } from '@epinfresh/redis'
 import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
 import { createLogger } from '@epinfresh/shared'
+
 import { env } from './env'
 
 const logger = createLogger(env.LOG_LEVEL)
@@ -25,4 +26,4 @@ export const adminRateLimit = authRateLimit({
   trustProxy: env.TRUST_PROXY,
 })
 
-export { logger, isProduction }
+export { isProduction, logger }

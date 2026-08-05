@@ -1,14 +1,16 @@
 import { fileURLToPath } from 'node:url'
+
 import type { ExtractTablesWithRelations } from 'drizzle-orm'
 import type { PgTransaction } from 'drizzle-orm/pg-core'
-import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js'
 import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js'
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres, { type Sql } from 'postgres'
+
 import * as schema from './schema'
 
 export { schema }
-export { table, emailSchema } from './model'
+export { emailSchema, table } from './model'
 
 type PgDatabase = PostgresJsDatabase<typeof schema> & { $client: Sql }
 

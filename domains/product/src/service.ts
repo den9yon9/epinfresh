@@ -1,7 +1,8 @@
 import { type DbClient, schema } from '@epinfresh/database'
-import { type Result, err, ok } from '@epinfresh/shared'
+import { err, ok, type Result } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
 import { and, count, eq, gte, sql } from 'drizzle-orm'
+
 import type {
   AdminProductListQuerySchema,
   CreateCategoryInputSchema,

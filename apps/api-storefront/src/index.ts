@@ -8,6 +8,7 @@ import {
   startServer,
 } from '@epinfresh/http'
 import { Elysia } from 'elysia'
+
 import { env } from './env'
 import { isProduction, logger, storeDb, storeEmailQueue, storeRedis } from './plugins'
 import { checkoutRoutes } from './routes/checkout'

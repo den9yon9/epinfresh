@@ -4,6 +4,7 @@ import {
   createSelectSchema as select,
   createUpdateSchema as update,
 } from 'drizzle-typebox'
+
 import * as schema from './schema'
 
 export const emailSchema = Type.Transform(Type.String({ format: 'email', maxLength: 255 }))

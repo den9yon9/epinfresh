@@ -6,6 +6,7 @@ import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
 import { createLogger } from '@epinfresh/shared'
 import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 import { Elysia } from 'elysia'
+
 import { env } from './env'
 
 const logger = createLogger(env.LOG_LEVEL)
@@ -34,4 +35,4 @@ export const storeAuthRateLimit = authRateLimit({
   trustProxy: env.TRUST_PROXY,
 })
 
-export { logger, isProduction }
+export { isProduction, logger }

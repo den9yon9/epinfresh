@@ -1,8 +1,8 @@
 import type { Redis } from '@epinfresh/redis'
 import {
+  rateLimit as nazliRateLimit,
   type RateLimitPluginOptions,
   type RedisClientLike,
-  rateLimit as nazliRateLimit,
 } from 'elysia-nazli'
 import { redisStore } from 'elysia-nazli/redis'
 

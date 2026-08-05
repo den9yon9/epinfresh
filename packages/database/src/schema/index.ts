@@ -1,9 +1,5 @@
-export { users, userRole } from './users'
 export { categories } from './categories'
-export { products, productStatus } from './products'
 export { productSkus } from './product-skus'
-export {
-  productsRelations,
-  productSkusRelations,
-  categoriesRelations,
-} from './relations'
+export { products, productStatus } from './products'
+export { categoriesRelations, productSkusRelations, productsRelations } from './relations'
+export { userRole, users } from './users'

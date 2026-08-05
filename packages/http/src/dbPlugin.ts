@@ -1,4 +1,4 @@
-import { type Db, closeDb, createDb } from '@epinfresh/database'
+import { closeDb, createDb, type Db } from '@epinfresh/database'
 import { Elysia } from 'elysia'
 
 export function dbPlugin(connection: string | Db) {

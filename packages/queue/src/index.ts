@@ -1,7 +1,6 @@
 import type { Logger } from '@epinfresh/shared'
 import {
   type ConnectionOptions,
-  type Job,
   type Processor,
   Queue,
   type QueueOptions,

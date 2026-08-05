@@ -1,4 +1,4 @@
-import { type Worker, createDispatcher, createWorker } from '@epinfresh/queue'
+import { createDispatcher, createWorker, type Worker } from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
 import { emailHandlers } from '@epinfresh/user/handlers'
 import { EMAIL_QUEUE_NAME } from '@epinfresh/user/jobs'
