@@ -36,7 +36,7 @@ export function createQueue<T = unknown>(
   })
 }
 
-export type JobHandler<T = unknown> = (job: Job<T>, logger: Logger) => Promise<void> | void
+export type JobHandler<T = unknown> = (data: T, logger: Logger) => Promise<void> | void
 
 export function createDispatcher<T = unknown>(
   handlers: Record<string, JobHandler<T>>,
@@ -47,7 +47,7 @@ export function createDispatcher<T = unknown>(
     if (!handler) {
       throw new Error(`No handler registered for job name "${job.name}"`)
     }
-    await handler(job, logger)
+    await handler(job.data, logger)
   }
 }
 

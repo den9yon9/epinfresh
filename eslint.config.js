@@ -16,7 +16,10 @@ export default [
       'boundaries/elements': [
         { type: 'package-data', pattern: 'packages/database' },
         { type: 'package-shared', pattern: 'packages/shared' },
-        { type: 'package-infra', pattern: 'packages/(session|queue|redis|http)' },
+        // ponytail: queue 是领域的消息端口(与 database 同级), domain 可依赖;
+        // http/session/redis 是表述层/传输设施, 域内禁用
+        { type: 'package-queue', pattern: 'packages/queue' },
+        { type: 'package-infra', pattern: 'packages/(session|redis|http)' },
         { type: 'domain-core', pattern: 'domains/(user|product)' },
         { type: 'domain-flow', pattern: 'domains/(order|cart|payment|checkout)' },
         { type: 'app', pattern: 'apps/*' },
@@ -52,7 +55,7 @@ export default [
               allow: [
                 { to: { element: { type: 'package-data' } } },
                 { to: { element: { type: 'package-shared' } } },
-                { to: { element: { type: 'package-infra' } } },
+                { to: { element: { type: 'package-queue' } } },
               ],
             },
             {
@@ -60,7 +63,7 @@ export default [
               allow: [
                 { to: { element: { type: 'package-data' } } },
                 { to: { element: { type: 'package-shared' } } },
-                { to: { element: { type: 'package-infra' } } },
+                { to: { element: { type: 'package-queue' } } },
                 { to: { element: { type: 'domain-core' } } },
               ],
             },
@@ -70,6 +73,7 @@ export default [
                 { to: { element: { type: 'package-data' } } },
                 { to: { element: { type: 'package-shared' } } },
                 { to: { element: { type: 'package-infra' } } },
+                { to: { element: { type: 'package-queue' } } },
                 { to: { element: { type: 'domain-core' } } },
                 { to: { element: { type: 'domain-flow' } } },
               ],

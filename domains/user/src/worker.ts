@@ -7,11 +7,11 @@ export function registerEmailWorker(redisUrl: string, logger: Logger): Worker {
     EMAIL_QUEUE_NAME,
     createDispatcher<SendEmailJobData>(
       {
-        [EMAIL_JOB_NAMES.WELCOME]: (job) => {
-          logger.info({ to: job.data.to, payload: job.data.payload }, 'welcome email queued')
+        [EMAIL_JOB_NAMES.WELCOME]: (data) => {
+          logger.info({ to: data.to, payload: data.payload }, 'welcome email queued')
         },
-        [EMAIL_JOB_NAMES.RESET_PASSWORD]: (job) => {
-          logger.info({ to: job.data.to, payload: job.data.payload }, 'reset-password email queued')
+        [EMAIL_JOB_NAMES.RESET_PASSWORD]: (data) => {
+          logger.info({ to: data.to, payload: data.payload }, 'reset-password email queued')
         },
       },
       logger,
