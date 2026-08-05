@@ -11,7 +11,7 @@ epinfresh 是生鲜电商后端，pnpm + Turborepo Monorepo，Bun 运行时。
 - **队列**：BullMQ（Redis）
 - **会话**：Redis 会话 + 签名 Cookie
 - **错误处理**：neverthrow Result
-- **工具链**：Biome（lint/format）、eslint-plugin-boundaries（分层约束）、lefthook（git hooks）、commitlint（提交规范）
+- **工具链**：ESLint（lint，含 eslint-plugin-boundaries 分层约束）、Prettier（format）、lefthook（git hooks）、commitlint（提交规范）
 
 ## 目录结构
 
@@ -43,7 +43,7 @@ package-data ← package-shared
                   ↖  app 可依赖一切上层
 ```
 
-**domain-core / domain-flow 只允许依赖 `package-data` / `package-shared`**（domain-flow 另加 domain-core）；queue/http/session/redis 全部归入 package-infra，领域层编译期封死。改动依赖关系必须同步修改 `eslint.config.js`（新增元素或调整白名单），并跑 `pnpm lint:boundaries` 验证。
+**domain-core / domain-flow 只允许依赖 `package-data` / `package-shared`**（domain-flow 另加 domain-core）；queue/http/session/redis 全部归入 package-infra，领域层编译期封死。改动依赖关系必须同步修改 `eslint.config.js`（新增元素或调整白名单），并跑 `pnpm lint` 验证。
 
 ## 环境要求
 
@@ -76,16 +76,15 @@ pnpm dev
 
 ## 常用命令
 
-| 命令 | 说明 |
-|---|---|
-| `pnpm dev` | 跑迁移 + 启动全部服务（watch 模式） |
-| `pnpm build` | 全量构建 |
-| `pnpm typecheck` | 全量类型检查 |
-| `pnpm lint` | Biome 检查 |
-| `pnpm format` | Biome 自动修复 |
-| `pnpm check` | Biome CI 模式（零修改） |
-| `pnpm lint:boundaries` | 分层依赖校验（提交前自动执行） |
-| `pnpm clean` | 清理 dist / .turbo |
+| 命令             | 说明                                |
+| ---------------- | ----------------------------------- |
+| `pnpm dev`       | 跑迁移 + 启动全部服务（watch 模式） |
+| `pnpm build`     | 全量构建                            |
+| `pnpm typecheck` | 全量类型检查                        |
+| `pnpm lint`      | ESLint 检查（含分层依赖校验）       |
+| `pnpm format`    | Prettier 格式化                     |
+| `pnpm check`     | ESLint + Prettier 校验（CI 用）     |
+| `pnpm clean`     | 清理 dist / .turbo                  |
 
 ## 数据库迁移
 
@@ -119,7 +118,7 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 
 领域之间的调用只允许 domain-flow → domain-core（如 `checkout` 调 `reduceProductStock`），core 之间禁止互调。
 
-### 控制器（apps/*/src/routes/*.ts）
+### 控制器（apps/_/src/routes/_.ts）
 
 - Elysia 路由实例，职责：HTTP 协议映射 + 校验 + 错误码转状态码
 - 用 `result.match()` 消费 neverthrow Result，`switch (code)` 映射为 `status(4xx, { error: code, message })`
@@ -148,12 +147,12 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 采用 Conventional Commits，由 commitlint + lefthook 强制：
 
 - `feat:` / `fix:` / `refactor:` / `docs:` / `ci:` / `chore:` 等类型
-- pre-commit 自动执行：Biome 修复 + `pnpm lint:boundaries`
+- pre-commit 自动执行：Prettier 格式化 + 全仓 ESLint 检查
 - commit-msg 自动校验提交信息格式
 
 ## CI / Docker
 
-GitHub Actions（`.github/workflows/ci.yml`）在 push/PR 时执行：Biome → typecheck → build → commitlint → 真实 Postgres 上跑迁移。
+GitHub Actions（`.github/workflows/ci.yml`）在 push/PR 时执行：ESLint + Prettier → typecheck → build → commitlint → 真实 Postgres 上跑迁移。
 
 - 镜像构建：根目录 `Dockerfile`，用 `--build-arg APP=<app 名>` 选择目标服务
 - 一键起全套：`docker compose -f docker/docker-compose.yml up -d`（含 migrate 前置服务，迁移成功后才启动 API）
