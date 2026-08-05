@@ -28,22 +28,50 @@ export default [
         {
           default: 'disallow',
           policies: [
-            { from: 'package-data', allow: ['package-shared', 'package-data'] },
-            { from: 'package-shared', allow: ['package-shared'] },
-            { from: 'package-infra', allow: ['package-shared', 'package-infra', 'package-data'] },
-            { from: 'domain-core', allow: ['package-data', 'package-shared', 'package-infra'] },
             {
-              from: 'domain-flow',
-              allow: ['package-data', 'package-shared', 'package-infra', 'domain-core'],
+              from: { element: { type: 'package-data' } },
+              allow: [
+                { to: { element: { type: 'package-shared' } } },
+                { to: { element: { type: 'package-data' } } },
+              ],
             },
             {
-              from: 'app',
+              from: { element: { type: 'package-shared' } },
+              allow: [{ to: { element: { type: 'package-shared' } } }],
+            },
+            {
+              from: { element: { type: 'package-infra' } },
               allow: [
-                'package-data',
-                'package-shared',
-                'package-infra',
-                'domain-core',
-                'domain-flow',
+                { to: { element: { type: 'package-shared' } } },
+                { to: { element: { type: 'package-infra' } } },
+                { to: { element: { type: 'package-data' } } },
+              ],
+            },
+            {
+              from: { element: { type: 'domain-core' } },
+              allow: [
+                { to: { element: { type: 'package-data' } } },
+                { to: { element: { type: 'package-shared' } } },
+                { to: { element: { type: 'package-infra' } } },
+              ],
+            },
+            {
+              from: { element: { type: 'domain-flow' } },
+              allow: [
+                { to: { element: { type: 'package-data' } } },
+                { to: { element: { type: 'package-shared' } } },
+                { to: { element: { type: 'package-infra' } } },
+                { to: { element: { type: 'domain-core' } } },
+              ],
+            },
+            {
+              from: { element: { type: 'app' } },
+              allow: [
+                { to: { element: { type: 'package-data' } } },
+                { to: { element: { type: 'package-shared' } } },
+                { to: { element: { type: 'package-infra' } } },
+                { to: { element: { type: 'domain-core' } } },
+                { to: { element: { type: 'domain-flow' } } },
               ],
             },
           ],

@@ -29,6 +29,19 @@ services:
       retries: 5
     restart: unless-stopped
 
+  migrate:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        APP: worker
+    command: ['bun', 'packages/database/src/migrate.ts']
+    env_file: ../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
   api-storefront:
     build:
       context: ..
@@ -43,6 +56,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:3000/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   api-admin:
@@ -59,6 +80,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:3001/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   worker:
@@ -73,6 +102,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:
