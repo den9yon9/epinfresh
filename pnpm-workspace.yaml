@@ -4,5 +4,4 @@ packages:
   - apps/*
 onlyBuiltDependencies:
   - esbuild
-  - '@biomejs/biome'
   - lefthook

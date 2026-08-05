@@ -6,7 +6,6 @@
 node_modules/
 dist/
 .lefthook/
-biome-logs/
 PLAN.md
 skills-lock.json
 .agents/

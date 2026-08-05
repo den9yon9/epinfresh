@@ -1,16 +1,29 @@
+import js from '@eslint/js'
 import tseslint from '@typescript-eslint/eslint-plugin'
-import tsparser from '@typescript-eslint/parser'
+import eslintConfigPrettier from 'eslint-config-prettier'
 import boundaries from 'eslint-plugin-boundaries'
+import simpleImportSort from 'eslint-plugin-simple-import-sort'
 
 export default [
   {
-    files: ['**/*.ts'],
-    languageOptions: {
-      parser: tsparser,
-    },
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.turbo/**',
+      '.agents/**',
+      'packages/database/src/migrations/meta/**',
+      'repomix-output.xml',
+      'skills-lock.json',
+      'pnpm-lock.yaml',
+    ],
+  },
+  js.configs.recommended,
+  ...tseslint.configs['flat/recommended'],
+  {
+    files: ['**/*.{js,mjs,cjs,ts,mts,cts}'],
     plugins: {
       boundaries,
-      '@typescript-eslint': tseslint,
+      'simple-import-sort': simpleImportSort,
     },
     settings: {
       'boundaries/elements': [
@@ -25,6 +38,10 @@ export default [
       ],
     },
     rules: {
+      'simple-import-sort/imports': 'error',
+      'simple-import-sort/exports': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
+      'no-empty': ['error', { allowEmptyCatch: true }],
       'boundaries/dependencies': [
         'error',
         {
@@ -79,4 +96,5 @@ export default [
       ],
     },
   },
+  eslintConfigPrettier,
 ]

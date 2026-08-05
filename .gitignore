@@ -5,7 +5,6 @@ dist/
 .env.local
 *.log
 .lefthook/
-biome-logs/
 .DS_Store
 .idea/
 .vscode/

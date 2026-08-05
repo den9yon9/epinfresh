@@ -1,12 +1,12 @@
 pre-commit:
   parallel: true
   commands:
-    biome:
-      glob: "*.{js,ts,jsx,tsx,mjs,cjs,d.ts,json,yml,yaml,md}"
-      run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
+    format:
+      glob: '*.{js,ts,jsx,tsx,mjs,cjs,d.ts,json,yml,yaml,md}'
+      run: pnpm exec prettier --write {staged_files}
       stage_fixed: true
-    boundaries:
-      run: pnpm lint:boundaries
+    lint:
+      run: pnpm lint
 
 commit-msg:
   commands:
