@@ -249,6 +249,9 @@ importers:
 
   packages/session:
     dependencies:
+      '@epinfresh/database':
+        specifier: workspace:*
+        version: link:../database
       '@epinfresh/redis':
         specifier: workspace:*
         version: link:../redis

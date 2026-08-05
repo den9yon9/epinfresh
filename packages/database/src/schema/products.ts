@@ -1,7 +1,9 @@
-import { PRODUCT_STATUS } from '@epinfresh/shared'
 import { index, jsonb, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
 
 import { categories } from './categories'
+
+export const PRODUCT_STATUS = ['draft', 'published', 'archived'] as const
+export type ProductStatus = (typeof PRODUCT_STATUS)[number]
 
 export const productStatus = pgEnum('product_status', PRODUCT_STATUS)
 

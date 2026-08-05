@@ -1,5 +1,6 @@
+import { USER_ROLE, type UserRole } from '@epinfresh/database'
 import type { Redis } from '@epinfresh/redis'
-import { type Logger, USER_ROLE, type UserRole } from '@epinfresh/shared'
+import { type Logger } from '@epinfresh/shared'
 import { Type } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status } from 'elysia'

@@ -1,5 +1,7 @@
-import { USER_ROLE } from '@epinfresh/shared'
 import { index, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+
+export const USER_ROLE = ['customer', 'admin'] as const
+export type UserRole = (typeof USER_ROLE)[number]
 
 export const userRole = pgEnum('user_role', USER_ROLE)
 

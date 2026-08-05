@@ -25,7 +25,7 @@ domains/                 # 业务领域
 ├── product/             # domain-core：商品/库存
 └── checkout/            # domain-flow：下单流程（编排 domain-core）
 packages/                # 基础设施包
-├── database/            # package-data：schema、迁移、DbClient
+├── database/            # package-data：schema、枚举、迁移、DbClient
 ├── shared/              # package-shared：纯工具（零 Elysia）
 ├── queue/               # package-infra：BullMQ 封装
 ├── http/                # package-infra：Elysia 插件、服务工厂

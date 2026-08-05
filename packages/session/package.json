@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@epinfresh/database": "workspace:*",
     "@epinfresh/redis": "workspace:*",
     "@epinfresh/shared": "workspace:*",
     "@sinclair/typebox": "^0.34.0",
