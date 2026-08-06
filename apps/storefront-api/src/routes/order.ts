@@ -1,5 +1,7 @@
+import { checkoutWorkflow } from '@epinfresh/checkout'
+import { CreateOrderInputSchema } from '@epinfresh/checkout/model'
 import { commonModel } from '@epinfresh/http'
-import { createOrder, getOrderForUser, listOrdersByUser } from '@epinfresh/order'
+import { getOrderForUser, listOrdersByUser } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
@@ -13,7 +15,7 @@ export const orderRoutes = new Elysia({ name: 'order-storefront', prefix: '/api/
   .post(
     '/orders',
     async ({ body, session, db }) => {
-      const result = await createOrder({ ...body, userId: session.userId }, db)
+      const result = await checkoutWorkflow({ ...body, userId: session.userId }, db)
       return result.match(
         (order) => status(201, order),
         (code) => {
@@ -28,7 +30,7 @@ export const orderRoutes = new Elysia({ name: 'order-storefront', prefix: '/api/
     },
     {
       isAuth: true,
-      body: OrderModel.CreateOrderInputSchema,
+      body: CreateOrderInputSchema,
       response: {
         201: OrderModel.OrderResponseSchema,
         404: ErrorResponse,

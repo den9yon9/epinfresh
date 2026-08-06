@@ -3,6 +3,7 @@ export {
   createProduct,
   getProductById,
   getProductByIdPublic,
+  getSkusByIds,
   listAllProducts,
   listCategories,
   listPublishedProducts,

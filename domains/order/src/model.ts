@@ -4,16 +4,6 @@ import { Type } from '@sinclair/typebox'
 
 const statusLiteral = Type.Union(ORDER_STATUS.map((s) => Type.Literal(s)))
 
-export const CreateOrderInputSchema = Type.Object({
-  items: Type.Array(
-    Type.Object({
-      skuId: Type.String({ format: 'uuid' }),
-      quantity: Type.Number({ minimum: 1, maximum: 9999 }),
-    }),
-    { minItems: 1, maxItems: 100 },
-  ),
-})
-
 const OrderDetailSchema = Type.Intersect([
   table.select.order,
   Type.Object({ items: Type.Array(table.select.orderItem) }),

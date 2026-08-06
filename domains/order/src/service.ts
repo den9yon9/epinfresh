@@ -1,24 +1,18 @@
 import { type DbClient, type OrderStatus, schema } from '@epinfresh/database'
-import { reduceProductStock } from '@epinfresh/product'
 import { err, ok, type Result } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, count, eq, inArray } from 'drizzle-orm'
+import { and, count, eq } from 'drizzle-orm'
 
-import type {
-  AdminOrderListQuerySchema,
-  CreateOrderInputSchema,
-  OrderDetailSchema,
-  OrderListQuerySchema,
-} from './model'
+import type { AdminOrderListQuerySchema, OrderDetailSchema, OrderListQuerySchema } from './model'
 
 export type OrderDetail = Static<typeof OrderDetailSchema>
 
-type CreateOrderErrorCode = 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'
-
-class CreateOrderError extends Error {
-  constructor(readonly code: CreateOrderErrorCode) {
-    super(code)
-  }
+export interface OrderLineInput {
+  skuId: string
+  productName: string
+  skuName: string
+  unitPrice: string
+  quantity: number
 }
 
 function toCents(amount: string): bigint {
@@ -44,62 +38,36 @@ const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   cancelled: [],
 }
 
-export async function createOrder(
-  input: Static<typeof CreateOrderInputSchema> & { userId: string },
+export async function createOrderRecord(
   client: DbClient,
-): Promise<Result<OrderDetail, CreateOrderErrorCode>> {
-  try {
-    const order = await client.transaction(async (tx) => {
-      const skuIds = [...new Set(input.items.map((i) => i.skuId))]
-      const skus = await tx.query.productSkus.findMany({
-        where: inArray(schema.productSkus.id, skuIds),
-        with: { product: true },
-      })
-      const skuMap = new Map(skus.map((s) => [s.id, s]))
+  userId: string,
+  lines: OrderLineInput[],
+): Promise<OrderDetail> {
+  let totalCents = 0n
+  const rows = lines.map((line) => {
+    const unitPriceCents = toCents(line.unitPrice)
+    const subtotalCents = unitPriceCents * BigInt(line.quantity)
+    totalCents += subtotalCents
+    return {
+      skuId: line.skuId,
+      productName: line.productName,
+      skuName: line.skuName,
+      unitPrice: line.unitPrice,
+      quantity: line.quantity,
+      subtotal: fromCents(subtotalCents),
+    }
+  })
 
-      for (const item of input.items) {
-        const result = await reduceProductStock(item.skuId, item.quantity, tx)
-        if (result.isErr()) throw new CreateOrderError(result._unsafeUnwrapErr())
-      }
-
-      let totalCents = 0n
-      const lines = input.items.map((item) => {
-        const sku = skuMap.get(item.skuId)!
-        const unitPriceCents = toCents(sku.price)
-        const subtotalCents = unitPriceCents * BigInt(item.quantity)
-        totalCents += subtotalCents
-        return {
-          skuId: sku.id,
-          productName: sku.product.name,
-          skuName: sku.name,
-          unitPrice: sku.price,
-          quantity: item.quantity,
-          subtotal: fromCents(subtotalCents),
-        }
-      })
-
-      const [order] = await tx
-        .insert(schema.orders)
-        .values({
-          userId: input.userId,
-          status: 'pending',
-          totalAmount: fromCents(totalCents),
-        })
-        .returning()
-      await tx
-        .insert(schema.orderItems)
-        .values(lines.map((line) => ({ ...line, orderId: order.id })))
-      const items = await tx
-        .select()
-        .from(schema.orderItems)
-        .where(eq(schema.orderItems.orderId, order.id))
-      return { ...order, items }
-    })
-    return ok(order)
-  } catch (caught) {
-    if (caught instanceof CreateOrderError) return err(caught.code)
-    throw caught
-  }
+  const [order] = await client
+    .insert(schema.orders)
+    .values({ userId, status: 'pending', totalAmount: fromCents(totalCents) })
+    .returning()
+  await client.insert(schema.orderItems).values(rows.map((row) => ({ ...row, orderId: order.id })))
+  const items = await client
+    .select()
+    .from(schema.orderItems)
+    .where(eq(schema.orderItems.orderId, order.id))
+  return { ...order, items }
 }
 
 export async function listOrdersByUser(

@@ -32,8 +32,9 @@ export default [
         // ponytail: 领域层只允许依赖 persistence/shared(纯逻辑), 一切基础设施接线归 presentation;
         // queue/http/session/redis 均属 infrastructure, 域内禁用
         { type: 'infrastructure', pattern: 'packages/(session|queue|redis|http)' },
-        { type: 'domain', pattern: 'domains/(user|product)' },
-        { type: 'application', pattern: 'domains/(order|cart|payment|checkout)' },
+        // 目录即分层: domains/* = entity 域, use-cases/* = 编排层; 新增/改名无需改动此处
+        { type: 'domain', pattern: 'domains/*' },
+        { type: 'application', pattern: 'use-cases/*' },
         { type: 'presentation', pattern: 'apps/*' },
       ],
     },

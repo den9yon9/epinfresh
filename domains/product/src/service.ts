@@ -82,6 +82,14 @@ export async function getProductByIdPublic(id: string, client: DbClient) {
   return ok(withSkus)
 }
 
+export async function getSkusByIds(skuIds: string[], client: DbClient) {
+  if (skuIds.length === 0) return []
+  return client.query.productSkus.findMany({
+    where: inArray(schema.productSkus.id, skuIds),
+    with: { product: true },
+  })
+}
+
 export async function reduceProductStock(
   skuId: string,
   quantity: number,

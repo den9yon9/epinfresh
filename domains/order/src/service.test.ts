@@ -1,10 +1,9 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
-import { count, eq } from 'drizzle-orm'
 
 import {
-  createOrder,
+  createOrderRecord,
   getOrderById,
   getOrderForUser,
   listOrders,
@@ -52,113 +51,28 @@ async function seedSku(name: string, slug: string, price = '5.00', stock = 10) {
   return { product, sku }
 }
 
-async function orderCount() {
-  const [{ total }] = await db.select({ total: count() }).from(schema.orders)
-  return Number(total)
+async function seedOrder(userId: string, skuId: string, quantity = 1, unitPrice = '5.00') {
+  return createOrderRecord(db, userId, [
+    { skuId, productName: 'Apple', skuName: '1kg', unitPrice, quantity },
+  ])
 }
 
-describe('createOrder', () => {
-  test('creates order with price/name snapshots and reduces stock', async () => {
+describe('createOrderRecord', () => {
+  test('persists order with computed total and snapshot lines', async () => {
     const user = await seedUser()
-    const { sku: apple } = await seedSku('Apple', 'apple', '5.00', 10)
-    const { sku: banana } = await seedSku('Banana', 'banana', '3.50', 5)
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
-    const result = await createOrder(
-      {
-        userId: user.id,
-        items: [
-          { skuId: apple.id, quantity: 2 },
-          { skuId: banana.id, quantity: 1 },
-        ],
-      },
-      db,
-    )
+    const order = await createOrderRecord(db, user.id, [
+      { skuId: sku.id, productName: 'Apple', skuName: '1kg', unitPrice: '5.00', quantity: 2 },
+      { skuId: sku.id, productName: 'Apple', skuName: '1kg', unitPrice: '3.50', quantity: 1 },
+    ])
 
-    expect(result.isOk()).toBe(true)
-    const order = result._unsafeUnwrap()
     expect(order.userId).toBe(user.id)
     expect(order.status).toBe('pending')
     expect(order.totalAmount).toBe('13.50')
     expect(order.items).toHaveLength(2)
-
-    const line = order.items.find((i) => i.skuId === apple.id)!
-    expect(line.productName).toBe('Apple')
-    expect(line.skuName).toBe('1kg')
-    expect(line.unitPrice).toBe('5.00')
-    expect(line.quantity).toBe(2)
-    expect(line.subtotal).toBe('10.00')
-
-    const [afterApple] = await db
-      .select()
-      .from(schema.productSkus)
-      .where(eq(schema.productSkus.id, apple.id))
-    const [afterBanana] = await db
-      .select()
-      .from(schema.productSkus)
-      .where(eq(schema.productSkus.id, banana.id))
-    expect(Number(afterApple.stock)).toBe(8)
-    expect(Number(afterBanana.stock)).toBe(4)
-  })
-
-  test('returns SKU_NOT_FOUND and creates no order', async () => {
-    const user = await seedUser()
-    const result = await createOrder(
-      {
-        userId: user.id,
-        items: [{ skuId: '00000000-0000-4000-8000-000000000000', quantity: 1 }],
-      },
-      db,
-    )
-    expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('SKU_NOT_FOUND')
-    expect(await orderCount()).toBe(0)
-  })
-
-  test('insufficient stock rolls back the whole order', async () => {
-    const user = await seedUser()
-    const { sku: apple } = await seedSku('Apple', 'apple', '5.00', 10)
-    const { sku: banana } = await seedSku('Banana', 'banana', '3.00', 1)
-
-    const result = await createOrder(
-      {
-        userId: user.id,
-        items: [
-          { skuId: apple.id, quantity: 2 },
-          { skuId: banana.id, quantity: 5 },
-        ],
-      },
-      db,
-    )
-
-    expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
-    expect(await orderCount()).toBe(0)
-    const [afterApple] = await db
-      .select()
-      .from(schema.productSkus)
-      .where(eq(schema.productSkus.id, apple.id))
-    expect(Number(afterApple.stock)).toBe(10)
-  })
-
-  test('concurrent checkouts do not oversell', async () => {
-    const user = await seedUser()
-    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
-
-    const results = await Promise.all([
-      createOrder({ userId: user.id, items: [{ skuId: sku.id, quantity: 6 }] }, db),
-      createOrder({ userId: user.id, items: [{ skuId: sku.id, quantity: 6 }] }, db),
-    ])
-
-    expect(results.filter((r) => r.isOk())).toHaveLength(1)
-    expect(
-      results.filter((r) => r.isErr() && r._unsafeUnwrapErr() === 'INSUFFICIENT_STOCK'),
-    ).toHaveLength(1)
-    const [after] = await db
-      .select()
-      .from(schema.productSkus)
-      .where(eq(schema.productSkus.id, sku.id))
-    expect(Number(after.stock)).toBe(4)
-    expect(await orderCount()).toBe(1)
+    expect(order.items[0].unitPrice).toBe('5.00')
+    expect(order.items[0].subtotal).toBe('10.00')
   })
 })
 
@@ -167,9 +81,7 @@ describe('order queries', () => {
     const alice = await seedUser('alice@example.com')
     const bob = await seedUser('bob@example.com')
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
-    const order = (
-      await createOrder({ userId: alice.id, items: [{ skuId: sku.id, quantity: 1 }] }, db)
-    )._unsafeUnwrap()
+    const order = await seedOrder(alice.id, sku.id)
 
     const owner = await getOrderForUser(alice.id, order.id, db)
     expect(owner.isOk()).toBe(true)
@@ -187,8 +99,8 @@ describe('order queries', () => {
     const alice = await seedUser('alice@example.com')
     const bob = await seedUser('bob@example.com')
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
-    await createOrder({ userId: alice.id, items: [{ skuId: sku.id, quantity: 1 }] }, db)
-    await createOrder({ userId: bob.id, items: [{ skuId: sku.id, quantity: 1 }] }, db)
+    await seedOrder(alice.id, sku.id)
+    await seedOrder(bob.id, sku.id)
 
     const list = await listOrdersByUser(alice.id, { page: 1, pageSize: 20 }, db)
     expect(list.total).toBe(1)
@@ -198,9 +110,7 @@ describe('order queries', () => {
   test('getOrderById returns order with items', async () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
-    const order = (
-      await createOrder({ userId: user.id, items: [{ skuId: sku.id, quantity: 1 }] }, db)
-    )._unsafeUnwrap()
+    const order = await seedOrder(user.id, sku.id)
 
     const result = await getOrderById(order.id, db)
     expect(result.isOk()).toBe(true)
@@ -212,7 +122,7 @@ describe('order queries', () => {
   test('listOrders filters by status', async () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
-    await createOrder({ userId: user.id, items: [{ skuId: sku.id, quantity: 1 }] }, db)
+    await seedOrder(user.id, sku.id)
 
     const pending = await listOrders({ page: 1, pageSize: 20, status: 'pending' }, db)
     expect(pending.total).toBe(1)
@@ -225,9 +135,7 @@ describe('updateOrderStatus', () => {
   test('applies valid transitions and rejects invalid ones', async () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
-    const order = (
-      await createOrder({ userId: user.id, items: [{ skuId: sku.id, quantity: 1 }] }, db)
-    )._unsafeUnwrap()
+    const order = await seedOrder(user.id, sku.id)
 
     const toPaid = await updateOrderStatus(order.id, 'paid', db)
     expect(toPaid.isOk()).toBe(true)

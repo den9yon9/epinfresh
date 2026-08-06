@@ -20,10 +20,12 @@ apps/                    # 可部署服务（薄壳：只做装配，不含业�
 ├── storefront-api/      # 前台 API（端口 3000）
 ├── admin-api/           # 管理后台 API（端口 3001）
 └── worker/              # BullMQ 消费者
-domains/                 # 业务领域
-├── user/                # domain：用户/认证
-├── product/             # domain：商品/库存
-└── order/               # application：下单流程（编排 domain）+ 订单查询/状态机
+domains/                 # entity 域（domain）：聚合根与实体
+├── user/                # 用户/认证
+├── product/             # 商品/库存
+└── order/               # 订单（状态机、查询、订单落库 createOrderRecord）
+use-cases/               # 编排层（application）：跨域用例
+└── checkout/            # 下单流程：解析SKU → 扣库存 → 建单（单事务）
 packages/                # 基础设施包
 ├── database/            # persistence：schema、枚举、迁移、DbClient
 ├── shared/              # shared：纯工具（零 Elysia）
@@ -38,12 +40,12 @@ packages/                # 基础设施包
 
 ```
 persistence ← shared
-       ↖  domain(user/product)    可依赖 persistence/shared
-       ↖  application(order)      可依赖 persistence/shared + domain
-       ↖  presentation            可依赖一切上层
+       ↖  domain(domains/*)          可依赖 persistence/shared
+       ↖  application(use-cases/*)   可依赖 persistence/shared + domain
+       ↖  presentation(apps/*)       可依赖一切上层
 ```
 
-**domain / application 只允许依赖 `persistence` / `shared`**（application 另加 domain）；queue/http/session/redis 全部归入 infrastructure，领域层编译期封死。改动依赖关系必须同步修改 `eslint.config.js`（新增元素或调整白名单），并跑 `pnpm lint` 验证。
+**分层由目录结构表达**：`domains/*` = entity 域，`use-cases/*` = 编排层。新增/改名 domain 或 use-case **无需改 eslint.config.js**（pattern 是 `domains/*` / `use-cases/*`）。queue/http/session/redis 全部归入 infrastructure，领域层编译期封死；domain 之间禁止互调，只有 use-case 可以编排多个 domain。
 
 ## 环境要求
 
@@ -120,7 +122,7 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 - `service.ts` — 纯业务逻辑，**不 import Elysia / session / http**；依赖通过最后一个参数传入（`client: DbClient`）；失败返回 `err('ERROR_CODE')`，成功返回 `ok(data)`
 - `model.ts` — TypeBox schema，优先从 DB 派生：`table.insert.X` / `table.select.X`，字段约束在 `packages/database/src/model.ts` 集中覆盖
 
-领域之间的调用只允许 application → domain（如 `order` 调 `reduceProductStock`），domain 之间禁止互调。
+领域之间的调用只允许 application → domain（如 `checkout` 调 `reduceProductStock` 与 `createOrderRecord`），domain 之间禁止互调。`use-cases/*` 与 `domains/*` 采用同样的三文件结构。
 
 ### 控制器（apps/_/src/routes/_.ts）
 
