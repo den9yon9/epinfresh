@@ -76,15 +76,16 @@ pnpm dev
 
 ## 常用命令
 
-| 命令             | 说明                                |
-| ---------------- | ----------------------------------- |
-| `pnpm dev`       | 跑迁移 + 启动全部服务（watch 模式） |
-| `pnpm build`     | 全量构建                            |
-| `pnpm typecheck` | 全量类型检查                        |
-| `pnpm lint`      | ESLint 检查（含分层依赖校验）       |
-| `pnpm format`    | Prettier 格式化                     |
-| `pnpm check`     | ESLint + Prettier 校验（CI 用）     |
-| `pnpm clean`     | 清理 dist / .turbo                  |
+| 命令             | 说明                                                         |
+| ---------------- | ------------------------------------------------------------ |
+| `pnpm dev`       | 跑迁移 + 启动全部服务（watch 模式）                          |
+| `pnpm build`     | 全量构建                                                     |
+| `pnpm typecheck` | 全量类型检查                                                 |
+| `pnpm test`      | 集成测试（真 PG，读取根 `.env.test` 的 `TEST_DATABASE_URL`） |
+| `pnpm lint`      | ESLint 检查（含分层依赖校验）                                |
+| `pnpm format`    | Prettier 格式化                                              |
+| `pnpm check`     | ESLint + Prettier 校验（CI 用）                              |
+| `pnpm clean`     | 清理 dist / .turbo                                           |
 
 ## 数据库迁移
 
