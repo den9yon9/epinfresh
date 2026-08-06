@@ -22,6 +22,8 @@ export const orderRoutes = new Elysia({ name: 'order-storefront', prefix: '/api/
           switch (code) {
             case 'SKU_NOT_FOUND':
               return status(404, { error: code, message: 'SKU not found' })
+            case 'PRODUCT_UNAVAILABLE':
+              return status(409, { error: code, message: 'Product not available' })
             case 'INSUFFICIENT_STOCK':
               return status(409, { error: code, message: 'Insufficient stock' })
           }

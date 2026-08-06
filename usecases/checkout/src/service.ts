@@ -6,7 +6,7 @@ import type { Static } from '@sinclair/typebox'
 
 import type { CreateOrderInputSchema } from './model'
 
-export type CheckoutErrorCode = 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'
+export type CheckoutErrorCode = 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'PRODUCT_UNAVAILABLE'
 
 class CheckoutError extends Error {
   constructor(readonly code: CheckoutErrorCode) {
@@ -24,21 +24,25 @@ export async function checkoutWorkflow(
       const skus = await getSkusByIds(skuIds, tx)
       const skuMap = new Map(skus.map((s) => [s.id, s]))
 
-      for (const item of input.items) {
+      const validated = input.items.map((item) => {
+        const sku = skuMap.get(item.skuId)
+        if (!sku) throw new CheckoutError('SKU_NOT_FOUND')
+        if (sku.product.status !== 'published') throw new CheckoutError('PRODUCT_UNAVAILABLE')
+        return { item, sku }
+      })
+
+      for (const { item } of validated) {
         const result = await reduceProductStock(item.skuId, item.quantity, tx)
         if (result.isErr()) throw new CheckoutError(result._unsafeUnwrapErr())
       }
 
-      const lines = input.items.map((item) => {
-        const sku = skuMap.get(item.skuId)!
-        return {
-          skuId: sku.id,
-          productName: sku.product.name,
-          skuName: sku.name,
-          unitPrice: sku.price,
-          quantity: item.quantity,
-        }
-      })
+      const lines = validated.map(({ item, sku }) => ({
+        skuId: sku.id,
+        productName: sku.product.name,
+        skuName: sku.name,
+        unitPrice: sku.price,
+        quantity: item.quantity,
+      }))
 
       return createOrderRecord(tx, input.userId, lines)
     })

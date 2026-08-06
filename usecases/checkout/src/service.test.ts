@@ -1,4 +1,4 @@
-import { closeDb, type Db, schema } from '@epinfresh/database'
+import { closeDb, type Db, type ProductStatus, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { count, eq } from 'drizzle-orm'
@@ -27,11 +27,14 @@ async function seedUser(email = 'alice@example.com') {
   return user
 }
 
-async function seedSku(name: string, slug: string, price = '5.00', stock = 10) {
-  const [product] = await db
-    .insert(schema.products)
-    .values({ name, slug, status: 'published' })
-    .returning()
+async function seedSku(
+  name: string,
+  slug: string,
+  price = '5.00',
+  stock = 10,
+  status: ProductStatus = 'published',
+) {
+  const [product] = await db.insert(schema.products).values({ name, slug, status }).returning()
   const [sku] = await db
     .insert(schema.productSkus)
     .values({
@@ -105,6 +108,25 @@ describe('checkoutWorkflow', () => {
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('SKU_NOT_FOUND')
     expect(await orderCount()).toBe(0)
+  })
+
+  test('rejects SKU whose product is not published', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple-draft', '5.00', 10, 'draft')
+
+    const result = await checkoutWorkflow(
+      { userId: user.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      db,
+    )
+
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('PRODUCT_UNAVAILABLE')
+    expect(await orderCount()).toBe(0)
+    const [after] = await db
+      .select()
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, sku.id))
+    expect(Number(after.stock)).toBe(10)
   })
 
   test('insufficient stock rolls back the whole order', async () => {
