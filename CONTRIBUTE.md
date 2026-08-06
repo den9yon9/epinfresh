@@ -24,7 +24,7 @@ domains/                 # entity 域（domain）：聚合根与实体
 ├── user/                # 用户/认证
 ├── product/             # 商品/库存
 └── order/               # 订单（状态机、查询、订单落库 createOrderRecord）
-use-cases/               # 编排层（application）：跨域用例
+usecases/                # 编排层（usecase）：跨域用例
 └── checkout/            # 下单流程：解析SKU → 扣库存 → 建单（单事务）
 packages/                # 基础设施包
 ├── database/            # persistence：schema、枚举、迁移、DbClient
@@ -41,11 +41,11 @@ packages/                # 基础设施包
 ```
 persistence ← shared
        ↖  domain(domains/*)          可依赖 persistence/shared
-       ↖  application(use-cases/*)   可依赖 persistence/shared + domain
+       ↖  usecase(usecases/*)        可依赖 persistence/shared + domain
        ↖  presentation(apps/*)       可依赖一切上层
 ```
 
-**分层由目录结构表达**：`domains/*` = entity 域，`use-cases/*` = 编排层。新增/改名 domain 或 use-case **无需改 eslint.config.js**（pattern 是 `domains/*` / `use-cases/*`）。queue/http/session/redis 全部归入 infrastructure，领域层编译期封死；domain 之间禁止互调，只有 use-case 可以编排多个 domain。
+**分层由目录结构表达**：`domains/*` = entity 域，`usecases/*` = 编排层。新增/改名 domain 或 use-case **无需改 eslint.config.js**（pattern 是 `domains/*` / `usecases/*`）。queue/http/session/redis 全部归入 infrastructure，领域层编译期封死；domain 之间禁止互调，只有 use-case 可以编排多个 domain。
 
 ## 环境要求
 
@@ -122,7 +122,7 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 - `service.ts` — 纯业务逻辑，**不 import Elysia / session / http**；依赖通过最后一个参数传入（`client: DbClient`）；失败返回 `err('ERROR_CODE')`，成功返回 `ok(data)`
 - `model.ts` — TypeBox schema，优先从 DB 派生：`table.insert.X` / `table.select.X`，字段约束在 `packages/database/src/model.ts` 集中覆盖
 
-领域之间的调用只允许 application → domain（如 `checkout` 调 `reduceProductStock` 与 `createOrderRecord`），domain 之间禁止互调。`use-cases/*` 与 `domains/*` 采用同样的三文件结构。
+领域之间的调用只允许 usecase → domain（如 `checkout` 调 `reduceProductStock` 与 `createOrderRecord`），domain 之间禁止互调。`usecases/*` 与 `domains/*` 采用同样的三文件结构。
 
 ### 控制器（apps/_/src/routes/_.ts）
 

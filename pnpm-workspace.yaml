@@ -1,7 +1,7 @@
 packages:
   - packages/*
   - domains/*
-  - use-cases/*
+  - usecases/*
   - apps/*
 onlyBuiltDependencies:
   - esbuild
