@@ -1,7 +1,7 @@
 import { type DbClient, schema } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, count, eq, gte, sql } from 'drizzle-orm'
+import { and, asc, count, eq, gte, inArray, sql } from 'drizzle-orm'
 
 import type {
   AdminProductListQuerySchema,
@@ -28,10 +28,33 @@ export async function listAllProducts(
     orderBy: (products, { asc }) => asc(products.createdAt),
     limit: pageSize,
     offset,
-    with: { skus: true },
   })
+  const withSkus = await attachSkus(items, client)
   const [{ total }] = await client.select({ total: count() }).from(schema.products).where(where)
-  return { items, total: Number(total), page, pageSize }
+  return { items: withSkus, total: Number(total), page, pageSize }
+}
+
+type ProductSkuRow = typeof schema.productSkus.$inferSelect
+
+async function attachSkus<T extends { id: string }>(products: T[], client: DbClient) {
+  if (products.length === 0) return []
+  const skus = await client
+    .select()
+    .from(schema.productSkus)
+    .where(
+      inArray(
+        schema.productSkus.productId,
+        products.map((p) => p.id),
+      ),
+    )
+    .orderBy(asc(schema.productSkus.createdAt))
+  const byProduct = new Map<string, ProductSkuRow[]>()
+  for (const sku of skus) {
+    const list = byProduct.get(sku.productId)
+    if (list) list.push(sku)
+    else byProduct.set(sku.productId, [sku])
+  }
+  return products.map((product) => ({ ...product, skus: byProduct.get(product.id) ?? [] }))
 }
 
 export function listPublishedProducts(
@@ -44,19 +67,19 @@ export function listPublishedProducts(
 export async function getProductById(id: string, client: DbClient) {
   const product = await client.query.products.findFirst({
     where: eq(schema.products.id, id),
-    with: { skus: true },
   })
   if (!product) return err('PRODUCT_NOT_FOUND')
-  return ok(product)
+  const [withSkus] = await attachSkus([product], client)
+  return ok(withSkus)
 }
 
 export async function getProductByIdPublic(id: string, client: DbClient) {
   const product = await client.query.products.findFirst({
     where: and(eq(schema.products.id, id), eq(schema.products.status, 'published')),
-    with: { skus: true },
   })
   if (!product) return err('PRODUCT_NOT_FOUND')
-  return ok(product)
+  const [withSkus] = await attachSkus([product], client)
+  return ok(withSkus)
 }
 
 export async function reduceProductStock(

@@ -39,12 +39,12 @@ export const CategoryResponseSchema = table.select.category
 export const CategoryListResponseSchema = PaginatedResponse(table.select.category)
 export const CategoryListQuerySchema = PaginationQuery
 
-export const ProductListQuerySchema = Type.Intersect([
+export const ProductListQuerySchema = Type.Composite([
   PaginationQuery,
   Type.Object({ categoryId: Type.Optional(Type.String({ format: 'uuid' })) }),
 ])
 
-export const AdminProductListQuerySchema = Type.Intersect([
+export const AdminProductListQuerySchema = Type.Composite([
   PaginationQuery,
   Type.Object({
     categoryId: Type.Optional(Type.String({ format: 'uuid' })),

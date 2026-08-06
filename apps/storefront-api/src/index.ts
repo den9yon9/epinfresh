@@ -11,7 +11,7 @@ import { Elysia } from 'elysia'
 
 import { env } from './env'
 import { isProduction, logger, storeDb, storeEmailQueue, storeRedis } from './plugins'
-import { checkoutRoutes } from './routes/checkout'
+import { orderRoutes } from './routes/order'
 import { productRoutes } from './routes/product'
 import { userRoutes } from './routes/user'
 
@@ -37,7 +37,7 @@ export function buildApp() {
     .use(storeEmailQueue)
     .use(userRoutes)
     .use(productRoutes)
-    .use(checkoutRoutes)
+    .use(orderRoutes)
     .get('/health', ({ db, redis }) => healthCheck({ db, redis }))
 }
 

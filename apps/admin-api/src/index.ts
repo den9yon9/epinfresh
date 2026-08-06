@@ -11,6 +11,7 @@ import { Elysia } from 'elysia'
 
 import { env } from './env'
 import { adminDb, adminRateLimit, adminRedis, isProduction, logger } from './plugins'
+import { orderRoutes } from './routes/order'
 import { productRoutes } from './routes/product'
 import { userRoutes } from './routes/user'
 
@@ -36,6 +37,7 @@ export function buildApp() {
     .use(adminRateLimit)
     .use(userRoutes)
     .use(productRoutes)
+    .use(orderRoutes)
     .get('/health', ({ db, redis }) => healthCheck({ db, redis }))
 }
 

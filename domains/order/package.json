@@ -1,5 +1,5 @@
 {
-  "name": "@epinfresh/checkout",
+  "name": "@epinfresh/order",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -17,6 +17,7 @@
     "@epinfresh/database": "workspace:*",
     "@epinfresh/product": "workspace:*",
     "@epinfresh/shared": "workspace:*",
-    "@sinclair/typebox": "^0.34.0"
+    "@sinclair/typebox": "^0.34.0",
+    "drizzle-orm": "^0.40.0"
   }
 }

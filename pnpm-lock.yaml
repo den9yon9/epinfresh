@@ -65,6 +65,9 @@ importers:
       '@epinfresh/http':
         specifier: workspace:*
         version: link:../../packages/http
+      '@epinfresh/order':
+        specifier: workspace:*
+        version: link:../../domains/order
       '@epinfresh/product':
         specifier: workspace:*
         version: link:../../domains/product
@@ -95,15 +98,15 @@ importers:
       '@elysiajs/openapi':
         specifier: ^1.4.0
         version: 1.4.15(elysia@1.4.29(@sinclair/typebox@0.34.52)(@types/bun@1.3.14)(exact-mirror@1.2.2)(file-type@22.0.1)(openapi-types@12.1.3)(typescript@5.9.3))
-      '@epinfresh/checkout':
-        specifier: workspace:*
-        version: link:../../domains/checkout
       '@epinfresh/database':
         specifier: workspace:*
         version: link:../../packages/database
       '@epinfresh/http':
         specifier: workspace:*
         version: link:../../packages/http
+      '@epinfresh/order':
+        specifier: workspace:*
+        version: link:../../domains/order
       '@epinfresh/product':
         specifier: workspace:*
         version: link:../../domains/product
@@ -144,7 +147,7 @@ importers:
         specifier: ^0.34.0
         version: 0.34.52
 
-  domains/checkout:
+  domains/order:
     dependencies:
       '@epinfresh/database':
         specifier: workspace:*
@@ -158,6 +161,9 @@ importers:
       '@sinclair/typebox':
         specifier: ^0.34.0
         version: 0.34.52
+      drizzle-orm:
+        specifier: ^0.40.0
+        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   domains/product:
     dependencies:

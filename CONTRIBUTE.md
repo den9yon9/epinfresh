@@ -23,7 +23,7 @@ apps/                    # 可部署服务（薄壳：只做装配，不含业�
 domains/                 # 业务领域
 ├── user/                # domain：用户/认证
 ├── product/             # domain：商品/库存
-└── checkout/            # application：下单流程（编排 domain）
+└── order/               # application：下单流程（编排 domain）+ 订单查询/状态机
 packages/                # 基础设施包
 ├── database/            # persistence：schema、枚举、迁移、DbClient
 ├── shared/              # shared：纯工具（零 Elysia）
@@ -39,7 +39,7 @@ packages/                # 基础设施包
 ```
 persistence ← shared
        ↖  domain(user/product)    可依赖 persistence/shared
-       ↖  application(checkout)   可依赖 persistence/shared + domain
+       ↖  application(order)      可依赖 persistence/shared + domain
        ↖  presentation            可依赖一切上层
 ```
 
@@ -120,7 +120,7 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 - `service.ts` — 纯业务逻辑，**不 import Elysia / session / http**；依赖通过最后一个参数传入（`client: DbClient`）；失败返回 `err('ERROR_CODE')`，成功返回 `ok(data)`
 - `model.ts` — TypeBox schema，优先从 DB 派生：`table.insert.X` / `table.select.X`，字段约束在 `packages/database/src/model.ts` 集中覆盖
 
-领域之间的调用只允许 application → domain（如 `checkout` 调 `reduceProductStock`），domain 之间禁止互调。
+领域之间的调用只允许 application → domain（如 `order` 调 `reduceProductStock`），domain 之间禁止互调。
 
 ### 控制器（apps/_/src/routes/_.ts）
 

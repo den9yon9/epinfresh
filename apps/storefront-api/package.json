@@ -11,9 +11,9 @@
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
     "@elysiajs/openapi": "^1.4.0",
-    "@epinfresh/checkout": "workspace:*",
     "@epinfresh/database": "workspace:*",
     "@epinfresh/http": "workspace:*",
+    "@epinfresh/order": "workspace:*",
     "@epinfresh/product": "workspace:*",
     "@epinfresh/queue": "workspace:*",
     "@epinfresh/redis": "workspace:*",

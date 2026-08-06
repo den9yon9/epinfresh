@@ -21,6 +21,8 @@ export const table = {
     productSku: select(schema.productSkus, {
       attributes: Type.Record(Type.String(), Type.String()),
     }),
+    order: select(schema.orders),
+    orderItem: select(schema.orderItems),
   },
   insert: {
     user: insert(schema.users, {
@@ -39,6 +41,8 @@ export const table = {
     productSku: insert(schema.productSkus, {
       attributes: Type.Record(Type.String(), Type.String()),
     }),
+    order: insert(schema.orders),
+    orderItem: insert(schema.orderItems),
   },
   update: {
     user: update(schema.users, {
@@ -53,5 +57,7 @@ export const table = {
     productSku: update(schema.productSkus, {
       attributes: Type.Record(Type.String(), Type.String()),
     }),
+    order: update(schema.orders),
+    orderItem: update(schema.orderItems),
   },
 }

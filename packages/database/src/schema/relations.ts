@@ -1,8 +1,11 @@
 import { relations } from 'drizzle-orm'
 
 import { categories } from './categories'
+import { orderItems } from './order-items'
+import { orders } from './orders'
 import { productSkus } from './product-skus'
 import { products } from './products'
+import { users } from './users'
 
 export const productsRelations = relations(products, ({ many, one }) => ({
   skus: many(productSkus),
@@ -27,4 +30,27 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   }),
   children: many(categories, { relationName: 'category_parent' }),
   products: many(products),
+}))
+
+export const usersRelations = relations(users, ({ many }) => ({
+  orders: many(orders),
+}))
+
+export const ordersRelations = relations(orders, ({ one, many }) => ({
+  user: one(users, {
+    fields: [orders.userId],
+    references: [users.id],
+  }),
+  items: many(orderItems),
+}))
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderItems.orderId],
+    references: [orders.id],
+  }),
+  sku: one(productSkus, {
+    fields: [orderItems.skuId],
+    references: [productSkus.id],
+  }),
 }))

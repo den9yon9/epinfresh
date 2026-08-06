@@ -43,6 +43,13 @@
       "when": 1785290788048,
       "tag": "0005_lean_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786000065296,
+      "tag": "0006_breezy_black_bolt",
+      "breakpoints": true
     }
   ]
 }

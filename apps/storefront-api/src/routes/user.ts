@@ -31,7 +31,7 @@ export const userRoutes = new Elysia({ name: 'user-storefront', prefix: '/api/v1
           to: user.email,
           payload: { userId: user.id, name: user.name },
         },
-        { jobId: `welcome:${user.id}` },
+        { jobId: `welcome-${user.id}` },
       )
       return user
     },
