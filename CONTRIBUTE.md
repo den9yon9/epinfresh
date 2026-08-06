@@ -62,10 +62,13 @@ cp .env.example .env
 # 生成 SESSION_SECRET（至少 32 位随机串）：
 #   openssl rand -base64 32
 
-# 3. 启动基础设施（仅 postgres 和 redis）
+# 3. 配置测试环境（跑 `pnpm test` 才需要）
+cp .env.test.example .env.test
+
+# 4. 启动基础设施（仅 postgres 和 redis）
 docker compose -f docker/docker-compose.yml up -d postgres redis
 
-# 4. 启动全部服务（自动先跑迁移）
+# 5. 启动全部服务（自动先跑迁移）
 pnpm dev
 ```
 
