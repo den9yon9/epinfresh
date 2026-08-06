@@ -79,18 +79,30 @@ pnpm dev
 - Storefront: http://localhost:3000/docs
 - Admin: http://localhost:3001/docs
 
+### 初始化 admin 用户
+
+admin-api 的商品/订单管理接口要求 `admin` 角色，注册接口默认只创建 `customer`，系统内没有创建 admin 的途径。首次部署必须用 seed 脚本引导 admin 账号（幂等，可重复执行；生产环境强制显式设置 `ADMIN_PASSWORD`）：
+
+```bash
+pnpm --filter @epinfresh/database db:seed
+# 默认账号 admin@example.com / admin123456（见 .env 的 ADMIN_EMAIL / ADMIN_PASSWORD）
+```
+
+商品等业务数据不在 seed 内，登录 admin-api 后通过 `POST /api/v1/admin/products` 创建，再走 storefront 验证"建商品 → 下单 → 订单管理"闭环。
+
 ## 常用命令
 
-| 命令             | 说明                                                         |
-| ---------------- | ------------------------------------------------------------ |
-| `pnpm dev`       | 跑迁移 + 启动全部服务（watch 模式）                          |
-| `pnpm build`     | 全量构建                                                     |
-| `pnpm typecheck` | 全量类型检查                                                 |
-| `pnpm test`      | 集成测试（真 PG，读取根 `.env.test` 的 `TEST_DATABASE_URL`） |
-| `pnpm lint`      | ESLint 检查（含分层依赖校验）                                |
-| `pnpm format`    | Prettier 格式化                                              |
-| `pnpm check`     | ESLint + Prettier 校验（CI 用）                              |
-| `pnpm clean`     | 清理 dist / .turbo                                           |
+| 命令                                        | 说明                                                         |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| `pnpm dev`                                  | 跑迁移 + 启动全部服务（watch 模式）                          |
+| `pnpm build`                                | 全量构建                                                     |
+| `pnpm typecheck`                            | 全量类型检查                                                 |
+| `pnpm test`                                 | 集成测试（真 PG，读取根 `.env.test` 的 `TEST_DATABASE_URL`） |
+| `pnpm --filter @epinfresh/database db:seed` | 幂等 seed：引导 admin 用户（首次部署必须）                   |
+| `pnpm lint`                                 | ESLint 检查（含分层依赖校验）                                |
+| `pnpm format`                               | Prettier 格式化                                              |
+| `pnpm check`                                | ESLint + Prettier 校验（CI 用）                              |
+| `pnpm clean`                                | 清理 dist / .turbo                                           |
 
 ## 数据库迁移
 

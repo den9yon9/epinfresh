@@ -6,3 +6,4 @@ dist
 packages/database/src/migrations/meta
 pnpm-lock.yaml
 repomix-output.xml
+.env.example

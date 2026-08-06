@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "bun --env-file=../../.env node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "bun --env-file=../../.env node_modules/drizzle-kit/bin.cjs migrate",
-    "migrate": "bun --env-file=../../.env src/migrate.ts"
+    "migrate": "bun --env-file=../../.env src/migrate.ts",
+    "db:seed": "bun --env-file=../../.env src/seed.ts"
   },
   "dependencies": {
     "@epinfresh/shared": "workspace:*",
