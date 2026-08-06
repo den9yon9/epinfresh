@@ -9,6 +9,7 @@ import {
   listPublishedProducts,
   reduceProductStock,
   removeCategory,
+  restoreProductStock,
 } from './service'
 
 let db: Db
@@ -72,6 +73,25 @@ describe('reduceProductStock', () => {
     const result = await reduceProductStock(sku.id, 1, db)
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
+  })
+})
+
+describe('restoreProductStock', () => {
+  test('increments stock and returns ok', async () => {
+    const { sku } = await seedSku(7)
+    const result = await restoreProductStock(sku.id, 3, db)
+    expect(result.isOk()).toBe(true)
+    const [after] = await db
+      .select()
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, sku.id))
+    expect(Number(after.stock)).toBe(10)
+  })
+
+  test('returns SKU_NOT_FOUND for unknown sku', async () => {
+    const result = await restoreProductStock('00000000-0000-4000-8000-000000000000', 1, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('SKU_NOT_FOUND')
   })
 })
 

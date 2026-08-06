@@ -114,6 +114,23 @@ export async function reduceProductStock(
   return ok()
 }
 
+export async function restoreProductStock(
+  skuId: string,
+  quantity: number,
+  client: DbClient,
+): Promise<Result<void, 'SKU_NOT_FOUND'>> {
+  const [updated] = await client
+    .update(schema.productSkus)
+    .set({
+      stock: sql`${schema.productSkus.stock} + ${quantity}`,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.productSkus.id, skuId))
+    .returning()
+  if (!updated) return err('SKU_NOT_FOUND')
+  return ok()
+}
+
 export async function createProduct(
   input: Static<typeof CreateProductInputSchema>,
   client: DbClient,

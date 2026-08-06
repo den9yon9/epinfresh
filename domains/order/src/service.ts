@@ -146,18 +146,21 @@ export async function updateOrderStatus(
   orderId: string,
   status: OrderStatus,
   client: DbClient,
-): Promise<Result<OrderDetail, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'>> {
+): Promise<
+  Result<{ order: OrderDetail; from: OrderStatus }, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'>
+> {
   const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
   if (!order) return err('ORDER_NOT_FOUND')
   if (!ORDER_TRANSITIONS[order.status].includes(status)) return err('INVALID_TRANSITION')
   const [updated] = await client
     .update(schema.orders)
     .set({ status })
-    .where(eq(schema.orders.id, orderId))
+    .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, order.status)))
     .returning()
+  if (!updated) return err('INVALID_TRANSITION')
   const items = await client
     .select()
     .from(schema.orderItems)
     .where(eq(schema.orderItems.orderId, orderId))
-  return ok({ ...updated, items })
+  return ok({ order: { ...updated, items }, from: order.status })
 }

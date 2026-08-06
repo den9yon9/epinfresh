@@ -1,6 +1,7 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
+import { eq } from 'drizzle-orm'
 
 import {
   createOrderRecord,
@@ -139,7 +140,7 @@ describe('updateOrderStatus', () => {
 
     const toPaid = await updateOrderStatus(order.id, 'paid', db)
     expect(toPaid.isOk()).toBe(true)
-    expect(toPaid._unsafeUnwrap().status).toBe('paid')
+    expect(toPaid._unsafeUnwrap().order.status).toBe('paid')
 
     const skipShipped = await updateOrderStatus(order.id, 'completed', db)
     expect(skipShipped.isErr()).toBe(true)
@@ -153,6 +154,32 @@ describe('updateOrderStatus', () => {
     const rewind = await updateOrderStatus(order.id, 'pending', db)
     expect(rewind.isErr()).toBe(true)
     expect(rewind._unsafeUnwrapErr()).toBe('INVALID_TRANSITION')
+  })
+
+  test('reports the transition origin via from', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+
+    const result = await updateOrderStatus(order.id, 'paid', db)
+    expect(result.isOk()).toBe(true)
+    expect(result._unsafeUnwrap().from).toBe('pending')
+  })
+
+  test('concurrent transitions never both originate from pending', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+
+    const results = await Promise.all([
+      updateOrderStatus(order.id, 'paid', db),
+      updateOrderStatus(order.id, 'cancelled', db),
+    ])
+
+    const fromPending = results.filter((r) => r.isOk() && r._unsafeUnwrap().from === 'pending')
+    expect(fromPending.length).toBeLessThanOrEqual(1)
+    const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(['paid', 'cancelled']).toContain(after.status)
   })
 
   test('returns ORDER_NOT_FOUND for unknown order', async () => {

@@ -1,6 +1,7 @@
 import { commonModel } from '@epinfresh/http'
 import { getOrderById, listOrders, updateOrderStatus } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
+import { cancelOrder } from '@epinfresh/order-cancel'
 import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
@@ -41,7 +42,10 @@ export const orderRoutes = new Elysia({ name: 'order-admin', prefix: '/api/v1/ad
   .patch(
     '/orders/:id/status',
     async ({ params, body, db }) => {
-      const result = await updateOrderStatus(params.id, body.status, db)
+      const result =
+        body.status === 'cancelled'
+          ? await cancelOrder(params.id, db)
+          : (await updateOrderStatus(params.id, body.status, db)).map(({ order }) => order)
       return result.match(
         (order) => order,
         (code) => {

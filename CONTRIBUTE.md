@@ -136,7 +136,9 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 - `service.ts` — 纯业务逻辑，**不 import Elysia / session / http**；依赖通过最后一个参数传入（`client: DbClient`）；失败返回 `err('ERROR_CODE')`，成功返回 `ok(data)`
 - `model.ts` — TypeBox schema，优先从 DB 派生：`table.insert.X` / `table.select.X`，字段约束在 `packages/database/src/model.ts` 集中覆盖
 
-领域之间的调用只允许 usecase → domain（如 `checkout` 调 `reduceProductStock` 与 `createOrderRecord`），domain 之间禁止互调。`usecases/*` 与 `domains/*` 采用同样的三文件结构。
+领域之间的调用只允许 usecase → domain（如 `checkout` 调 `reduceProductStock` 与 `createOrderRecord`，`order-cancel` 调 `updateOrderStatus` 与 `restoreProductStock`），domain 之间禁止互调。`usecases/*` 与 `domains/*` 采用同样的三文件结构。
+
+订单状态机：`pending → paid → shipped → completed`，`pending/paid → cancelled`。**取消回补库存仅限 `pending → cancelled`**（用户未付款，商品回架）；`paid → cancelled` 不回补（已成交，走退款流程）。由 `usecases/order-cancel` 的 `cancelOrder` 在单事务内编排：`updateOrderStatus` 原子返回转移起点 `from`，`from === 'pending'` 时按订单明细回补 SKU 库存。
 
 ### 控制器（apps/_/src/routes/_.ts）
 
