@@ -11,6 +11,7 @@ import { Elysia } from 'elysia'
 
 import { env } from './env'
 import { adminDb, adminRateLimit, adminRedis, isProduction, logger } from './plugins'
+import { authRoutes } from './routes/auth'
 import { orderRoutes } from './routes/order'
 import { productRoutes } from './routes/product'
 import { userRoutes } from './routes/user'
@@ -35,6 +36,7 @@ export function buildApp() {
         : new Elysia(),
     )
     .use(adminRateLimit)
+    .use(authRoutes)
     .use(userRoutes)
     .use(productRoutes)
     .use(orderRoutes)

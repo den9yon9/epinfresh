@@ -90,6 +90,8 @@ pnpm --filter @epinfresh/database db:seed
 
 商品等业务数据不在 seed 内，登录 admin-api 后通过 `POST /api/v1/admin/products` 创建，再走 storefront 验证"建商品 → 下单 → 订单管理"闭环。
 
+admin 登录走 admin-api 自身的 `POST /api/v1/auth/login`（login/logout/me 三件套，非 admin 账号返回 403）。会话与 storefront 共享（同一 Redis + SESSION_SECRET），两服务的 session cookie 互通。
+
 ## 常用命令
 
 | 命令                                        | 说明                                                         |
