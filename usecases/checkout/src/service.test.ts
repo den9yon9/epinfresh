@@ -129,6 +129,33 @@ describe('checkoutWorkflow', () => {
     expect(Number(after.stock)).toBe(10)
   })
 
+  test('merges duplicate SKUs into a single line', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+
+    const result = await checkoutWorkflow(
+      {
+        userId: user.id,
+        items: [
+          { skuId: sku.id, quantity: 2 },
+          { skuId: sku.id, quantity: 3 },
+        ],
+      },
+      db,
+    )
+
+    expect(result.isOk()).toBe(true)
+    const order = result._unsafeUnwrap()
+    expect(order.items).toHaveLength(1)
+    expect(order.items[0].quantity).toBe(5)
+    expect(order.totalAmount).toBe('25.00')
+    const [after] = await db
+      .select()
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, sku.id))
+    expect(Number(after.stock)).toBe(5)
+  })
+
   test('insufficient stock rolls back the whole order', async () => {
     const user = await seedUser()
     const { sku: apple } = await seedSku('Apple', 'apple', '5.00', 10)

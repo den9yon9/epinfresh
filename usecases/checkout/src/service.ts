@@ -20,11 +20,17 @@ export async function checkoutWorkflow(
 ): Promise<Result<OrderDetail, CheckoutErrorCode>> {
   try {
     const order = await client.transaction(async (tx) => {
-      const skuIds = [...new Set(input.items.map((i) => i.skuId))]
+      const merged = new Map<string, number>()
+      for (const item of input.items) {
+        merged.set(item.skuId, (merged.get(item.skuId) ?? 0) + item.quantity)
+      }
+      const items = [...merged.entries()].map(([skuId, quantity]) => ({ skuId, quantity }))
+
+      const skuIds = items.map((i) => i.skuId)
       const skus = await getSkusByIds(skuIds, tx)
       const skuMap = new Map(skus.map((s) => [s.id, s]))
 
-      const validated = input.items.map((item) => {
+      const validated = items.map((item) => {
         const sku = skuMap.get(item.skuId)
         if (!sku) throw new CheckoutError('SKU_NOT_FOUND')
         if (sku.product.status !== 'published') throw new CheckoutError('PRODUCT_UNAVAILABLE')
