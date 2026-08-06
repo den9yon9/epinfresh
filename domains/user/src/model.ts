@@ -2,7 +2,7 @@ import { emailSchema, table } from '@epinfresh/database'
 import { PaginatedResponse, PaginationQuery } from '@epinfresh/shared'
 import { Type } from '@sinclair/typebox'
 
-export const UserResponseSchema = Type.Omit(table.select.user, ['passwordHash'])
+export const UserResponseSchema = table.select.user
 
 export const RegisterInputSchema = Type.Intersect([
   Type.Omit(table.insert.user, ['id', 'passwordHash', 'role', 'avatar', 'createdAt', 'updatedAt']),

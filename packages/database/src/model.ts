@@ -7,13 +7,15 @@ import {
 
 import * as schema from './schema'
 
+const userSelect = select(schema.users)
+
 export const emailSchema = Type.Transform(Type.String({ format: 'email', maxLength: 255 }))
   .Decode((v) => v.toLowerCase().trim())
   .Encode((v) => v)
 
 export const table = {
   select: {
-    user: select(schema.users),
+    user: Type.Omit(userSelect, ['passwordHash']),
     category: select(schema.categories),
     product: select(schema.products, {
       images: Type.Array(Type.String()),

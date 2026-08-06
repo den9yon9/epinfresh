@@ -142,6 +142,7 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 - 用 `result.match()` 消费 neverthrow Result，`switch (code)` 映射为 `status(4xx, { error: code, message })`
 - 响应 schema 必须显式声明（`response: { 200: ..., 404: ErrorResponse }`）
 - 认证用 `isAuth` / `isAdmin` macro（`packages/session` 提供）
+- **响应敏感字段**：响应以声明的 `response` schema 为准，Elysia 默认 `normalize: true` 会剥离 schema 未声明的字段。敏感字段（如 `passwordHash`）只需在 schema 中省略（`table.select.user` 已 omit），service 层无需手工剔除。此行为依赖 Elysia 默认配置，升级或调整 `normalize` 时需复核
 
 ### 装配与 DI
 

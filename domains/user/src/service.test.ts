@@ -37,13 +37,11 @@ describe('registerUser', () => {
 })
 
 describe('loginUser', () => {
-  test('returns user without passwordHash on valid credentials', async () => {
+  test('returns user on valid credentials', async () => {
     await registerUser({ name: 'Alice', email: 'a@example.com', password: 'secret123' }, db)
     const result = await loginUser({ email: 'a@example.com', password: 'secret123' }, db)
     expect(result.isOk()).toBe(true)
-    const user = result._unsafeUnwrap()
-    expect(user.email).toBe('a@example.com')
-    expect('passwordHash' in user).toBe(false)
+    expect(result._unsafeUnwrap().email).toBe('a@example.com')
   })
 
   test('returns LOGIN_FAILED on wrong password', async () => {

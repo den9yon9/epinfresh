@@ -37,8 +37,7 @@ export async function loginUser(input: Static<typeof LoginInputSchema>, client: 
   }
   const valid = await verifyPassword(input.password, user.passwordHash)
   if (!valid) return err('LOGIN_FAILED')
-  const { passwordHash: _, ...safeUser } = user
-  return ok(safeUser)
+  return ok(user)
 }
 
 export async function getUserById(id: string, client: DbClient) {
