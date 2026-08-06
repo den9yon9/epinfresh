@@ -6,6 +6,7 @@
     "dev": "turbo migrate && turbo dev",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
+    "test": "turbo test --concurrency=1",
     "lint": "eslint .",
     "format": "prettier --write .",
     "check": "eslint . && prettier --check .",

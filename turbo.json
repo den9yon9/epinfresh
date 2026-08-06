@@ -14,6 +14,10 @@
       "cache": false
     },
     "typecheck": {},
+    "test": {
+      "cache": false,
+      "env": ["TEST_DATABASE_URL"]
+    },
     "clean": {
       "cache": false
     }
