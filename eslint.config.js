@@ -27,14 +27,14 @@ export default [
     },
     settings: {
       'boundaries/elements': [
-        { type: 'package-data', pattern: 'packages/database' },
-        { type: 'package-shared', pattern: 'packages/shared' },
-        // ponytail: 领域层只允许依赖 data/shared(纯逻辑), 一切基础设施接线归 app;
-        // queue/http/session/redis 均属 package-infra, 域内禁用
-        { type: 'package-infra', pattern: 'packages/(session|queue|redis|http)' },
-        { type: 'domain-core', pattern: 'domains/(user|product)' },
-        { type: 'domain-flow', pattern: 'domains/(order|cart|payment|checkout)' },
-        { type: 'app', pattern: 'apps/*' },
+        { type: 'shared', pattern: 'packages/shared' },
+        { type: 'persistence', pattern: 'packages/database' },
+        // ponytail: 领域层只允许依赖 persistence/shared(纯逻辑), 一切基础设施接线归 presentation;
+        // queue/http/session/redis 均属 infrastructure, 域内禁用
+        { type: 'infrastructure', pattern: 'packages/(session|queue|redis|http)' },
+        { type: 'domain', pattern: 'domains/(user|product)' },
+        { type: 'application', pattern: 'domains/(order|cart|payment|checkout)' },
+        { type: 'presentation', pattern: 'apps/*' },
       ],
     },
     rules: {
@@ -48,47 +48,47 @@ export default [
           default: 'disallow',
           policies: [
             {
-              from: { element: { type: 'package-data' } },
+              from: { element: { type: 'persistence' } },
               allow: [
-                { to: { element: { type: 'package-shared' } } },
-                { to: { element: { type: 'package-data' } } },
+                { to: { element: { type: 'shared' } } },
+                { to: { element: { type: 'persistence' } } },
               ],
             },
             {
-              from: { element: { type: 'package-shared' } },
-              allow: [{ to: { element: { type: 'package-shared' } } }],
+              from: { element: { type: 'shared' } },
+              allow: [{ to: { element: { type: 'shared' } } }],
             },
             {
-              from: { element: { type: 'package-infra' } },
+              from: { element: { type: 'infrastructure' } },
               allow: [
-                { to: { element: { type: 'package-shared' } } },
-                { to: { element: { type: 'package-infra' } } },
-                { to: { element: { type: 'package-data' } } },
+                { to: { element: { type: 'shared' } } },
+                { to: { element: { type: 'infrastructure' } } },
+                { to: { element: { type: 'persistence' } } },
               ],
             },
             {
-              from: { element: { type: 'domain-core' } },
+              from: { element: { type: 'domain' } },
               allow: [
-                { to: { element: { type: 'package-data' } } },
-                { to: { element: { type: 'package-shared' } } },
+                { to: { element: { type: 'persistence' } } },
+                { to: { element: { type: 'shared' } } },
               ],
             },
             {
-              from: { element: { type: 'domain-flow' } },
+              from: { element: { type: 'application' } },
               allow: [
-                { to: { element: { type: 'package-data' } } },
-                { to: { element: { type: 'package-shared' } } },
-                { to: { element: { type: 'domain-core' } } },
+                { to: { element: { type: 'persistence' } } },
+                { to: { element: { type: 'shared' } } },
+                { to: { element: { type: 'domain' } } },
               ],
             },
             {
-              from: { element: { type: 'app' } },
+              from: { element: { type: 'presentation' } },
               allow: [
-                { to: { element: { type: 'package-data' } } },
-                { to: { element: { type: 'package-shared' } } },
-                { to: { element: { type: 'package-infra' } } },
-                { to: { element: { type: 'domain-core' } } },
-                { to: { element: { type: 'domain-flow' } } },
+                { to: { element: { type: 'persistence' } } },
+                { to: { element: { type: 'shared' } } },
+                { to: { element: { type: 'infrastructure' } } },
+                { to: { element: { type: 'domain' } } },
+                { to: { element: { type: 'application' } } },
               ],
             },
           ],

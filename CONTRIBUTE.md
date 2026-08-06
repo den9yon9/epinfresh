@@ -21,29 +21,29 @@ apps/                    # 可部署服务（薄壳：只做装配，不含业�
 ├── admin-api/           # 管理后台 API（端口 3001）
 └── worker/              # BullMQ 消费者
 domains/                 # 业务领域
-├── user/                # domain-core：用户/认证
-├── product/             # domain-core：商品/库存
-└── checkout/            # domain-flow：下单流程（编排 domain-core）
+├── user/                # domain：用户/认证
+├── product/             # domain：商品/库存
+└── checkout/            # application：下单流程（编排 domain）
 packages/                # 基础设施包
-├── database/            # package-data：schema、枚举、迁移、DbClient
-├── shared/              # package-shared：纯工具（零 Elysia）
-├── queue/               # package-infra：BullMQ 封装
-├── http/                # package-infra：Elysia 插件、服务工厂
-├── session/             # package-infra：会话、限流
-├── redis/               # package-infra：ioredis 封装
+├── database/            # persistence：schema、枚举、迁移、DbClient
+├── shared/              # shared：纯工具（零 Elysia）
+├── queue/               # infrastructure：BullMQ 封装
+├── http/                # infrastructure：Elysia 插件、服务工厂
+├── session/             # infrastructure：会话、限流
+├── redis/               # infrastructure：ioredis 封装
 └── tsconfig/
 ```
 
 依赖方向由 `eslint-plugin-boundaries` 在编译期强制（单向无环）：
 
 ```
-package-data ← package-shared
-                  ↖  domain-core(user/product) 可依赖 data/shared
-                  ↖  domain-flow(checkout)     可依赖 data/shared + domain-core
-                  ↖  app 可依赖一切上层
+persistence ← shared
+       ↖  domain(user/product)    可依赖 persistence/shared
+       ↖  application(checkout)   可依赖 persistence/shared + domain
+       ↖  presentation            可依赖一切上层
 ```
 
-**domain-core / domain-flow 只允许依赖 `package-data` / `package-shared`**（domain-flow 另加 domain-core）；queue/http/session/redis 全部归入 package-infra，领域层编译期封死。改动依赖关系必须同步修改 `eslint.config.js`（新增元素或调整白名单），并跑 `pnpm lint` 验证。
+**domain / application 只允许依赖 `persistence` / `shared`**（application 另加 domain）；queue/http/session/redis 全部归入 infrastructure，领域层编译期封死。改动依赖关系必须同步修改 `eslint.config.js`（新增元素或调整白名单），并跑 `pnpm lint` 验证。
 
 ## 环境要求
 
@@ -120,7 +120,7 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 - `service.ts` — 纯业务逻辑，**不 import Elysia / session / http**；依赖通过最后一个参数传入（`client: DbClient`）；失败返回 `err('ERROR_CODE')`，成功返回 `ok(data)`
 - `model.ts` — TypeBox schema，优先从 DB 派生：`table.insert.X` / `table.select.X`，字段约束在 `packages/database/src/model.ts` 集中覆盖
 
-领域之间的调用只允许 domain-flow → domain-core（如 `checkout` 调 `reduceProductStock`），core 之间禁止互调。
+领域之间的调用只允许 application → domain（如 `checkout` 调 `reduceProductStock`），domain 之间禁止互调。
 
 ### 控制器（apps/_/src/routes/_.ts）
 
