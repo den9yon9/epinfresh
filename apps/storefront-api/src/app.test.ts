@@ -26,7 +26,7 @@ function createTestDeps(deps: {
 }): StorefrontAppOptions {
   return {
     ...deps,
-    sessionSecret: env.TEST_SESSION_SECRET,
+    sessionSecret: env.TESTING_SESSION_SECRET,
     corsOrigin: true,
     trustProxy: false,
     isProduction: false,
@@ -36,8 +36,8 @@ function createTestDeps(deps: {
 
 beforeAll(async () => {
   db = await prepareTestDb()
-  redis = createRedisClient(env.TEST_REDIS_URL)
-  emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl: env.TEST_REDIS_URL })
+  redis = createRedisClient(env.TESTING_REDIS_URL)
+  emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl: env.TESTING_REDIS_URL })
   app = buildApp(createTestDeps({ db, redis, emailQueue }))
 })
 

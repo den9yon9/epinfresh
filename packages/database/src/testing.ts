@@ -23,7 +23,7 @@ async function ensureTestDatabase(connectionString: string): Promise<void> {
 }
 
 export async function prepareTestDb(): Promise<Db> {
-  const url = getTestEnv().TEST_DATABASE_URL
+  const url = getTestEnv().TESTING_DATABASE_URL
   await ensureTestDatabase(url)
   await runMigrations(url)
   return createDb(url)

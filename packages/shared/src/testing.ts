@@ -3,9 +3,9 @@ import { type StaticDecode, Type } from '@sinclair/typebox'
 import { parseEnv } from './env'
 
 export const testEnvSchema = Type.Object({
-  TEST_DATABASE_URL: Type.String({ format: 'uri' }),
-  TEST_REDIS_URL: Type.String({ format: 'uri' }),
-  TEST_SESSION_SECRET: Type.String({ minLength: 32 }),
+  TESTING_DATABASE_URL: Type.String({ format: 'uri' }),
+  TESTING_REDIS_URL: Type.String({ format: 'uri' }),
+  TESTING_SESSION_SECRET: Type.String({ minLength: 32 }),
 })
 
 export type TestEnv = StaticDecode<typeof testEnvSchema>

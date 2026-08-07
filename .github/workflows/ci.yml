@@ -62,9 +62,9 @@ jobs:
       - name: Run tests
         run: pnpm test
         env:
-          TEST_DATABASE_URL: postgres://epinfresh:epinfresh@localhost:5432/epinfresh_test
-          TEST_REDIS_URL: redis://localhost:6379/1
-          TEST_SESSION_SECRET: test-session-secret-0123456789abcdef
+          TESTING_DATABASE_URL: postgres://epinfresh:epinfresh@localhost:5432/epinfresh_test
+          TESTING_REDIS_URL: redis://localhost:6379/1
+          TESTING_SESSION_SECRET: test-session-secret-0123456789abcdef
           NODE_ENV: test
 
       - name: Commit message lint

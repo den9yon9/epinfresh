@@ -16,7 +16,7 @@
     "typecheck": {},
     "test": {
       "cache": false,
-      "env": ["TEST_DATABASE_URL", "TEST_REDIS_URL", "TEST_SESSION_SECRET"]
+      "env": ["TESTING_DATABASE_URL", "TESTING_REDIS_URL", "TESTING_SESSION_SECRET"]
     },
     "clean": {
       "cache": false

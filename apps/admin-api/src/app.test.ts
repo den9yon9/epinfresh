@@ -21,7 +21,7 @@ let redis: Redis
 function createTestDeps(deps: { db: Db; redis: Redis }): AdminAppOptions {
   return {
     ...deps,
-    sessionSecret: env.TEST_SESSION_SECRET,
+    sessionSecret: env.TESTING_SESSION_SECRET,
     corsOrigin: true,
     trustProxy: false,
     isProduction: false,
@@ -31,7 +31,7 @@ function createTestDeps(deps: { db: Db; redis: Redis }): AdminAppOptions {
 
 beforeAll(async () => {
   db = await prepareTestDb()
-  redis = createRedisClient(env.TEST_REDIS_URL)
+  redis = createRedisClient(env.TESTING_REDIS_URL)
   app = buildApp(createTestDeps({ db, redis }))
 })
 
@@ -99,7 +99,7 @@ async function login(
 }
 
 async function forgeSessionCookie(userId: string, role: 'customer' | 'admin'): Promise<string> {
-  const client = createRedisClient(env.TEST_REDIS_URL)
+  const client = createRedisClient(env.TESTING_REDIS_URL)
   const sessionId = crypto.randomUUID()
   try {
     await client.set(`session:${sessionId}`, JSON.stringify({ userId, role }), 'EX', 86400)
