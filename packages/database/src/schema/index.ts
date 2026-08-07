@@ -1,12 +1,16 @@
 export { categories } from './categories'
+export { checkoutIdempotencyKeys } from './checkout-idempotency-keys'
 export { orderItems } from './order-items'
 export { ORDER_STATUS, orders, type OrderStatus, orderStatus } from './orders'
+export { PAYMENT_STATUS, payments, type PaymentStatus, paymentStatus } from './payments'
 export { productSkus } from './product-skus'
 export { products, productStatus } from './products'
 export {
   categoriesRelations,
+  checkoutIdempotencyKeysRelations,
   orderItemsRelations,
   ordersRelations,
+  paymentsRelations,
   productSkusRelations,
   productsRelations,
   usersRelations,

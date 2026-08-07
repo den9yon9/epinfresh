@@ -1,6 +1,8 @@
 import { getOrderById, listOrders, updateOrderStatus } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { cancelOrder } from '@epinfresh/order-cancel'
+import { listPaymentsByOrder } from '@epinfresh/payment'
+import * as PaymentModel from '@epinfresh/payment/model'
 import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
@@ -68,6 +70,26 @@ export function createOrderRoutes(plugins: AdminPlugins) {
           ...adminResponse,
         },
         detail: { tags: ['Admin/Orders'] },
+      },
+    )
+    .get(
+      '/orders/:id/payments',
+      async ({ params, db }) => {
+        const order = await getOrderById(params.id, db)
+        if (order.isErr()) {
+          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+        }
+        return listPaymentsByOrder(params.id, db)
+      },
+      {
+        isAdmin: true,
+        params: t.Object({ id: t.String({ format: 'uuid' }) }),
+        response: {
+          200: PaymentModel.PaymentListResponseSchema,
+          404: ErrorResponse,
+          ...adminResponse,
+        },
+        detail: { tags: ['Admin/Payments'] },
       },
     )
 }

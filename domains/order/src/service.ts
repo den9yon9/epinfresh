@@ -1,10 +1,9 @@
 import { type DbClient, type OrderStatus, schema } from '@epinfresh/database'
-import { err, ok, type Result } from '@epinfresh/shared'
+import { err, fromCents, ok, type Result, toCents } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
 import { and, count, eq } from 'drizzle-orm'
 
 import type { AdminOrderListQuerySchema, OrderDetailSchema, OrderListQuerySchema } from './model'
-
 export type OrderDetail = Static<typeof OrderDetailSchema>
 
 export interface OrderLineInput {
@@ -13,22 +12,6 @@ export interface OrderLineInput {
   skuName: string
   unitPrice: string
   quantity: number
-}
-
-// ponytail: debt — 金额换算当前仅 order 域内部使用；引入 payment/refund 域时抽到 packages/shared/src/money.ts 复用
-function toCents(amount: string): bigint {
-  const s = String(amount)
-  const dot = s.indexOf('.')
-  if (dot === -1) return BigInt(s) * 100n
-  const int = s.slice(0, dot)
-  const frac = (s.slice(dot + 1) + '00').slice(0, 2)
-  return BigInt(int || '0') * 100n + BigInt(frac)
-}
-
-function fromCents(cents: bigint): string {
-  const sign = cents < 0n ? '-' : ''
-  const abs = cents < 0n ? -cents : cents
-  return `${sign}${abs / 100n}.${String(abs % 100n).padStart(2, '0')}`
 }
 
 const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {

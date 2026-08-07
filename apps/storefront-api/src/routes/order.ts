@@ -13,10 +13,13 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
     .use(plugins.sessionPlugin)
     .post(
       '/orders',
-      async ({ body, session, db }) => {
-        const result = await checkoutWorkflow({ ...body, userId: session.userId }, db)
+      async ({ body, headers, session, db }) => {
+        const result = await checkoutWorkflow(
+          { ...body, userId: session.userId, idempotencyKey: headers['idempotency-key'] },
+          db,
+        )
         return result.match(
-          (order) => status(201, order),
+          ({ order, replayed }) => status(replayed ? 200 : 201, order),
           (code) => {
             switch (code) {
               case 'SKU_NOT_FOUND':
@@ -32,7 +35,9 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
       {
         isAuth: true,
         body: CreateOrderInputSchema,
+        headers: t.Object({ 'idempotency-key': t.Optional(t.String()) }),
         response: {
+          200: OrderModel.OrderResponseSchema,
           201: OrderModel.OrderResponseSchema,
           404: ErrorResponse,
           409: ErrorResponse,

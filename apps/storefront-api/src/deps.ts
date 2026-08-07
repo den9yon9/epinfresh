@@ -1,4 +1,5 @@
 import { createDb, type Db } from '@epinfresh/database'
+import { createMockPaymentGateway, type PaymentGateway } from '@epinfresh/payment'
 import { createQueue, type Queue } from '@epinfresh/queue'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { createLogger, type Logger } from '@epinfresh/shared'
@@ -10,6 +11,7 @@ export interface StorefrontAppOptions {
   db: Db
   redis: Redis
   emailQueue: Queue<SendEmailJobData>
+  paymentGateway: PaymentGateway
   sessionSecret: string
   corsOrigin: true | string | string[]
   trustProxy: boolean
@@ -22,6 +24,7 @@ export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
     db: createDb(env.DATABASE_URL),
     redis: createRedisClient(env.REDIS_URL),
     emailQueue: createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl: env.REDIS_URL }),
+    paymentGateway: createMockPaymentGateway(),
     sessionSecret: env.SESSION_SECRET,
     corsOrigin: env.CORS_ORIGIN,
     trustProxy: env.TRUST_PROXY,

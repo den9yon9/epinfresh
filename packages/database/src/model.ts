@@ -25,6 +25,8 @@ export const table = {
     }),
     order: select(schema.orders),
     orderItem: select(schema.orderItems),
+    payment: select(schema.payments),
+    checkoutIdempotencyKey: select(schema.checkoutIdempotencyKeys),
   },
   insert: {
     user: insert(schema.users, {
@@ -45,6 +47,8 @@ export const table = {
     }),
     order: insert(schema.orders),
     orderItem: insert(schema.orderItems),
+    payment: insert(schema.payments),
+    checkoutIdempotencyKey: insert(schema.checkoutIdempotencyKeys),
   },
   update: {
     user: update(schema.users, {
@@ -61,5 +65,6 @@ export const table = {
     }),
     order: update(schema.orders),
     orderItem: update(schema.orderItems),
+    payment: update(schema.payments),
   },
 }

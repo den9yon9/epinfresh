@@ -23,9 +23,11 @@ apps/                    # 可部署服务（薄壳：只做装配，不含业�
 domains/                 # entity 域（domain）：聚合根与实体
 ├── user/                # 用户/认证
 ├── product/             # 商品/库存
-└── order/               # 订单（状态机、查询、订单落库 createOrderRecord）
+├── order/               # 订单（状态机、查询、订单落库 createOrderRecord）
+└── payment/             # 支付（payment 记录、支付网关接缝、退款）
 usecases/                # 编排层（usecase）：跨域用例
-└── checkout/            # 下单流程：解析SKU → 扣库存 → 建单（单事务）
+├── checkout/            # 下单流程：解析SKU → 扣库存 → 建单（单事务，支持 Idempotency-Key 去重）
+└── order-cancel/        # 取消订单：pending 回补库存 / paid 触发退款
 packages/                # 基础设施包
 ├── database/            # persistence：schema、枚举、迁移、DbClient
 ├── shared/              # shared：纯工具（零 Elysia）
@@ -142,7 +144,11 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 
 领域之间的调用只允许 usecase → domain（如 `checkout` 调 `reduceProductStock` 与 `createOrderRecord`，`order-cancel` 调 `updateOrderStatus` 与 `restoreProductStock`），domain 之间禁止互调。`usecases/*` 与 `domains/*` 采用同样的三文件结构。
 
-订单状态机：`pending → paid → shipped → completed`，`pending/paid → cancelled`。**取消回补库存仅限 `pending → cancelled`**（用户未付款，商品回架）；`paid → cancelled` 不回补（已成交，走退款流程）。由 `usecases/order-cancel` 的 `cancelOrder` 在单事务内编排：`updateOrderStatus` 原子返回转移起点 `from`，`from === 'pending'` 时按订单明细回补 SKU 库存。
+订单状态机：`pending → paid → shipped → completed`，`pending/paid → cancelled`。**取消回补库存仅限 `pending → cancelled`**（用户未付款，商品回架）；`paid → cancelled` 不回补（已成交，走退款流程）。由 `usecases/order-cancel` 的 `cancelOrder` 在单事务内编排：`updateOrderStatus` 原子返回转移起点 `from`，`from === 'pending'` 时按订单明细回补 SKU 库存，`from === 'paid'` 时将该订单 succeeded 支付标记 `refunded`。
+
+支付流（`domains/payment`）：storefront `POST /orders/:id/pay` 创建 pending 支付记录（经 `PaymentGateway` 接缝调用网关），`POST /payments/:id/confirm` 确认后支付置 succeeded 且订单 `pending → paid`。当前网关为 mock（同步成功）；接真实支付网关（微信/支付宝等）时实现 `PaymentGateway` 契约，把 confirm 逻辑挪到带签名校验的 webhook handler，域内 service 不变。金额换算（`toCents`/`fromCents`）在 `packages/shared/src/money.ts` 供 order/payment 复用。
+
+下单幂等：`POST /orders` 接受可选 `Idempotency-Key` header，`usecases/checkout` 在事务内写 `checkout_idempotency_keys`（unique(userId, key)）。重放返回已建订单（200），并发同 key 由唯一约束兜底（后到事务回滚并重查）；失败的下单不落 key，重试视为全新。
 
 ### 控制器（apps/_/src/routes/_.ts）
 

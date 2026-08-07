@@ -1,5 +1,6 @@
 import { closeDb, type Db, type ProductStatus, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
+import { createMockPaymentGateway } from '@epinfresh/payment'
 import { createQueue, type Queue } from '@epinfresh/queue'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { flushTestRedis } from '@epinfresh/redis/testing'
@@ -26,6 +27,7 @@ function createTestDeps(deps: {
 }): StorefrontAppOptions {
   return {
     ...deps,
+    paymentGateway: createMockPaymentGateway(),
     sessionSecret: env.TESTING_SESSION_SECRET,
     corsOrigin: true,
     trustProxy: false,
@@ -266,6 +268,138 @@ describe('orders', () => {
       ),
     )
     expect(res.status).toBe(401)
+  })
+
+  test('same Idempotency-Key returns the same order twice', async () => {
+    const user = await seedUser('alice@example.com')
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+    const body = json({ items: [{ skuId: sku.id, quantity: 2 }] }, cookie) as {
+      headers: { cookie: string }
+    }
+
+    const first = await app.handle(
+      new Request('http://localhost/api/v1/orders', {
+        ...body,
+        headers: { ...body.headers, 'idempotency-key': 'idem-1' },
+      }),
+    )
+    expect(first.status).toBe(201)
+    const firstOrder = (await first.json()) as { id: string }
+
+    const second = await app.handle(
+      new Request('http://localhost/api/v1/orders', {
+        ...body,
+        headers: { ...body.headers, 'idempotency-key': 'idem-1' },
+      }),
+    )
+    expect(second.status).toBe(200)
+    const secondOrder = (await second.json()) as { id: string }
+    expect(secondOrder.id).toBe(firstOrder.id)
+
+    const [after] = await db
+      .select()
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, sku.id))
+    expect(Number(after.stock)).toBe(8)
+  })
+})
+
+describe('payments', () => {
+  async function loginCookie(email: string): Promise<string> {
+    const login = await app.handle(
+      new Request('http://localhost/api/v1/auth/login', json({ email, password: 'password123' })),
+    )
+    return sessionCookie(login.headers.getSetCookie())!
+  }
+
+  test('pay then confirm transitions the order to paid', async () => {
+    const user = await seedUser('alice@example.com')
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const orderRes = await app.handle(
+      new Request(
+        'http://localhost/api/v1/orders',
+        json({ items: [{ skuId: sku.id, quantity: 2 }] }, cookie),
+      ),
+    )
+    const order = (await orderRes.json()) as { id: string }
+
+    const payRes = await app.handle(
+      new Request(`http://localhost/api/v1/orders/${order.id}/pay`, {
+        method: 'POST',
+        headers: { cookie },
+      }),
+    )
+    expect(payRes.status).toBe(201)
+    const payment = (await payRes.json()) as { id: string; status: string }
+    expect(payment.status).toBe('pending')
+
+    const confirmRes = await app.handle(
+      new Request(`http://localhost/api/v1/payments/${payment.id}/confirm`, {
+        method: 'POST',
+        headers: { cookie },
+      }),
+    )
+    expect(confirmRes.status).toBe(200)
+    const confirmed = (await confirmRes.json()) as { status: string }
+    expect(confirmed.status).toBe('succeeded')
+
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('paid')
+  })
+
+  test('cannot pay someone else order', async () => {
+    await seedUser('alice@example.com')
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const alice = await seedUser('bob@example.com')
+    const cookie = await loginCookie(alice.email)
+
+    const orderRes = await app.handle(
+      new Request(
+        'http://localhost/api/v1/orders',
+        json({ items: [{ skuId: sku.id, quantity: 1 }] }, cookie),
+      ),
+    )
+    const order = (await orderRes.json()) as { id: string }
+
+    const other = await seedUser('carol@example.com')
+    const otherCookie = await loginCookie(other.email)
+    const res = await app.handle(
+      new Request(`http://localhost/api/v1/orders/${order.id}/pay`, {
+        method: 'POST',
+        headers: { cookie: otherCookie },
+      }),
+    )
+    expect(res.status).toBe(404)
+  })
+
+  test('paying a non-pending order is rejected', async () => {
+    const user = await seedUser('alice@example.com')
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const orderRes = await app.handle(
+      new Request(
+        'http://localhost/api/v1/orders',
+        json({ items: [{ skuId: sku.id, quantity: 1 }] }, cookie),
+      ),
+    )
+    const order = (await orderRes.json()) as { id: string }
+    await db
+      .update(schema.orders)
+      .set({ status: 'cancelled' })
+      .where(eq(schema.orders.id, order.id))
+
+    const res = await app.handle(
+      new Request(`http://localhost/api/v1/orders/${order.id}/pay`, {
+        method: 'POST',
+        headers: { cookie },
+      }),
+    )
+    expect(res.status).toBe(409)
+    expect(((await res.json()) as { error: string }).error).toBe('ORDER_NOT_PENDING')
   })
 })
 

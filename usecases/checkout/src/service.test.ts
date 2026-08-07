@@ -71,7 +71,8 @@ describe('checkoutWorkflow', () => {
     )
 
     expect(result.isOk()).toBe(true)
-    const order = result._unsafeUnwrap()
+    const { order, replayed } = result._unsafeUnwrap()
+    expect(replayed).toBe(false)
     expect(order.userId).toBe(user.id)
     expect(order.status).toBe('pending')
     expect(order.totalAmount).toBe('13.50')
@@ -145,7 +146,7 @@ describe('checkoutWorkflow', () => {
     )
 
     expect(result.isOk()).toBe(true)
-    const order = result._unsafeUnwrap()
+    const { order } = result._unsafeUnwrap()
     expect(order.items).toHaveLength(1)
     expect(order.items[0].quantity).toBe(5)
     expect(order.totalAmount).toBe('25.00')
@@ -200,6 +201,111 @@ describe('checkoutWorkflow', () => {
       .from(schema.productSkus)
       .where(eq(schema.productSkus.id, sku.id))
     expect(Number(after.stock)).toBe(4)
+    expect(await orderCount()).toBe(1)
+  })
+
+  test('same idempotency key replays the existing order without re-deducting stock', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+
+    const first = await checkoutWorkflow(
+      { userId: user.id, idempotencyKey: 'key-1', items: [{ skuId: sku.id, quantity: 2 }] },
+      db,
+    )
+    expect(first.isOk()).toBe(true)
+    expect(first._unsafeUnwrap().replayed).toBe(false)
+    const orderId = first._unsafeUnwrap().order.id
+
+    const second = await checkoutWorkflow(
+      { userId: user.id, idempotencyKey: 'key-1', items: [{ skuId: sku.id, quantity: 2 }] },
+      db,
+    )
+    expect(second.isOk()).toBe(true)
+    const replay = second._unsafeUnwrap()
+    expect(replay.replayed).toBe(true)
+    expect(replay.order.id).toBe(orderId)
+
+    expect(await orderCount()).toBe(1)
+    const [after] = await db
+      .select()
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, sku.id))
+    expect(Number(after.stock)).toBe(8)
+  })
+
+  test('idempotency keys are scoped per user', async () => {
+    const alice = await seedUser('alice@example.com')
+    const bob = await seedUser('bob@example.com')
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+
+    const aliceOrder = await checkoutWorkflow(
+      { userId: alice.id, idempotencyKey: 'shared-key', items: [{ skuId: sku.id, quantity: 1 }] },
+      db,
+    )
+    expect(aliceOrder.isOk()).toBe(true)
+
+    const bobOrder = await checkoutWorkflow(
+      { userId: bob.id, idempotencyKey: 'shared-key', items: [{ skuId: sku.id, quantity: 1 }] },
+      db,
+    )
+    expect(bobOrder.isOk()).toBe(true)
+    expect(bobOrder._unsafeUnwrap().replayed).toBe(false)
+    expect(bobOrder._unsafeUnwrap().order.id).not.toBe(aliceOrder._unsafeUnwrap().order.id)
+    expect(await orderCount()).toBe(2)
+  })
+
+  test('concurrent same-key checkouts create only one order', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+
+    const results = await Promise.all([
+      checkoutWorkflow(
+        { userId: user.id, idempotencyKey: 'race-key', items: [{ skuId: sku.id, quantity: 2 }] },
+        db,
+      ),
+      checkoutWorkflow(
+        { userId: user.id, idempotencyKey: 'race-key', items: [{ skuId: sku.id, quantity: 2 }] },
+        db,
+      ),
+    ])
+
+    const okResults = results.filter((r) => r.isOk())
+    expect(okResults).toHaveLength(2)
+    const orderIds = new Set(okResults.map((r) => r._unsafeUnwrap().order.id))
+    expect(orderIds.size).toBe(1)
+    expect(await orderCount()).toBe(1)
+    const [after] = await db
+      .select()
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, sku.id))
+    expect(Number(after.stock)).toBe(8)
+  })
+
+  test('failed checkout does not persist the idempotency key', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+
+    const failed = await checkoutWorkflow(
+      {
+        userId: user.id,
+        idempotencyKey: 'fail-key',
+        items: [{ skuId: sku.id, quantity: 99 }],
+      },
+      db,
+    )
+    expect(failed.isErr()).toBe(true)
+    expect(failed._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
+
+    const retry = await checkoutWorkflow(
+      {
+        userId: user.id,
+        idempotencyKey: 'fail-key',
+        items: [{ skuId: sku.id, quantity: 1 }],
+      },
+      db,
+    )
+    expect(retry.isOk()).toBe(true)
+    expect(retry._unsafeUnwrap().replayed).toBe(false)
     expect(await orderCount()).toBe(1)
   })
 })

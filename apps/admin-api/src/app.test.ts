@@ -1,6 +1,7 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { createOrderRecord, updateOrderStatus } from '@epinfresh/order'
+import { confirmPayment, createMockPaymentGateway, initiatePayment } from '@epinfresh/payment'
 import { reduceProductStock } from '@epinfresh/product'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { flushTestRedis } from '@epinfresh/redis/testing'
@@ -232,5 +233,45 @@ describe('order status transitions', () => {
     )
     expect(res.status).toBe(409)
     expect(((await res.json()) as { error: string }).error).toBe('INVALID_TRANSITION')
+  })
+})
+
+describe('admin payments', () => {
+  async function adminCookie(): Promise<string> {
+    await seedUser('admin@example.com', 'admin')
+    const { cookie } = await login('admin@example.com')
+    return cookie!
+  }
+
+  test('lists payments for an order', async () => {
+    const cookie = await adminCookie()
+    const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
+    const payment = (
+      await initiatePayment(order.id, createMockPaymentGateway(), db)
+    )._unsafeUnwrap()
+    await confirmPayment(payment.id, db)
+
+    const res = await app.handle(
+      new Request(`http://localhost/api/v1/admin/orders/${order.id}/payments`, {
+        headers: { cookie },
+      }),
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { items: { status: string }[] }
+    expect(body.items).toHaveLength(1)
+    expect(body.items[0].status).toBe('succeeded')
+  })
+
+  test('returns 404 for unknown order payments', async () => {
+    const cookie = await adminCookie()
+    const res = await app.handle(
+      new Request(
+        'http://localhost/api/v1/admin/orders/00000000-0000-4000-8000-000000000000/payments',
+        {
+          headers: { cookie },
+        },
+      ),
+    )
+    expect(res.status).toBe(404)
   })
 })

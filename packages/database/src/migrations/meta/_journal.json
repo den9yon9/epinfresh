@@ -50,6 +50,13 @@
       "when": 1786000065296,
       "tag": "0006_breezy_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786110813054,
+      "tag": "0007_fuzzy_lyja",
+      "breakpoints": true
     }
   ]
 }

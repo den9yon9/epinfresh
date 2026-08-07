@@ -7,6 +7,7 @@ import { createStorefrontDeps, type StorefrontAppOptions } from './deps'
 import { createEnv } from './env'
 import { createPlugins } from './plugins'
 import { createOrderRoutes } from './routes/order'
+import { createPaymentRoutes } from './routes/payment'
 import { createProductRoutes } from './routes/product'
 import { createUserRoutes } from './routes/user'
 
@@ -33,6 +34,7 @@ export function buildApp(options: StorefrontAppOptions) {
     .use(createUserRoutes(plugins))
     .use(createProductRoutes(plugins))
     .use(createOrderRoutes(plugins))
+    .use(createPaymentRoutes(plugins))
     .get('/health', ({ db, redis }) => healthCheck({ db, redis }))
 }
 

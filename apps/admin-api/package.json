@@ -16,6 +16,7 @@
     "@epinfresh/http": "workspace:*",
     "@epinfresh/order": "workspace:*",
     "@epinfresh/order-cancel": "workspace:*",
+    "@epinfresh/payment": "workspace:*",
     "@epinfresh/product": "workspace:*",
     "@epinfresh/redis": "workspace:*",
     "@epinfresh/session": "workspace:*",

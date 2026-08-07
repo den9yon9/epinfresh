@@ -1,6 +1,7 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { createOrderRecord, updateOrderStatus } from '@epinfresh/order'
+import { confirmPayment, createMockPaymentGateway, initiatePayment } from '@epinfresh/payment'
 import { reduceProductStock } from '@epinfresh/product'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
@@ -77,13 +78,22 @@ describe('cancelOrder', () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
     const order = await seedOrder(user.id, sku.id, 2)
-    await updateOrderStatus(order.id, 'paid', db)
+    const payment = (
+      await initiatePayment(order.id, createMockPaymentGateway(), db)
+    )._unsafeUnwrap()
+    await confirmPayment(payment.id, db)
 
     const result = await cancelOrder(order.id, db)
 
     expect(result.isOk()).toBe(true)
     expect(result._unsafeUnwrap().status).toBe('cancelled')
     expect(await skuStock(sku.id)).toBe(8)
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('refunded')
   })
 
   test('rejects cancelling a shipped order', async () => {
