@@ -41,6 +41,8 @@ export function buildApp() {
     .get('/health', ({ db, redis }) => healthCheck({ db, redis }))
 }
 
+export { closeInfra } from './plugins'
+
 if (import.meta.main) {
   startServer(buildApp(), {
     serviceName: 'storefront',

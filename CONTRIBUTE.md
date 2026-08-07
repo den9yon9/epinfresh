@@ -74,6 +74,13 @@ docker compose -f docker/docker-compose.yml up -d postgres redis
 pnpm dev
 ```
 
+`pnpm test` 会跑两类集成测试（需要 postgres + redis 在本地运行）：
+
+- **domain/usecase 测试**：直连 `TEST_DATABASE_URL`（`.env.test` 配置）的测试库，只建表不动业务数据
+- **app 路由级测试**（`apps/*/src/app.test.ts`）：通过 `buildApp().handle(new Request())` 直接调 Elysia，覆盖响应 schema 剥离、`isAuth`/`isAdmin` 的 401/403、错误码→状态码映射、会话生命周期与下单/取消回补。测试 env 全部来自 `.env.test`（由 `bun --env-file` 加载，默认连 `redis://localhost:6379/1`，**每次用例前 flush 该 Redis index**）
+
+`.env.test` 由 `.env.test.example` 复制而来（CI 里 `cp .env.test.example .env.test`）。新增测试所需环境变量时，先改 `.env.test.example` 再同步本地 `.env.test`。
+
 `pnpm dev` 内部执行 `turbo migrate && turbo dev`。开发环境（NODE_ENV != production）下 `/docs` 提供 OpenAPI 文档：
 
 - Storefront: http://localhost:3000/docs
@@ -94,17 +101,17 @@ admin 登录走 admin-api 自身的 `POST /api/v1/auth/login`（login/logout/me 
 
 ## 常用命令
 
-| 命令                                        | 说明                                                         |
-| ------------------------------------------- | ------------------------------------------------------------ |
-| `pnpm dev`                                  | 跑迁移 + 启动全部服务（watch 模式）                          |
-| `pnpm build`                                | 全量构建                                                     |
-| `pnpm typecheck`                            | 全量类型检查                                                 |
-| `pnpm test`                                 | 集成测试（真 PG，读取根 `.env.test` 的 `TEST_DATABASE_URL`） |
-| `pnpm --filter @epinfresh/database db:seed` | 幂等 seed：引导 admin 用户（首次部署必须）                   |
-| `pnpm lint`                                 | ESLint 检查（含分层依赖校验）                                |
-| `pnpm format`                               | Prettier 格式化                                              |
-| `pnpm check`                                | ESLint + Prettier 校验（CI 用）                              |
-| `pnpm clean`                                | 清理 dist / .turbo                                           |
+| 命令                                        | 说明                                                                               |
+| ------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `pnpm dev`                                  | 跑迁移 + 启动全部服务（watch 模式）                                                |
+| `pnpm build`                                | 全量构建                                                                           |
+| `pnpm typecheck`                            | 全量类型检查                                                                       |
+| `pnpm test`                                 | 集成测试（真 PG + Redis，读取根 `.env.test`；含 domain/usecase 与 app 路由级测试） |
+| `pnpm --filter @epinfresh/database db:seed` | 幂等 seed：引导 admin 用户（首次部署必须）                                         |
+| `pnpm lint`                                 | ESLint 检查（含分层依赖校验）                                                      |
+| `pnpm format`                               | Prettier 格式化                                                                    |
+| `pnpm check`                                | ESLint + Prettier 校验（CI 用）                                                    |
+| `pnpm clean`                                | 清理 dist / .turbo                                                                 |
 
 ## 数据库迁移
 

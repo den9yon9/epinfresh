@@ -1,4 +1,4 @@
-import { createDb } from '@epinfresh/database'
+import { closeDb, createDb } from '@epinfresh/database'
 import { dbPlugin, redisPlugin } from '@epinfresh/http'
 import { createQueue } from '@epinfresh/queue'
 import { createRedisClient } from '@epinfresh/redis'
@@ -36,3 +36,7 @@ export const storeAuthRateLimit = authRateLimit({
 })
 
 export { isProduction, logger }
+
+export async function closeInfra(): Promise<void> {
+  await Promise.allSettled([closeDb(db), redis.quit(), emailQueue.close()])
+}
