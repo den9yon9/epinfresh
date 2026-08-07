@@ -1,8 +1,9 @@
 import { createLogger } from '@epinfresh/shared'
 
-import { env } from './env'
+import { createEnv } from './env'
 import { registerWorkers } from './registry'
 
+const env = createEnv()
 const logger = createLogger(env.LOG_LEVEL)
 
 logger.info('Worker application starting...')

@@ -1,7 +1,7 @@
 import { parseEnv } from '@epinfresh/shared'
-import { Type } from '@sinclair/typebox'
+import { type StaticDecode, Type } from '@sinclair/typebox'
 
-const workerEnvSchema = Type.Object({
+export const workerEnvSchema = Type.Object({
   NODE_ENV: Type.Union(
     [Type.Literal('development'), Type.Literal('production'), Type.Literal('test')],
     { default: 'development' },
@@ -19,4 +19,8 @@ const workerEnvSchema = Type.Object({
   REDIS_URL: Type.String({ format: 'uri' }),
 })
 
-export const env = parseEnv(workerEnvSchema)
+export type WorkerEnv = StaticDecode<typeof workerEnvSchema>
+
+export function createEnv(source: Record<string, string | undefined> = process.env): WorkerEnv {
+  return parseEnv(workerEnvSchema, source)
+}
