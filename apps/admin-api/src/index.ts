@@ -1,5 +1,6 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
+import { type Db } from '@epinfresh/database'
 import {
   commonModel,
   healthCheck,
@@ -7,24 +8,38 @@ import {
   securityHeaders,
   startServer,
 } from '@epinfresh/http'
+import { type Redis } from '@epinfresh/redis'
+import { type Logger } from '@epinfresh/shared'
 import { Elysia } from 'elysia'
 
-import { env } from './env'
-import { adminDb, adminRateLimit, adminRedis, isProduction, logger } from './plugins'
-import { authRoutes } from './routes/auth'
-import { orderRoutes } from './routes/order'
-import { productRoutes } from './routes/product'
-import { userRoutes } from './routes/user'
+import { createAdminDeps } from './deps'
+import { createEnv } from './env'
+import { createPlugins } from './plugins'
+import { createAuthRoutes } from './routes/auth'
+import { createOrderRoutes } from './routes/order'
+import { createProductRoutes } from './routes/product'
+import { createUserRoutes } from './routes/user'
 
-export function buildApp() {
-  const enableDocs = !isProduction
+export interface AdminAppOptions {
+  db: Db
+  redis: Redis
+  sessionSecret: string
+  corsOrigin: true | string | string[]
+  trustProxy: boolean
+  isProduction: boolean
+  logger: Logger
+}
+
+export function buildApp(options: AdminAppOptions) {
+  const plugins = createPlugins(options)
+  const enableDocs = !options.isProduction
   return new Elysia()
-    .use(requestLogger(logger))
-    .use(securityHeaders(isProduction))
+    .use(requestLogger(options.logger))
+    .use(securityHeaders(options.isProduction))
     .use(commonModel)
-    .use(adminRedis)
-    .use(adminDb)
-    .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
+    .use(plugins.redisPlugin)
+    .use(plugins.dbPlugin)
+    .use(cors({ origin: options.corsOrigin, credentials: true }))
     .use(
       enableDocs
         ? openapi({
@@ -35,21 +50,21 @@ export function buildApp() {
           })
         : new Elysia(),
     )
-    .use(adminRateLimit)
-    .use(authRoutes)
-    .use(userRoutes)
-    .use(productRoutes)
-    .use(orderRoutes)
+    .use(plugins.rateLimitPlugin)
+    .use(createAuthRoutes(plugins))
+    .use(createUserRoutes(plugins))
+    .use(createProductRoutes(plugins))
+    .use(createOrderRoutes(plugins))
     .get('/health', ({ db, redis }) => healthCheck({ db, redis }))
 }
 
-export { closeInfra } from './plugins'
-
 if (import.meta.main) {
-  startServer(buildApp(), {
+  const env = createEnv()
+  const deps = createAdminDeps(env)
+  startServer(buildApp(deps), {
     serviceName: 'admin',
     port: Number(env.ADMIN_PORT),
-    logger,
+    logger: deps.logger,
   })
 }
 

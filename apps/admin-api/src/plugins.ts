@@ -1,33 +1,44 @@
-import { closeDb, createDb } from '@epinfresh/database'
+import { type Db } from '@epinfresh/database'
 import { dbPlugin, redisPlugin } from '@epinfresh/http'
-import { createRedisClient } from '@epinfresh/redis'
+import { type Redis } from '@epinfresh/redis'
 import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
-import { createLogger } from '@epinfresh/shared'
+import { type Logger } from '@epinfresh/shared'
 
-import { env } from './env'
+export interface AdminPlugins {
+  dbPlugin: ReturnType<typeof dbPlugin>
+  redisPlugin: ReturnType<typeof redisPlugin>
+  sessionPlugin: ReturnType<typeof createSessionPlugin>
+  rateLimitPlugin: ReturnType<typeof authRateLimit>
+  isProduction: boolean
+  logger: Logger
+}
 
-const logger = createLogger(env.LOG_LEVEL)
-const isProduction = env.NODE_ENV === 'production'
+export interface AdminPluginsOptions {
+  db: Db
+  redis: Redis
+  sessionSecret: string
+  trustProxy: boolean
+  isProduction: boolean
+  logger: Logger
+}
 
-const redis = createRedisClient(env.REDIS_URL)
-const db = createDb(env.DATABASE_URL)
-
-export const adminDb = dbPlugin(db)
-export const adminRedis = redisPlugin(redis, { logger })
-export const adminSession = createSessionPlugin({
-  redis,
-  sessionSecret: env.SESSION_SECRET,
-  isProduction,
-  logger,
-})
-export const adminRateLimit = authRateLimit({
-  redis,
-  prefix: 'rl:admin',
-  trustProxy: env.TRUST_PROXY,
-})
-
-export { isProduction, logger }
-
-export async function closeInfra(): Promise<void> {
-  await Promise.allSettled([closeDb(db), redis.quit()])
+export function createPlugins(options: AdminPluginsOptions): AdminPlugins {
+  const { db, redis, sessionSecret, trustProxy, isProduction, logger } = options
+  return {
+    dbPlugin: dbPlugin(db),
+    redisPlugin: redisPlugin(redis, { logger }),
+    sessionPlugin: createSessionPlugin({
+      redis,
+      sessionSecret,
+      isProduction,
+      logger,
+    }),
+    rateLimitPlugin: authRateLimit({
+      redis,
+      prefix: 'rl:admin',
+      trustProxy,
+    }),
+    isProduction,
+    logger,
+  }
 }

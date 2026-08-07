@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@epinfresh/shared": "workspace:*",
     "ioredis": "^5.5.0"
   }
 }

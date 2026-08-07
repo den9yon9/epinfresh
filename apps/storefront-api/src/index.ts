@@ -1,5 +1,6 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
+import { type Db } from '@epinfresh/database'
 import {
   commonModel,
   healthCheck,
@@ -7,23 +8,40 @@ import {
   securityHeaders,
   startServer,
 } from '@epinfresh/http'
+import { type Queue } from '@epinfresh/queue'
+import { type Redis } from '@epinfresh/redis'
+import { type Logger } from '@epinfresh/shared'
+import { type SendEmailJobData } from '@epinfresh/user/jobs'
 import { Elysia } from 'elysia'
 
-import { env } from './env'
-import { isProduction, logger, storeDb, storeEmailQueue, storeRedis } from './plugins'
-import { orderRoutes } from './routes/order'
-import { productRoutes } from './routes/product'
-import { userRoutes } from './routes/user'
+import { createStorefrontDeps } from './deps'
+import { createEnv } from './env'
+import { createPlugins } from './plugins'
+import { createOrderRoutes } from './routes/order'
+import { createProductRoutes } from './routes/product'
+import { createUserRoutes } from './routes/user'
 
-export function buildApp() {
-  const enableDocs = !isProduction
+export interface StorefrontAppOptions {
+  db: Db
+  redis: Redis
+  emailQueue: Queue<SendEmailJobData>
+  sessionSecret: string
+  corsOrigin: true | string | string[]
+  trustProxy: boolean
+  isProduction: boolean
+  logger: Logger
+}
+
+export function buildApp(options: StorefrontAppOptions) {
+  const plugins = createPlugins(options)
+  const enableDocs = !options.isProduction
   return new Elysia()
-    .use(requestLogger(logger))
-    .use(securityHeaders(isProduction))
+    .use(requestLogger(options.logger))
+    .use(securityHeaders(options.isProduction))
     .use(commonModel)
-    .use(storeRedis)
-    .use(storeDb)
-    .use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
+    .use(plugins.redisPlugin)
+    .use(plugins.dbPlugin)
+    .use(cors({ origin: options.corsOrigin, credentials: true }))
     .use(
       enableDocs
         ? openapi({
@@ -34,20 +52,20 @@ export function buildApp() {
           })
         : new Elysia(),
     )
-    .use(storeEmailQueue)
-    .use(userRoutes)
-    .use(productRoutes)
-    .use(orderRoutes)
+    .use(plugins.emailQueuePlugin)
+    .use(createUserRoutes(plugins))
+    .use(createProductRoutes(plugins))
+    .use(createOrderRoutes(plugins))
     .get('/health', ({ db, redis }) => healthCheck({ db, redis }))
 }
 
-export { closeInfra } from './plugins'
-
 if (import.meta.main) {
-  startServer(buildApp(), {
+  const env = createEnv()
+  const deps = createStorefrontDeps(env)
+  startServer(buildApp(deps), {
     serviceName: 'storefront',
     port: Number(env.STOREFRONT_PORT),
-    logger,
+    logger: deps.logger,
   })
 }
 

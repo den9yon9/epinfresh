@@ -1,5 +1,5 @@
 import { parseEnv } from '@epinfresh/shared'
-import { Type } from '@sinclair/typebox'
+import { type StaticDecode, Type } from '@sinclair/typebox'
 
 const corsOrigin = Type.Transform(Type.String({ default: '*' }))
   .Decode((raw: string) => {
@@ -44,10 +44,14 @@ export const storefrontEnvSchema = Type.Object({
   STOREFRONT_PORT: Type.String({ pattern: '^\\d+$' }),
 })
 
-export const env = parseEnv(storefrontEnvSchema)
+export type StorefrontEnv = StaticDecode<typeof storefrontEnvSchema>
 
-if (env.NODE_ENV === 'production' && env.CORS_ORIGIN === true) {
-  throw new Error(
-    '[ENV] CORS_ORIGIN cannot be "*" in production; set an explicit origin or comma-separated allowlist',
-  )
+export function createEnv(source: Record<string, string | undefined> = process.env): StorefrontEnv {
+  const env = parseEnv(storefrontEnvSchema, source)
+  if (env.NODE_ENV === 'production' && env.CORS_ORIGIN === true) {
+    throw new Error(
+      '[ENV] CORS_ORIGIN cannot be "*" in production; set an explicit origin or comma-separated allowlist',
+    )
+  }
+  return env
 }

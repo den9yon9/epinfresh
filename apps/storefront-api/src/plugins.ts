@@ -1,42 +1,58 @@
-import { closeDb, createDb } from '@epinfresh/database'
+import { type Db } from '@epinfresh/database'
 import { dbPlugin, redisPlugin } from '@epinfresh/http'
-import { createQueue } from '@epinfresh/queue'
-import { createRedisClient } from '@epinfresh/redis'
+import { type Queue } from '@epinfresh/queue'
+import { type Redis } from '@epinfresh/redis'
 import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
-import { createLogger } from '@epinfresh/shared'
-import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
+import { type Logger } from '@epinfresh/shared'
+import { type SendEmailJobData } from '@epinfresh/user/jobs'
 import { Elysia } from 'elysia'
 
-import { env } from './env'
+export interface StorefrontPlugins {
+  dbPlugin: ReturnType<typeof dbPlugin>
+  redisPlugin: ReturnType<typeof redisPlugin>
+  sessionPlugin: ReturnType<typeof createSessionPlugin>
+  emailQueuePlugin: ReturnType<typeof createEmailQueuePlugin>
+  authRateLimit: ReturnType<typeof authRateLimit>
+  isProduction: boolean
+  logger: Logger
+}
 
-const logger = createLogger(env.LOG_LEVEL)
-const isProduction = env.NODE_ENV === 'production'
+export interface StorefrontPluginsOptions {
+  db: Db
+  redis: Redis
+  emailQueue: Queue<SendEmailJobData>
+  sessionSecret: string
+  trustProxy: boolean
+  isProduction: boolean
+  logger: Logger
+}
 
-const redis = createRedisClient(env.REDIS_URL)
-const db = createDb(env.DATABASE_URL)
-const emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl: env.REDIS_URL })
+function createEmailQueuePlugin(emailQueue: Queue<SendEmailJobData>) {
+  return new Elysia({ name: 'infra-email-queue' })
+    .decorate('emailQueue', emailQueue)
+    .onStop(async () => {
+      await emailQueue.close()
+    })
+}
 
-export const storeDb = dbPlugin(db)
-export const storeRedis = redisPlugin(redis, { logger })
-export const storeSession = createSessionPlugin({
-  redis,
-  sessionSecret: env.SESSION_SECRET,
-  isProduction,
-  logger,
-})
-export const storeEmailQueue = new Elysia({ name: 'infra-email-queue' })
-  .decorate('emailQueue', emailQueue)
-  .onStop(async () => {
-    await emailQueue.close()
-  })
-export const storeAuthRateLimit = authRateLimit({
-  redis,
-  prefix: 'rl:auth',
-  trustProxy: env.TRUST_PROXY,
-})
-
-export { isProduction, logger }
-
-export async function closeInfra(): Promise<void> {
-  await Promise.allSettled([closeDb(db), redis.quit(), emailQueue.close()])
+export function createPlugins(options: StorefrontPluginsOptions): StorefrontPlugins {
+  const { db, redis, emailQueue, sessionSecret, trustProxy, isProduction, logger } = options
+  return {
+    dbPlugin: dbPlugin(db),
+    redisPlugin: redisPlugin(redis, { logger }),
+    sessionPlugin: createSessionPlugin({
+      redis,
+      sessionSecret,
+      isProduction,
+      logger,
+    }),
+    emailQueuePlugin: createEmailQueuePlugin(emailQueue),
+    authRateLimit: authRateLimit({
+      redis,
+      prefix: 'rl:auth',
+      trustProxy,
+    }),
+    isProduction,
+    logger,
+  }
 }

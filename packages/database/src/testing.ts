@@ -1,17 +1,8 @@
-import { parseEnv } from '@epinfresh/shared'
-import { Type } from '@sinclair/typebox'
+import { getTestEnv } from '@epinfresh/shared/testing'
 import { sql } from 'drizzle-orm'
 import postgres from 'postgres'
 
 import { createDb, type Db, runMigrations } from './index'
-
-const testEnvSchema = Type.Object({
-  TEST_DATABASE_URL: Type.String({ format: 'uri' }),
-})
-
-export function getTestDbUrl(): string {
-  return parseEnv(testEnvSchema).TEST_DATABASE_URL
-}
 
 async function ensureTestDatabase(connectionString: string): Promise<void> {
   const url = new URL(connectionString)
@@ -32,7 +23,7 @@ async function ensureTestDatabase(connectionString: string): Promise<void> {
 }
 
 export async function prepareTestDb(): Promise<Db> {
-  const url = getTestDbUrl()
+  const url = getTestEnv().TEST_DATABASE_URL
   await ensureTestDatabase(url)
   await runMigrations(url)
   return createDb(url)

@@ -260,6 +260,9 @@ importers:
 
   packages/redis:
     dependencies:
+      '@epinfresh/shared':
+        specifier: workspace:*
+        version: link:../shared
       ioredis:
         specifier: ^5.5.0
         version: 5.11.1

@@ -1,23 +1,47 @@
 import { closeDb, type Db, type ProductStatus, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
+import { createQueue, type Queue } from '@epinfresh/queue'
+import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { flushTestRedis } from '@epinfresh/redis/testing'
-import { hashPassword } from '@epinfresh/shared'
+import { createLogger, hashPassword } from '@epinfresh/shared'
+import { getTestEnv } from '@epinfresh/shared/testing'
+import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
-import { type App, buildApp, closeInfra } from './index'
+import { type App, buildApp, type StorefrontAppOptions } from './index'
+
+const env = getTestEnv()
 
 let app: App
 let db: Db
+let redis: Redis
+let emailQueue: Queue<SendEmailJobData>
+
+function createTestDeps(deps: {
+  db: Db
+  redis: Redis
+  emailQueue: Queue<SendEmailJobData>
+}): StorefrontAppOptions {
+  return {
+    ...deps,
+    sessionSecret: env.TEST_SESSION_SECRET,
+    corsOrigin: true,
+    trustProxy: false,
+    isProduction: false,
+    logger: createLogger('silent'),
+  }
+}
 
 beforeAll(async () => {
-  app = buildApp()
   db = await prepareTestDb()
+  redis = createRedisClient(env.TEST_REDIS_URL)
+  emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl: env.TEST_REDIS_URL })
+  app = buildApp(createTestDeps({ db, redis, emailQueue }))
 })
 
 afterAll(async () => {
-  await closeInfra()
-  await closeDb(db)
+  await Promise.allSettled([closeDb(db), redis.quit(), emailQueue.close()])
 })
 
 beforeEach(async () => {

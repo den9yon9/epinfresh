@@ -77,9 +77,9 @@ pnpm dev
 `pnpm test` 会跑两类集成测试（需要 postgres + redis 在本地运行）：
 
 - **domain/usecase 测试**：直连 `TEST_DATABASE_URL`（`.env.test` 配置）的测试库，只建表不动业务数据
-- **app 路由级测试**（`apps/*/src/app.test.ts`）：通过 `buildApp().handle(new Request())` 直接调 Elysia，覆盖响应 schema 剥离、`isAuth`/`isAdmin` 的 401/403、错误码→状态码映射、会话生命周期与下单/取消回补。测试 env 全部来自 `.env.test`（由 `bun --env-file` 加载，默认连 `redis://localhost:6379/1`，**每次用例前 flush 该 Redis index**）
+- **app 路由级测试**（`apps/*/src/app.test.ts`）：通过 `buildApp().handle(new Request())` 直接调 Elysia，覆盖响应 schema 剥离、`isAuth`/`isAdmin` 的 401/403、错误码→状态码映射、会话生命周期与下单/取消回补。测试显式构造 `AppOptions` 注入 test 依赖，不依赖 app 侧 env；**每次用例前 flush 测试 Redis index**
 
-`.env.test` 由 `.env.test.example` 复制而来（CI 里 `cp .env.test.example .env.test`）。新增测试所需环境变量时，先改 `.env.test.example` 再同步本地 `.env.test`。
+`.env.test` 由 `.env.test.example` 复制而来，统一 `TEST_*` 前缀，由 `getTestEnv()`（`packages/shared/src/testing.ts`，与 app 的 `createEnv()` 同构）一次解析为 test env 对象：`TEST_DATABASE_URL`、`TEST_REDIS_URL`、`TEST_SESSION_SECRET`。CI 的 test step 通过 workflow env 提供同名变量（turbo 只转发 task `env` 列表声明的变量，见 `turbo.json`）。
 
 `pnpm dev` 内部执行 `turbo migrate && turbo dev`。开发环境（NODE_ENV != production）下 `/docs` 提供 OpenAPI 文档：
 
@@ -157,9 +157,11 @@ CI 中每次推送会在真实 Postgres 服务上执行迁移，确保迁移文�
 
 ### 装配与 DI
 
-- 每个 app 的 `plugins.ts` 负责基础设施接线（db/redis/queue/session），通过 Elysia `.use()` / `.decorate()` / `.derive()` 注入，**不建全局单例**
-- env 用 `parseEnv(TypeBox schema)` 启动时校验，**fail-fast**；生产环境有额外守卫（如 CORS 不允许 `*`）
-- `buildApp()` 与 `import.meta.main` 分离，便于测试和复用
+- 依赖单向流入：`createEnv()`（仅生产入口解析 env）→ `createDeps(env)`（产出 `AppOptions`：db/redis/queue/sessionSecret/corsOrigin/logger…）→ `buildApp(options)` → `createPlugins(options)`（产出 Elysia 插件，经 `.use()`/`.decorate()`/`.derive()` 注入上下文）
+- **app 自身不读 `process.env`**：`env.ts` 只有 `createEnv()` 工厂，无模块级 `export const env`；`plugins.ts` 无模块级客户端常亮，无全局单例
+- 路由是工厂函数 `createXxxRoutes(plugins)`，接收插件实例，按需 `.use()`；handler 从 Elysia 上下文取 `{ db, session, emailQueue }` 等
+- env 用 `parseEnv(TypeBox schema)` 在 `createEnv` 内校验，**fail-fast**；生产环境有额外守卫（如 CORS 不允许 `*`）
+- `buildApp(options)` 与 `import.meta.main` 分离：生产入口构造 deps，测试直接注入 test 依赖（db/redis/secret），测试文件可静态 import、零 env 依赖
 
 ### 队列与 Job
 
