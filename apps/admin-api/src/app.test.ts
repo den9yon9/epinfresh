@@ -9,7 +9,8 @@ import { getTestEnv } from '@epinfresh/shared/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
-import { type AdminAppOptions, type App, buildApp } from './index'
+import { type AdminAppOptions } from './deps'
+import { type App, buildApp } from './index'
 
 const env = getTestEnv()
 

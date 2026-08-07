@@ -1,4 +1,3 @@
-import { commonModel } from '@epinfresh/http'
 import {
   createCategory,
   createProduct,
@@ -18,7 +17,6 @@ import { type AdminPlugins } from '../plugins'
 
 export function createProductRoutes(plugins: AdminPlugins) {
   return new Elysia({ name: 'product-admin', prefix: '/api/v1/admin' })
-    .use(commonModel)
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .get('/products', async ({ query, db }) => listAllProducts(query, db), {

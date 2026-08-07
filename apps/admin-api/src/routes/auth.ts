@@ -1,4 +1,3 @@
-import { commonModel } from '@epinfresh/http'
 import { clearSessionCookie, setSessionCookie } from '@epinfresh/session'
 import { ErrorResponse } from '@epinfresh/shared'
 import { getUserById, loginUser } from '@epinfresh/user'
@@ -10,7 +9,6 @@ import { type AdminPlugins } from '../plugins'
 export function createAuthRoutes(plugins: AdminPlugins) {
   const { dbPlugin, sessionPlugin, isProduction } = plugins
   return new Elysia({ name: 'auth-admin', prefix: '/api/v1/auth' })
-    .use(commonModel)
     .use(dbPlugin)
     .use(sessionPlugin)
     .post(

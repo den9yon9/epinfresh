@@ -1,4 +1,3 @@
-import { commonModel } from '@epinfresh/http'
 import { getProductByIdPublic, listCategories, listPublishedProducts } from '@epinfresh/product'
 import * as ProductModel from '@epinfresh/product/model'
 import { ErrorResponse } from '@epinfresh/shared'
@@ -8,7 +7,6 @@ import { type StorefrontPlugins } from '../plugins'
 
 export function createProductRoutes(plugins: StorefrontPlugins) {
   return new Elysia({ name: 'product-storefront', prefix: '/api/v1' })
-    .use(commonModel)
     .use(plugins.dbPlugin)
     .get('/products', async ({ query, db }) => listPublishedProducts(query, db), {
       query: ProductModel.ProductListQuerySchema,

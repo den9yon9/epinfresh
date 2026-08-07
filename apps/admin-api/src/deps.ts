@@ -1,9 +1,18 @@
-import { createDb } from '@epinfresh/database'
-import { createRedisClient } from '@epinfresh/redis'
-import { createLogger } from '@epinfresh/shared'
+import { createDb, type Db } from '@epinfresh/database'
+import { createRedisClient, type Redis } from '@epinfresh/redis'
+import { createLogger, type Logger } from '@epinfresh/shared'
 
 import { type AdminEnv } from './env'
-import { type AdminAppOptions } from './index'
+
+export interface AdminAppOptions {
+  db: Db
+  redis: Redis
+  sessionSecret: string
+  corsOrigin: true | string | string[]
+  trustProxy: boolean
+  isProduction: boolean
+  logger: Logger
+}
 
 export function createAdminDeps(env: AdminEnv): AdminAppOptions {
   return {

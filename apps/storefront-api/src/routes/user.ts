@@ -1,4 +1,3 @@
-import { commonModel } from '@epinfresh/http'
 import { clearSessionCookie, setSessionCookie } from '@epinfresh/session'
 import { ErrorResponse } from '@epinfresh/shared'
 import { getUserById, loginUser, registerUser } from '@epinfresh/user'
@@ -11,7 +10,6 @@ import { type StorefrontPlugins } from '../plugins'
 export function createUserRoutes(plugins: StorefrontPlugins) {
   const { dbPlugin, sessionPlugin, authRateLimit, emailQueuePlugin, isProduction } = plugins
   return new Elysia({ name: 'user-storefront', prefix: '/api/v1/auth' })
-    .use(commonModel)
     .use(dbPlugin)
     .use(sessionPlugin)
     .use(authRateLimit)

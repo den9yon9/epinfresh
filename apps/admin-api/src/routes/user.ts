@@ -1,4 +1,3 @@
-import { commonModel } from '@epinfresh/http'
 import { ErrorResponse } from '@epinfresh/shared'
 import { getUserById, listUsers } from '@epinfresh/user'
 import * as UserModel from '@epinfresh/user/model'
@@ -9,7 +8,6 @@ import { type AdminPlugins } from '../plugins'
 
 export function createUserRoutes(plugins: AdminPlugins) {
   return new Elysia({ name: 'user-admin', prefix: '/api/v1/admin' })
-    .use(commonModel)
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .get('/users', ({ query, db }) => listUsers(query, db), {

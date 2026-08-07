@@ -1,4 +1,3 @@
-import { commonModel } from '@epinfresh/http'
 import { getOrderById, listOrders, updateOrderStatus } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { cancelOrder } from '@epinfresh/order-cancel'
@@ -10,7 +9,6 @@ import { type AdminPlugins } from '../plugins'
 
 export function createOrderRoutes(plugins: AdminPlugins) {
   return new Elysia({ name: 'order-admin', prefix: '/api/v1/admin' })
-    .use(commonModel)
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .get('/orders', ({ query, db }) => listOrders(query, db), {

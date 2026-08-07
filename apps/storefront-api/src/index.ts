@@ -1,36 +1,14 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
-import { type Db } from '@epinfresh/database'
-import {
-  commonModel,
-  healthCheck,
-  requestLogger,
-  securityHeaders,
-  startServer,
-} from '@epinfresh/http'
-import { type Queue } from '@epinfresh/queue'
-import { type Redis } from '@epinfresh/redis'
-import { type Logger } from '@epinfresh/shared'
-import { type SendEmailJobData } from '@epinfresh/user/jobs'
+import { healthCheck, requestLogger, securityHeaders, startServer } from '@epinfresh/http'
 import { Elysia } from 'elysia'
 
-import { createStorefrontDeps } from './deps'
+import { createStorefrontDeps, type StorefrontAppOptions } from './deps'
 import { createEnv } from './env'
 import { createPlugins } from './plugins'
 import { createOrderRoutes } from './routes/order'
 import { createProductRoutes } from './routes/product'
 import { createUserRoutes } from './routes/user'
-
-export interface StorefrontAppOptions {
-  db: Db
-  redis: Redis
-  emailQueue: Queue<SendEmailJobData>
-  sessionSecret: string
-  corsOrigin: true | string | string[]
-  trustProxy: boolean
-  isProduction: boolean
-  logger: Logger
-}
 
 export function buildApp(options: StorefrontAppOptions) {
   const plugins = createPlugins(options)
@@ -38,7 +16,6 @@ export function buildApp(options: StorefrontAppOptions) {
   return new Elysia()
     .use(requestLogger(options.logger))
     .use(securityHeaders(options.isProduction))
-    .use(commonModel)
     .use(plugins.redisPlugin)
     .use(plugins.dbPlugin)
     .use(cors({ origin: options.corsOrigin, credentials: true }))

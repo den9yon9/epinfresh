@@ -1,6 +1,5 @@
 import { checkoutWorkflow } from '@epinfresh/checkout'
 import { CreateOrderInputSchema } from '@epinfresh/checkout/model'
-import { commonModel } from '@epinfresh/http'
 import { getOrderForUser, listOrdersByUser } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { ErrorResponse } from '@epinfresh/shared'
@@ -10,7 +9,6 @@ import { type StorefrontPlugins } from '../plugins'
 
 export function createOrderRoutes(plugins: StorefrontPlugins) {
   return new Elysia({ name: 'order-storefront', prefix: '/api/v1' })
-    .use(commonModel)
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .post(

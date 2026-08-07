@@ -9,7 +9,8 @@ import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
-import { type App, buildApp, type StorefrontAppOptions } from './index'
+import { type StorefrontAppOptions } from './deps'
+import { type App, buildApp } from './index'
 
 const env = getTestEnv()
 

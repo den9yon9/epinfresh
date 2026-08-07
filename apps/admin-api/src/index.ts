@@ -1,18 +1,9 @@
 import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
-import { type Db } from '@epinfresh/database'
-import {
-  commonModel,
-  healthCheck,
-  requestLogger,
-  securityHeaders,
-  startServer,
-} from '@epinfresh/http'
-import { type Redis } from '@epinfresh/redis'
-import { type Logger } from '@epinfresh/shared'
+import { healthCheck, requestLogger, securityHeaders, startServer } from '@epinfresh/http'
 import { Elysia } from 'elysia'
 
-import { createAdminDeps } from './deps'
+import { type AdminAppOptions, createAdminDeps } from './deps'
 import { createEnv } from './env'
 import { createPlugins } from './plugins'
 import { createAuthRoutes } from './routes/auth'
@@ -20,23 +11,12 @@ import { createOrderRoutes } from './routes/order'
 import { createProductRoutes } from './routes/product'
 import { createUserRoutes } from './routes/user'
 
-export interface AdminAppOptions {
-  db: Db
-  redis: Redis
-  sessionSecret: string
-  corsOrigin: true | string | string[]
-  trustProxy: boolean
-  isProduction: boolean
-  logger: Logger
-}
-
 export function buildApp(options: AdminAppOptions) {
   const plugins = createPlugins(options)
   const enableDocs = !options.isProduction
   return new Elysia()
     .use(requestLogger(options.logger))
     .use(securityHeaders(options.isProduction))
-    .use(commonModel)
     .use(plugins.redisPlugin)
     .use(plugins.dbPlugin)
     .use(cors({ origin: options.corsOrigin, credentials: true }))

@@ -1,11 +1,21 @@
-import { createDb } from '@epinfresh/database'
-import { createQueue } from '@epinfresh/queue'
-import { createRedisClient } from '@epinfresh/redis'
-import { createLogger } from '@epinfresh/shared'
+import { createDb, type Db } from '@epinfresh/database'
+import { createQueue, type Queue } from '@epinfresh/queue'
+import { createRedisClient, type Redis } from '@epinfresh/redis'
+import { createLogger, type Logger } from '@epinfresh/shared'
 import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 
 import { type StorefrontEnv } from './env'
-import { type StorefrontAppOptions } from './index'
+
+export interface StorefrontAppOptions {
+  db: Db
+  redis: Redis
+  emailQueue: Queue<SendEmailJobData>
+  sessionSecret: string
+  corsOrigin: true | string | string[]
+  trustProxy: boolean
+  isProduction: boolean
+  logger: Logger
+}
 
 export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
   return {
