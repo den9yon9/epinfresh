@@ -15,6 +15,7 @@ export interface OrderLineInput {
   quantity: number
 }
 
+// ponytail: debt — 金额换算当前仅 order 域内部使用；引入 payment/refund 域时抽到 packages/shared/src/money.ts 复用
 function toCents(amount: string): bigint {
   const s = String(amount)
   const dot = s.indexOf('.')

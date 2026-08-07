@@ -18,6 +18,7 @@ export async function checkoutWorkflow(
   input: Static<typeof CreateOrderInputSchema> & { userId: string },
   client: DbClient,
 ): Promise<Result<OrderDetail, CheckoutErrorCode>> {
+  // ponytail: debt — 无幂等键，重复提交/客户端重试会重复建单；接支付前需引入 Idempotency-Key（userId+key 去重）
   try {
     const order = await client.transaction(async (tx) => {
       const merged = new Map<string, number>()
