@@ -8,7 +8,7 @@ import { Elysia, status, t } from 'elysia'
 import { type StorefrontPlugins } from '../plugins'
 
 export function createOrderRoutes(plugins: StorefrontPlugins) {
-  return new Elysia({ name: 'order-storefront', prefix: '/api/v1' })
+  return new Elysia({ name: 'order-storefront' })
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .post(

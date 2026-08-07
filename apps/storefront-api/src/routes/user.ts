@@ -9,7 +9,7 @@ import { type StorefrontPlugins } from '../plugins'
 
 export function createUserRoutes(plugins: StorefrontPlugins) {
   const { dbPlugin, sessionPlugin, authRateLimit, emailQueuePlugin, isProduction } = plugins
-  return new Elysia({ name: 'user-storefront', prefix: '/api/v1/auth' })
+  return new Elysia({ name: 'user-storefront', prefix: '/auth' })
     .use(dbPlugin)
     .use(sessionPlugin)
     .use(authRateLimit)
@@ -60,7 +60,7 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
       {
         body: UserModel.LoginInputSchema,
         rateLimit: { limit: 10, window: '60s' },
-        response: { 200: UserModel.UserResponseSchema, 401: ErrorResponse, 429: ErrorResponse },
+        response: { 200: UserModel.UserResponseSchema, 401: ErrorResponse },
         detail: { tags: ['Auth'] },
       },
     )
@@ -92,7 +92,7 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
       },
       {
         isAuth: true,
-        response: { 200: UserModel.UserResponseSchema, 401: ErrorResponse, 404: ErrorResponse },
+        response: { 200: UserModel.UserResponseSchema, 404: ErrorResponse },
         detail: { tags: ['Auth'] },
       },
     )

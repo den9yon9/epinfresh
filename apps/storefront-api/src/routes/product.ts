@@ -6,7 +6,7 @@ import { Elysia, status, t } from 'elysia'
 import { type StorefrontPlugins } from '../plugins'
 
 export function createProductRoutes(plugins: StorefrontPlugins) {
-  return new Elysia({ name: 'product-storefront', prefix: '/api/v1' })
+  return new Elysia({ name: 'product-storefront' })
     .use(plugins.dbPlugin)
     .get('/products', async ({ query, db }) => listPublishedProducts(query, db), {
       query: ProductModel.ProductListQuerySchema,

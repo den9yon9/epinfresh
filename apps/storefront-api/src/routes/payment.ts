@@ -8,7 +8,7 @@ import { type StorefrontPlugins } from '../plugins'
 
 export function createPaymentRoutes(plugins: StorefrontPlugins) {
   const { dbPlugin, sessionPlugin, paymentGateway } = plugins
-  return new Elysia({ name: 'payment-storefront', prefix: '/api/v1' })
+  return new Elysia({ name: 'payment-storefront' })
     .use(dbPlugin)
     .use(sessionPlugin)
     .post(

@@ -6,17 +6,16 @@ import * as PaymentModel from '@epinfresh/payment/model'
 import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
-import { adminResponse } from '../common'
 import { type AdminPlugins } from '../plugins'
 
 export function createOrderRoutes(plugins: AdminPlugins) {
-  return new Elysia({ name: 'order-admin', prefix: '/api/v1/admin' })
+  return new Elysia({ name: 'order-admin', prefix: '/admin' })
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .get('/orders', ({ query, db }) => listOrders(query, db), {
       isAdmin: true,
       query: OrderModel.AdminOrderListQuerySchema,
-      response: { 200: OrderModel.OrderListResponseSchema, ...adminResponse },
+      response: { 200: OrderModel.OrderListResponseSchema },
       detail: { tags: ['Admin/Orders'] },
     })
     .get(
@@ -36,7 +35,7 @@ export function createOrderRoutes(plugins: AdminPlugins) {
       {
         isAdmin: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
-        response: { 200: OrderModel.OrderResponseSchema, 404: ErrorResponse, ...adminResponse },
+        response: { 200: OrderModel.OrderResponseSchema, 404: ErrorResponse },
         detail: { tags: ['Admin/Orders'] },
       },
     )
@@ -67,7 +66,6 @@ export function createOrderRoutes(plugins: AdminPlugins) {
           200: OrderModel.OrderResponseSchema,
           404: ErrorResponse,
           409: ErrorResponse,
-          ...adminResponse,
         },
         detail: { tags: ['Admin/Orders'] },
       },
@@ -87,7 +85,6 @@ export function createOrderRoutes(plugins: AdminPlugins) {
         response: {
           200: PaymentModel.PaymentListResponseSchema,
           404: ErrorResponse,
-          ...adminResponse,
         },
         detail: { tags: ['Admin/Payments'] },
       },

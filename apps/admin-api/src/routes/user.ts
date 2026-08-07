@@ -3,17 +3,16 @@ import { getUserById, listUsers } from '@epinfresh/user'
 import * as UserModel from '@epinfresh/user/model'
 import { Elysia, status, t } from 'elysia'
 
-import { adminResponse } from '../common'
 import { type AdminPlugins } from '../plugins'
 
 export function createUserRoutes(plugins: AdminPlugins) {
-  return new Elysia({ name: 'user-admin', prefix: '/api/v1/admin' })
+  return new Elysia({ name: 'user-admin', prefix: '/admin' })
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .get('/users', ({ query, db }) => listUsers(query, db), {
       isAdmin: true,
       query: UserModel.UserListQuerySchema,
-      response: { 200: UserModel.UserListResponseSchema, ...adminResponse },
+      response: { 200: UserModel.UserListResponseSchema },
       detail: { tags: ['Admin/Users'] },
     })
     .get(
@@ -33,7 +32,7 @@ export function createUserRoutes(plugins: AdminPlugins) {
       {
         isAdmin: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
-        response: { 200: UserModel.UserResponseSchema, 404: ErrorResponse, ...adminResponse },
+        response: { 200: UserModel.UserResponseSchema, 404: ErrorResponse },
         detail: { tags: ['Admin/Users'] },
       },
     )

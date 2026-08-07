@@ -26,6 +26,7 @@
     "elysia": "^1.2.0"
   },
   "devDependencies": {
+    "@elysiajs/eden": "^1.4.9",
     "drizzle-orm": "^0.40.0"
   }
 }

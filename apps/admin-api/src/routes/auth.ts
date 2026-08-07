@@ -8,7 +8,7 @@ import { type AdminPlugins } from '../plugins'
 
 export function createAuthRoutes(plugins: AdminPlugins) {
   const { dbPlugin, sessionPlugin, isProduction } = plugins
-  return new Elysia({ name: 'auth-admin', prefix: '/api/v1/auth' })
+  return new Elysia({ name: 'auth-admin', prefix: '/auth' })
     .use(dbPlugin)
     .use(sessionPlugin)
     .post(
@@ -43,7 +43,6 @@ export function createAuthRoutes(plugins: AdminPlugins) {
           200: UserModel.UserResponseSchema,
           401: ErrorResponse,
           403: ErrorResponse,
-          429: ErrorResponse,
         },
         detail: { tags: ['Auth'] },
       },
@@ -76,7 +75,7 @@ export function createAuthRoutes(plugins: AdminPlugins) {
       },
       {
         isAuth: true,
-        response: { 200: UserModel.UserResponseSchema, 401: ErrorResponse, 404: ErrorResponse },
+        response: { 200: UserModel.UserResponseSchema, 404: ErrorResponse },
         detail: { tags: ['Auth'] },
       },
     )

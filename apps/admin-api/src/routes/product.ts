@@ -12,17 +12,16 @@ import * as ProductModel from '@epinfresh/product/model'
 import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
-import { adminResponse } from '../common'
 import { type AdminPlugins } from '../plugins'
 
 export function createProductRoutes(plugins: AdminPlugins) {
-  return new Elysia({ name: 'product-admin', prefix: '/api/v1/admin' })
+  return new Elysia({ name: 'product-admin', prefix: '/admin' })
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .get('/products', async ({ query, db }) => listAllProducts(query, db), {
       isAdmin: true,
       query: ProductModel.AdminProductListQuerySchema,
-      response: { 200: ProductModel.ProductListResponseSchema, ...adminResponse },
+      response: { 200: ProductModel.ProductListResponseSchema },
       detail: { tags: ['Admin/Products'] },
     })
     .get(
@@ -42,14 +41,14 @@ export function createProductRoutes(plugins: AdminPlugins) {
       {
         isAdmin: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
-        response: { 200: ProductModel.ProductResponseSchema, 404: ErrorResponse, ...adminResponse },
+        response: { 200: ProductModel.ProductResponseSchema, 404: ErrorResponse },
         detail: { tags: ['Admin/Products'] },
       },
     )
     .post('/products', async ({ body, db }) => status(201, await createProduct(body, db)), {
       isAdmin: true,
       body: ProductModel.CreateProductInputSchema,
-      response: { 201: ProductModel.ProductResponseSchema, ...adminResponse },
+      response: { 201: ProductModel.ProductResponseSchema },
       detail: { tags: ['Admin/Products'] },
     })
     .put(
@@ -70,7 +69,7 @@ export function createProductRoutes(plugins: AdminPlugins) {
         isAdmin: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
         body: ProductModel.UpdateProductInputSchema,
-        response: { 200: ProductModel.ProductResponseSchema, 404: ErrorResponse, ...adminResponse },
+        response: { 200: ProductModel.ProductResponseSchema, 404: ErrorResponse },
         detail: { tags: ['Admin/Products'] },
       },
     )
@@ -97,13 +96,13 @@ export function createProductRoutes(plugins: AdminPlugins) {
     .get('/categories', ({ query, db }) => listCategories(query, db), {
       isAdmin: true,
       query: ProductModel.CategoryListQuerySchema,
-      response: { 200: ProductModel.CategoryListResponseSchema, ...adminResponse },
+      response: { 200: ProductModel.CategoryListResponseSchema },
       detail: { tags: ['Admin/Categories'] },
     })
     .post('/categories', async ({ body, db }) => status(201, await createCategory(body, db)), {
       isAdmin: true,
       body: ProductModel.CreateCategoryInputSchema,
-      response: { 201: ProductModel.CategoryResponseSchema, ...adminResponse },
+      response: { 201: ProductModel.CategoryResponseSchema },
       detail: { tags: ['Admin/Categories'] },
     })
     .delete(
