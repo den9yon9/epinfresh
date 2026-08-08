@@ -18,6 +18,9 @@
       "cache": false,
       "env": ["TESTING_DATABASE_URL", "TESTING_REDIS_URL", "TESTING_SESSION_SECRET"]
     },
+    "e2e": {
+      "cache": false
+    },
     "clean": {
       "cache": false
     }
