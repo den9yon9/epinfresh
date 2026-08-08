@@ -1,4 +1,7 @@
-import { createRootRoute, Link, Outlet } from '@tanstack/react-router'
+import { createRootRoute, Outlet } from '@tanstack/react-router'
+
+import { Header } from '../components/Header'
+import { TabBar } from '../components/TabBar'
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -7,14 +10,11 @@ export const Route = createRootRoute({
 function RootLayout() {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex h-14 items-center px-6 bg-green-600 text-white">
-        <Link to="/" className="text-xl font-bold">
-          一品鲜
-        </Link>
-      </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 p-6">
+      <Header />
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-20 pt-4 md:px-6">
         <Outlet />
       </main>
+      <TabBar />
     </div>
   )
 }
