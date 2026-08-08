@@ -83,4 +83,24 @@ jobs:
       - name: Build & smoke test docker image
         run: |
           docker build --build-arg APP=storefront-api -t epinfresh-smoke .
-          docker run --rm --entrypoint sh epinfresh-smoke -c 'test "$APP" = "storefront-api"'
+          docker run -d --name epinfresh-smoke --network=host \
+            -e DATABASE_URL=postgres://epinfresh:epinfresh@localhost:5432/epinfresh_test \
+            -e REDIS_URL=redis://localhost:6379/1 \
+            -e SESSION_SECRET=test-session-secret-0123456789abcdef \
+            -e NODE_ENV=test \
+            -e CORS_ORIGIN='*' \
+            -e TRUST_PROXY=false \
+            -e STOREFRONT_PORT=3000 \
+            -e LOG_LEVEL=silent \
+            epinfresh-smoke
+          for i in $(seq 1 30); do
+            if docker exec epinfresh-smoke wget -q -O /dev/null http://localhost:3000/health; then
+              echo "health ok"
+              docker rm -f epinfresh-smoke
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs epinfresh-smoke
+          docker rm -f epinfresh-smoke
+          exit 1

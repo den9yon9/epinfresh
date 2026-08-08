@@ -30,6 +30,7 @@ RUN bun add -g pnpm && pnpm install --frozen-lockfile --prod --ignore-scripts
 COPY packages/tsconfig/ ./packages/tsconfig/
 COPY packages/ ./packages/
 COPY domains/ ./domains/
+COPY usecases/ ./usecases/
 COPY apps/ ./apps/
 
 ENV NODE_ENV=production
