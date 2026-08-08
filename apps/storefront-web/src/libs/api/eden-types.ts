@@ -11,8 +11,9 @@ export type EdenData<T extends EdenMethod> = NonNullable<Awaited<ReturnType<T>>[
 export type EdenListItem<T extends EdenMethod> = EdenData<T>['items'][number]
 
 // 请求参数类型提取
-// body：POST/PUT/PATCH/DELETE 的第一参
-export type EdenBody<T extends EdenMethod> = Parameters<T>[0]
+// body：仅 POST/PUT/PATCH/DELETE 系列（两参签名）可取；GET/HEAD 单参签名 → never，误用即编译失败
+export type EdenBody<T extends EdenMethod> =
+  Parameters<T> extends [infer B, unknown, ...unknown[]] ? B : never
 // options（含 query/headers/fetch）：POST 系列第二参，GET 系列第一参
 export type EdenOptions<T extends EdenMethod> =
   Parameters<T> extends [unknown, infer O, ...unknown[]]
