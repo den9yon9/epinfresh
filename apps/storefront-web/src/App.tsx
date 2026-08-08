@@ -3,7 +3,23 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 import './styles.css'
 
-const router = createRouter({ routeTree })
+const router = createRouter({
+  routeTree,
+  defaultErrorComponent: ({ error, reset }) => (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+      <p className="text-red-600">页面出错了：{error.message}</p>
+      <button
+        onClick={() => reset()}
+        className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+      >
+        重试
+      </button>
+    </div>
+  ),
+  defaultPendingComponent: () => (
+    <div className="flex min-h-screen items-center justify-center text-gray-500">加载中…</div>
+  ),
+})
 
 declare module '@tanstack/react-router' {
   interface Register {

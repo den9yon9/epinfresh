@@ -1,9 +1,10 @@
+import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [tanstackRouter(), react()],
+  plugins: [tanstackRouter(), tailwindcss(), react()],
   server: {
     port: 5173,
     // ponytail: 全量代理到 storefront API, SPA 与 Vite 内部请求 bypass;
