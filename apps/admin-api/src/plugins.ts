@@ -1,8 +1,8 @@
-import { type Db } from '@epinfresh/database'
 import { dbPlugin, redisPlugin } from '@epinfresh/http'
-import { type Redis } from '@epinfresh/redis'
 import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
 import { type Logger } from '@epinfresh/shared'
+
+import { type AdminAppOptions } from './deps'
 
 export interface AdminPlugins {
   dbPlugin: ReturnType<typeof dbPlugin>
@@ -13,16 +13,7 @@ export interface AdminPlugins {
   logger: Logger
 }
 
-export interface AdminPluginsOptions {
-  db: Db
-  redis: Redis
-  sessionSecret: string
-  trustProxy: boolean
-  isProduction: boolean
-  logger: Logger
-}
-
-export function createPlugins(options: AdminPluginsOptions): AdminPlugins {
+export function createPlugins(options: Omit<AdminAppOptions, 'corsOrigin'>): AdminPlugins {
   const { db, redis, sessionSecret, trustProxy, isProduction, logger } = options
   return {
     dbPlugin: dbPlugin(db),

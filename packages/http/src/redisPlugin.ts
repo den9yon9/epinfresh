@@ -1,11 +1,9 @@
-import { createRedisClient, type Redis, type RedisOptions } from '@epinfresh/redis'
+import { type Redis } from '@epinfresh/redis'
 import type { Logger } from '@epinfresh/shared'
 import { Elysia } from 'elysia'
 
-export function redisPlugin(connection: string | Redis, opts: RedisOptions & { logger: Logger }) {
-  const { logger, ...redisOpts } = opts
-  const client =
-    typeof connection === 'string' ? createRedisClient(connection, redisOpts) : connection
+export function redisPlugin(client: Redis, opts: { logger: Logger }) {
+  const { logger } = opts
   client.on('error', (err) => {
     logger.error({ err }, 'redis connection error')
   })
