@@ -119,6 +119,17 @@ describe('auth', () => {
     if (res.error === null) throw new Error('expected error response')
     expect(res.error.value).toMatchObject({ error: 'FORBIDDEN' })
   })
+
+  test('rate limits login attempts with 429', async () => {
+    for (let i = 0; i < 10; i++) {
+      const res = await api.auth.login.post({ email: 'x@example.com', password: 'wrong' })
+      expect(res.status).toBe(401)
+    }
+    const blocked = await api.auth.login.post({ email: 'x@example.com', password: 'wrong' })
+    expect(blocked.status).toBe(429)
+    if (blocked.error === null) throw new Error('expected error response')
+    expect(blocked.error.value).toMatchObject({ error: 'RATE_LIMITED' })
+  })
 })
 
 describe('admin guard', () => {

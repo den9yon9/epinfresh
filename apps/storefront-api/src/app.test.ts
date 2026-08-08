@@ -321,6 +321,38 @@ describe('payments', () => {
     if (res.error === null) throw new Error('expected error response')
     expect(res.error.value).toMatchObject({ error: 'ORDER_NOT_PENDING' })
   })
+
+  test('confirming an already confirmed payment is rejected', async () => {
+    const user = await seedUser('alice@example.com')
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const orderRes = await api.orders.post(
+      { items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    if (orderRes.error !== null) throw orderRes.error
+    const orderId = orderRes.data.id
+
+    const payRes = await api
+      .orders({ id: orderId })
+      .pay.post({} as never, { fetch: { headers: { cookie } } })
+    if (payRes.error !== null) throw payRes.error
+    const paymentId = payRes.data.id
+
+    const confirmRes = await api
+      .payments({ id: paymentId })
+      .confirm.post({} as never, { fetch: { headers: { cookie } } })
+    if (confirmRes.error !== null) throw confirmRes.error
+    expect(confirmRes.data.status).toBe('succeeded')
+
+    const again = await api
+      .payments({ id: paymentId })
+      .confirm.post({} as never, { fetch: { headers: { cookie } } })
+    expect(again.status).toBe(409)
+    if (again.error === null) throw new Error('expected error response')
+    expect(again.error.value).toMatchObject({ error: 'INVALID_PAYMENT_STATE' })
+  })
 })
 
 describe('products', () => {
