@@ -11,7 +11,8 @@
     "@elysiajs/eden": "^1.4.9",
     "@tanstack/react-router": "^1.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "valibot": "^1.4.2"
   },
   "devDependencies": {
     "@epinfresh/storefront-api": "workspace:*",

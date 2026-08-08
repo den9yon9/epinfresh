@@ -1,25 +1,21 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import * as v from 'valibot'
 
-import { api } from '../libs/api/client'
 import { CategoryChips } from '../components/CategoryChips'
 import { ProductCard } from '../components/ProductCard'
-
-interface HomeSearch {
-  page?: number
-  categoryId?: string
-}
+import { api } from '../libs/api/client'
 
 const PAGE_SIZE = 10
 
+// search 校验（Standard Schema）：loader 传参时 eden 类型会强制与后端契约一致
+const HomeSearchSchema = v.object({
+  page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
+  categoryId: v.optional(v.string()),
+})
+
 export const Route = createFileRoute('/')({
-  validateSearch: (search: Record<string, unknown>): HomeSearch => {
-    const page = Number(search.page)
-    return {
-      page: Number.isInteger(page) && page >= 1 ? page : 1,
-      categoryId: typeof search.categoryId === 'string' ? search.categoryId : undefined,
-    }
-  },
-  loaderDeps: ({ search }) => ({ page: search.page ?? 1, categoryId: search.categoryId }),
+  validateSearch: HomeSearchSchema,
+  loaderDeps: ({ search }) => ({ page: search.page, categoryId: search.categoryId }),
   loader: async ({ deps }) => {
     const [productsRes, categoriesRes] = await Promise.all([
       api.products.get({
