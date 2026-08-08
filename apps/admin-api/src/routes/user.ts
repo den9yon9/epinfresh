@@ -13,7 +13,11 @@ export function createUserRoutes(plugins: AdminPlugins) {
       isAdmin: true,
       query: UserModel.UserListQuerySchema,
       response: { 200: UserModel.UserListResponseSchema },
-      detail: { tags: ['Admin/Users'] },
+      detail: {
+        tags: ['Admin/Users'],
+        summary: '用户列表',
+        description: '全部用户列表，支持分页与关键词筛选。\n\n- 需要 admin 角色',
+      },
     })
     .get(
       '/users/:id',
@@ -35,7 +39,11 @@ export function createUserRoutes(plugins: AdminPlugins) {
         isAdmin: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
         response: { 200: UserModel.UserResponseSchema, 404: ErrorResponse },
-        detail: { tags: ['Admin/Users'] },
+        detail: {
+          tags: ['Admin/Users'],
+          summary: '用户详情',
+          description: '按 ID 获取用户信息。\n\n- 需要 admin 角色\n- 用户不存在返回 404',
+        },
       },
     )
 }

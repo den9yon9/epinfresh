@@ -32,7 +32,11 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
       {
         body: UserModel.RegisterInputSchema,
         response: { 200: UserModel.UserResponseSchema },
-        detail: { tags: ['Auth'] },
+        detail: {
+          tags: ['Auth'],
+          summary: '注册',
+          description: '注册新用户，成功后异步发送欢迎邮件。\n\n- 邮箱重复时由校验层返回错误',
+        },
       },
     )
     .post(
@@ -63,7 +67,12 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
         body: UserModel.LoginInputSchema,
         rateLimit: { limit: 10, window: '60s' },
         response: { 200: UserModel.UserResponseSchema, 401: ErrorResponse },
-        detail: { tags: ['Auth'] },
+        detail: {
+          tags: ['Auth'],
+          summary: '登录',
+          description:
+            '邮箱密码登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 限流：60 秒内最多 10 次尝试',
+        },
       },
     )
     .post(
@@ -76,7 +85,13 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
         clearSessionCookie(cookie.session_id, isProduction)
         return status(204)
       },
-      { detail: { tags: ['Auth'] } },
+      {
+        detail: {
+          tags: ['Auth'],
+          summary: '退出登录',
+          description: '销毁当前 session 并清除 cookie。\n\n- 成功返回 204 无返回体',
+        },
+      },
     )
     .get(
       '/me',
@@ -97,7 +112,11 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
       {
         isAuth: true,
         response: { 200: UserModel.UserResponseSchema, 404: ErrorResponse },
-        detail: { tags: ['Auth'] },
+        detail: {
+          tags: ['Auth'],
+          summary: '当前用户信息',
+          description: '获取当前登录用户的信息。\n\n- 需要登录\n- 用户不存在返回 404',
+        },
       },
     )
 }

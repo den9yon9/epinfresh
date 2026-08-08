@@ -22,7 +22,11 @@ export function createProductRoutes(plugins: AdminPlugins) {
       isAdmin: true,
       query: ProductModel.AdminProductListQuerySchema,
       response: { 200: ProductModel.ProductListResponseSchema },
-      detail: { tags: ['Admin/Products'] },
+      detail: {
+        tags: ['Admin/Products'],
+        summary: '商品列表',
+        description: '全部商品列表（含未上架），支持分页与筛选。\n\n- 需要 admin 角色',
+      },
     })
     .get(
       '/products/:id',
@@ -44,14 +48,22 @@ export function createProductRoutes(plugins: AdminPlugins) {
         isAdmin: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
         response: { 200: ProductModel.ProductResponseSchema, 404: ErrorResponse },
-        detail: { tags: ['Admin/Products'] },
+        detail: {
+          tags: ['Admin/Products'],
+          summary: '商品详情',
+          description: '按 ID 获取商品详情（含 SKU）。\n\n- 需要 admin 角色\n- 商品不存在返回 404',
+        },
       },
     )
     .post('/products', async ({ body, db }) => status(201, await createProduct(body, db)), {
       isAdmin: true,
       body: ProductModel.CreateProductInputSchema,
       response: { 201: ProductModel.ProductResponseSchema },
-      detail: { tags: ['Admin/Products'] },
+      detail: {
+        tags: ['Admin/Products'],
+        summary: '创建商品',
+        description: '创建商品及其 SKU。\n\n- 需要 admin 角色\n- 成功返回 201',
+      },
     })
     .put(
       '/products/:id',
@@ -74,7 +86,11 @@ export function createProductRoutes(plugins: AdminPlugins) {
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
         body: ProductModel.UpdateProductInputSchema,
         response: { 200: ProductModel.ProductResponseSchema, 404: ErrorResponse },
-        detail: { tags: ['Admin/Products'] },
+        detail: {
+          tags: ['Admin/Products'],
+          summary: '更新商品',
+          description: '更新商品信息及 SKU。\n\n- 需要 admin 角色\n- 商品不存在返回 404',
+        },
       },
     )
     .delete(
@@ -96,20 +112,33 @@ export function createProductRoutes(plugins: AdminPlugins) {
       {
         isAdmin: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
-        detail: { tags: ['Admin/Products'] },
+        detail: {
+          tags: ['Admin/Products'],
+          summary: '删除商品',
+          description:
+            '删除商品及其 SKU。\n\n- 需要 admin 角色\n- 成功返回 204 无返回体\n- 商品不存在返回 404',
+        },
       },
     )
     .get('/categories', ({ query, db }) => listCategories(query, db), {
       isAdmin: true,
       query: ProductModel.CategoryListQuerySchema,
       response: { 200: ProductModel.CategoryListResponseSchema },
-      detail: { tags: ['Admin/Categories'] },
+      detail: {
+        tags: ['Admin/Categories'],
+        summary: '分类列表',
+        description: '商品分类列表。\n\n- 需要 admin 角色',
+      },
     })
     .post('/categories', async ({ body, db }) => status(201, await createCategory(body, db)), {
       isAdmin: true,
       body: ProductModel.CreateCategoryInputSchema,
       response: { 201: ProductModel.CategoryResponseSchema },
-      detail: { tags: ['Admin/Categories'] },
+      detail: {
+        tags: ['Admin/Categories'],
+        summary: '创建分类',
+        description: '创建商品分类。\n\n- 需要 admin 角色\n- 成功返回 201',
+      },
     })
     .delete(
       '/categories/:id',
@@ -132,7 +161,12 @@ export function createProductRoutes(plugins: AdminPlugins) {
       {
         isAdmin: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
-        detail: { tags: ['Admin/Categories'] },
+        detail: {
+          tags: ['Admin/Categories'],
+          summary: '删除分类',
+          description:
+            '删除商品分类。\n\n- 需要 admin 角色\n- 成功返回 204 无返回体\n- 分类不存在返回 404\n- 分类下仍有商品返回 409',
+        },
       },
     )
 }

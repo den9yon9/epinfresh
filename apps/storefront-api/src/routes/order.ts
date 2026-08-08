@@ -46,14 +46,23 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           404: ErrorResponse,
           409: ErrorResponse,
         },
-        detail: { tags: ['Orders'] },
+        detail: {
+          tags: ['Orders'],
+          summary: '结算下单',
+          description:
+            '从购物车或直接按 SKU 结算创建订单。\n\n- 需要登录\n- 幂等：携带相同 `Idempotency-Key` 头重复请求返回 200 与原订单，首次下单返回 201\n- SKU 或地址不存在返回 404\n- 商品未上架或库存不足返回 409',
+        },
       },
     )
     .get('/orders', async ({ query, session, db }) => listOrdersByUser(session.userId, query, db), {
       isAuth: true,
       query: OrderModel.OrderListQuerySchema,
       response: { 200: OrderModel.OrderListResponseSchema },
-      detail: { tags: ['Orders'] },
+      detail: {
+        tags: ['Orders'],
+        summary: '订单列表',
+        description: '获取当前登录用户的订单列表，支持分页与状态筛选。\n\n- 需要登录',
+      },
     })
     .get(
       '/orders/:id',
@@ -75,7 +84,12 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         isAuth: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
         response: { 200: OrderModel.OrderResponseSchema, 404: ErrorResponse },
-        detail: { tags: ['Orders'] },
+        detail: {
+          tags: ['Orders'],
+          summary: '订单详情',
+          description:
+            '按 ID 获取当前登录用户的订单详情。\n\n- 需要登录\n- 订单不存在或不属于当前用户返回 404',
+        },
       },
     )
 }

@@ -13,7 +13,11 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
     .get('/cart', async ({ session, db }) => listCart(session.userId, db), {
       isAuth: true,
       response: { 200: CartModel.CartListResponseSchema },
-      detail: { tags: ['Cart'] },
+      detail: {
+        tags: ['Cart'],
+        summary: '查看购物车',
+        description: '获取当前登录用户的购物车，含商品明细与数量。\n\n- 需要登录',
+      },
     })
     .post(
       '/cart/items',
@@ -41,7 +45,12 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
           404: ErrorResponse,
           409: ErrorResponse,
         },
-        detail: { tags: ['Cart'] },
+        detail: {
+          tags: ['Cart'],
+          summary: '添加商品到购物车',
+          description:
+            '将指定 SKU 加入当前登录用户的购物车。\n\n- 需要登录\n- SKU 不存在返回 404\n- 商品未上架返回 409',
+        },
       },
     )
     .put(
@@ -65,7 +74,11 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
         params: t.Object({ skuId: t.String({ format: 'uuid' }) }),
         body: CartModel.UpdateCartItemInputSchema,
         response: { 200: CartModel.CartItemResponseSchema, 404: ErrorResponse },
-        detail: { tags: ['Cart'] },
+        detail: {
+          tags: ['Cart'],
+          summary: '更新购物车商品数量',
+          description: '更新购物车中某个 SKU 的数量。\n\n- 需要登录\n- 该 SKU 不在购物车中返回 404',
+        },
       },
     )
     .delete(
@@ -88,7 +101,12 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
         isAuth: true,
         params: t.Object({ skuId: t.String({ format: 'uuid' }) }),
         response: { 404: ErrorResponse },
-        detail: { tags: ['Cart'] },
+        detail: {
+          tags: ['Cart'],
+          summary: '移除购物车商品',
+          description:
+            '将某个 SKU 从购物车中移除。\n\n- 需要登录\n- 成功返回 204 无返回体\n- 该 SKU 不在购物车中返回 404',
+        },
       },
     )
     .delete(
@@ -99,7 +117,11 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
       },
       {
         isAuth: true,
-        detail: { tags: ['Cart'] },
+        detail: {
+          tags: ['Cart'],
+          summary: '清空购物车',
+          description: '清空当前登录用户的全部购物车商品。\n\n- 需要登录\n- 成功返回 204 无返回体',
+        },
       },
     )
 }

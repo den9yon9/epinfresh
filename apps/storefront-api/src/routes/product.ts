@@ -11,7 +11,11 @@ export function createProductRoutes(plugins: StorefrontPlugins) {
     .get('/products', async ({ query, db }) => listPublishedProducts(query, db), {
       query: ProductModel.ProductListQuerySchema,
       response: { 200: ProductModel.ProductListResponseSchema },
-      detail: { tags: ['Products'] },
+      detail: {
+        tags: ['Products'],
+        summary: '商品列表',
+        description: '获取已上架商品列表，支持分类筛选、分页与排序。\n\n- 无需登录',
+      },
     })
     .get(
       '/products/:id',
@@ -32,12 +36,21 @@ export function createProductRoutes(plugins: StorefrontPlugins) {
       {
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
         response: { 200: ProductModel.ProductResponseSchema, 404: ErrorResponse },
-        detail: { tags: ['Products'] },
+        detail: {
+          tags: ['Products'],
+          summary: '商品详情',
+          description:
+            '按 ID 获取已上架商品详情（含 SKU）。\n\n- 无需登录\n- 商品不存在或未上架返回 404',
+        },
       },
     )
     .get('/categories', ({ query, db }) => listCategories(query, db), {
       query: ProductModel.CategoryListQuerySchema,
       response: { 200: ProductModel.CategoryListResponseSchema },
-      detail: { tags: ['Categories'] },
+      detail: {
+        tags: ['Categories'],
+        summary: '分类列表',
+        description: '获取商品分类列表。\n\n- 无需登录',
+      },
     })
 }

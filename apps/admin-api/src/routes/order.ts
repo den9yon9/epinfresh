@@ -17,13 +17,21 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     .get('/dashboard', ({ db }) => getOrderStatusCounts(db), {
       isAdmin: true,
       response: { 200: OrderModel.DashboardResponseSchema },
-      detail: { tags: ['Admin/Dashboard'] },
+      detail: {
+        tags: ['Admin/Dashboard'],
+        summary: '订单状态统计',
+        description: '各订单状态的数量统计，用于管理后台首页。\n\n- 需要 admin 角色',
+      },
     })
     .get('/orders', ({ query, db }) => listOrders(query, db), {
       isAdmin: true,
       query: OrderModel.AdminOrderListQuerySchema,
       response: { 200: OrderModel.OrderListResponseSchema },
-      detail: { tags: ['Admin/Orders'] },
+      detail: {
+        tags: ['Admin/Orders'],
+        summary: '订单列表',
+        description: '全部订单列表，支持状态、时间筛选与分页。\n\n- 需要 admin 角色',
+      },
     })
     .get(
       '/orders/:id',
@@ -45,7 +53,12 @@ export function createOrderRoutes(plugins: AdminPlugins) {
         isAdmin: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
         response: { 200: OrderModel.OrderResponseSchema, 404: ErrorResponse },
-        detail: { tags: ['Admin/Orders'] },
+        detail: {
+          tags: ['Admin/Orders'],
+          summary: '订单详情',
+          description:
+            '按 ID 获取订单详情（含商品明细）。\n\n- 需要 admin 角色\n- 订单不存在返回 404',
+        },
       },
     )
     .patch(
@@ -78,7 +91,12 @@ export function createOrderRoutes(plugins: AdminPlugins) {
           404: ErrorResponse,
           409: ErrorResponse,
         },
-        detail: { tags: ['Admin/Orders'] },
+        detail: {
+          tags: ['Admin/Orders'],
+          summary: '更新订单状态',
+          description:
+            '更新订单状态。状态为 `cancelled` 时走取消流程（回滚库存并触发退款/通知）。\n\n- 需要 admin 角色\n- 订单不存在返回 404\n- 非法状态流转返回 409',
+        },
       },
     )
     .post(
@@ -117,7 +135,12 @@ export function createOrderRoutes(plugins: AdminPlugins) {
           404: ErrorResponse,
           409: ErrorResponse,
         },
-        detail: { tags: ['Admin/Orders'] },
+        detail: {
+          tags: ['Admin/Orders'],
+          summary: '订单发货',
+          description:
+            '将订单标记为已发货并填写运单号。\n\n- 需要 admin 角色\n- 幂等：已发货的订单重复调用仅更新运单号\n- 订单不存在返回 404\n- 状态不允许发货返回 409',
+        },
       },
     )
     .post(
@@ -148,7 +171,12 @@ export function createOrderRoutes(plugins: AdminPlugins) {
           404: ErrorResponse,
           409: ErrorResponse,
         },
-        detail: { tags: ['Admin/Orders'] },
+        detail: {
+          tags: ['Admin/Orders'],
+          summary: '订单退款',
+          description:
+            '对已支付订单发起退款，返回退款支付单。\n\n- 需要 admin 角色\n- 订单不存在或无可退支付返回 404\n- 支付状态不允许退款返回 409',
+        },
       },
     )
     .get(
@@ -167,7 +195,12 @@ export function createOrderRoutes(plugins: AdminPlugins) {
           200: PaymentModel.PaymentListResponseSchema,
           404: ErrorResponse,
         },
-        detail: { tags: ['Admin/Payments'] },
+        detail: {
+          tags: ['Admin/Payments'],
+          summary: '订单支付记录',
+          description:
+            '获取指定订单的全部支付记录（含退款）。\n\n- 需要 admin 角色\n- 订单不存在返回 404',
+        },
       },
     )
 }

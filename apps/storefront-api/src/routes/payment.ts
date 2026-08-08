@@ -41,7 +41,12 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
           404: ErrorResponse,
           409: ErrorResponse,
         },
-        detail: { tags: ['Payments'] },
+        detail: {
+          tags: ['Payments'],
+          summary: '发起支付',
+          description:
+            '为指定订单发起支付，返回支付单。\n\n- 需要登录，且订单必须属于当前用户\n- 订单不存在返回 404\n- 订单非待支付状态返回 409',
+        },
       },
     )
     .post(
@@ -79,7 +84,12 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
           404: ErrorResponse,
           409: ErrorResponse,
         },
-        detail: { tags: ['Payments'] },
+        detail: {
+          tags: ['Payments'],
+          summary: '确认支付',
+          description:
+            '确认支付成功（当前为 mock 支付网关的回调入口，接入真实网关后由 webhook 替代）。\n\n- 需要登录，且支付单对应的订单必须属于当前用户\n- 支付单或订单不存在返回 404\n- 支付状态不允许确认返回 409',
+        },
       },
     )
 }

@@ -46,7 +46,12 @@ export function createAuthRoutes(plugins: AdminPlugins) {
           401: ErrorResponse,
           403: ErrorResponse,
         },
-        detail: { tags: ['Auth'] },
+        detail: {
+          tags: ['Auth'],
+          summary: '管理员登录',
+          description:
+            '管理员登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 仅 admin 角色可登录，否则返回 403\n- 限流：60 秒内最多 10 次尝试',
+        },
       },
     )
     .post(
@@ -59,7 +64,13 @@ export function createAuthRoutes(plugins: AdminPlugins) {
         clearSessionCookie(cookie.session_id, isProduction)
         return status(204)
       },
-      { detail: { tags: ['Auth'] } },
+      {
+        detail: {
+          tags: ['Auth'],
+          summary: '退出登录',
+          description: '销毁当前 session 并清除 cookie。\n\n- 成功返回 204 无返回体',
+        },
+      },
     )
     .get(
       '/me',
@@ -80,7 +91,11 @@ export function createAuthRoutes(plugins: AdminPlugins) {
       {
         isAuth: true,
         response: { 200: UserModel.UserResponseSchema, 404: ErrorResponse },
-        detail: { tags: ['Auth'] },
+        detail: {
+          tags: ['Auth'],
+          summary: '当前管理员信息',
+          description: '获取当前登录管理员的信息。\n\n- 需要登录\n- 用户不存在返回 404',
+        },
       },
     )
 }
