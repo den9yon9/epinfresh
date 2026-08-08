@@ -71,6 +71,13 @@
       "when": 1786183820447,
       "tag": "0009_dizzy_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786184342102,
+      "tag": "0010_bent_hawkeye",
+      "breakpoints": true
     }
   ]
 }

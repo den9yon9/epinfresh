@@ -3,6 +3,7 @@ export {
   createOrderRecord,
   getOrderById,
   getOrderForUser,
+  getOrderStatusCounts,
   listOrders,
   listOrdersByUser,
   updateOrderStatus,

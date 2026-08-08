@@ -6,5 +6,6 @@ export {
   getPaymentById,
   initiatePayment,
   listPaymentsByOrder,
+  refundOrder,
   refundPayment,
 } from './service'

@@ -251,6 +251,108 @@ describe('order status transitions', () => {
     if (res.error === null) throw new Error('expected error response')
     expect(res.error.value).toMatchObject({ error: 'INVALID_TRANSITION' })
   })
+
+  test('cannot set refunded via the status endpoint', async () => {
+    const cookie = await adminCookie()
+    const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
+    await updateOrderStatus(order.id, 'paid', db)
+
+    const res = await api.admin
+      .orders({ id: order.id })
+      .status.patch({ status: 'refunded' } as never, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(422)
+  })
+
+  test('ship sets trackingNumber and shippedAt, and is idempotent for tracking updates', async () => {
+    const cookie = await adminCookie()
+    const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
+    await updateOrderStatus(order.id, 'paid', db)
+
+    const ship = await api.admin
+      .orders({ id: order.id })
+      .ship.post({ trackingNumber: 'SF123' }, { fetch: { headers: { cookie } } })
+    expect(ship.status).toBe(200)
+    if (ship.error !== null) throw ship.error
+    expect(ship.data.status).toBe('shipped')
+    expect(ship.data.trackingNumber).toBe('SF123')
+    expect(ship.data.shippedAt).not.toBeNull()
+
+    const reShip = await api.admin
+      .orders({ id: order.id })
+      .ship.post({ trackingNumber: 'SF456' }, { fetch: { headers: { cookie } } })
+    expect(reShip.status).toBe(200)
+    if (reShip.error !== null) throw reShip.error
+    expect(reShip.data.status).toBe('shipped')
+    expect(reShip.data.trackingNumber).toBe('SF456')
+  })
+
+  test('ship rejects a pending order with 409', async () => {
+    const cookie = await adminCookie()
+    const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
+
+    const res = await api.admin
+      .orders({ id: order.id })
+      .ship.post({}, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(409)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'INVALID_TRANSITION' })
+  })
+})
+
+describe('admin refunds', () => {
+  async function adminCookie(): Promise<string> {
+    await seedUser('admin@example.com', 'admin')
+    const { cookie } = await login('admin@example.com')
+    return cookie
+  }
+
+  test('refunds a paid order and flips both payment and order', async () => {
+    const cookie = await adminCookie()
+    const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
+    const payment = (
+      await initiatePayment(order.id, createMockPaymentGateway(), db)
+    )._unsafeUnwrap()
+    await confirmPayment(payment.id, db)
+
+    const res = await api.admin
+      .orders({ id: order.id })
+      .refund.post({} as never, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(200)
+    if (res.error !== null) throw res.error
+    expect(res.data.status).toBe('refunded')
+
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('refunded')
+  })
+
+  test('refunding an unpaid order is rejected with 409', async () => {
+    const cookie = await adminCookie()
+    const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
+
+    const res = await api.admin
+      .orders({ id: order.id })
+      .refund.post({} as never, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(409)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'INVALID_PAYMENT_STATE' })
+  })
+})
+
+describe('admin dashboard', () => {
+  test('returns zero-filled order status counts', async () => {
+    await seedUser('admin@example.com', 'admin')
+    const { cookie } = await login('admin@example.com')
+    const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
+    await updateOrderStatus(order.id, 'paid', db)
+
+    const res = await api.admin.dashboard.get({ fetch: { headers: { cookie } } })
+    expect(res.status).toBe(200)
+    if (res.error !== null) throw res.error
+    expect(res.data.paid).toBe(1)
+    expect(res.data.pending).toBe(0)
+    expect(res.data.refunded).toBe(0)
+    expect(res.data.cancelled).toBe(0)
+  })
 })
 
 describe('admin payments', () => {

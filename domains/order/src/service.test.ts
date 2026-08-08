@@ -7,6 +7,7 @@ import {
   createOrderRecord,
   getOrderById,
   getOrderForUser,
+  getOrderStatusCounts,
   listOrders,
   listOrdersByUser,
   updateOrderStatus,
@@ -157,6 +158,19 @@ describe('order queries', () => {
     expect(pending.total).toBe(1)
     const paid = await listOrders({ page: 1, pageSize: 20, status: 'paid' }, db)
     expect(paid.total).toBe(0)
+  })
+
+  test('getOrderStatusCounts groups orders by status with zero-filled defaults', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(order.id, 'paid', db)
+
+    const counts = await getOrderStatusCounts(db)
+    expect(counts.pending).toBe(0)
+    expect(counts.paid).toBe(1)
+    expect(counts.refunded).toBe(0)
+    expect(counts.cancelled).toBe(0)
   })
 })
 

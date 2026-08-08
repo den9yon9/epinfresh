@@ -148,6 +148,47 @@ export async function refundPayment(
   return ok(payment)
 }
 
+export async function refundOrder(
+  orderId: string,
+  client: DbClient,
+): Promise<
+  Result<
+    typeof schema.payments.$inferSelect,
+    'ORDER_NOT_FOUND' | 'NO_REFUNDABLE_PAYMENT' | 'INVALID_PAYMENT_STATE'
+  >
+> {
+  return client.transaction(async (tx) => {
+    const [order] = await tx.select().from(schema.orders).where(eq(schema.orders.id, orderId))
+    if (!order) return err('ORDER_NOT_FOUND')
+    if (!['paid', 'shipped', 'completed'].includes(order.status))
+      return err('INVALID_PAYMENT_STATE')
+
+    const [payment] = await tx
+      .select()
+      .from(schema.payments)
+      .where(and(eq(schema.payments.orderId, orderId), eq(schema.payments.status, 'succeeded')))
+      .orderBy(schema.payments.createdAt)
+      .limit(1)
+    if (!payment) return err('NO_REFUNDABLE_PAYMENT')
+
+    const [refunded] = await tx
+      .update(schema.payments)
+      .set({ status: 'refunded' })
+      .where(and(eq(schema.payments.id, payment.id), eq(schema.payments.status, 'succeeded')))
+      .returning()
+    if (!refunded) return err('INVALID_PAYMENT_STATE')
+
+    const [updatedOrder] = await tx
+      .update(schema.orders)
+      .set({ status: 'refunded' })
+      .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, order.status)))
+      .returning()
+    if (!updatedOrder) return err('INVALID_PAYMENT_STATE')
+
+    return ok(refunded)
+  })
+}
+
 export async function listPaymentsByOrder(orderId: string, client: DbClient) {
   const items = await client
     .select()

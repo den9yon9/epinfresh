@@ -9,6 +9,7 @@ import {
   failPayment,
   initiatePayment,
   listPaymentsByOrder,
+  refundOrder,
   refundPayment,
 } from './service'
 
@@ -130,5 +131,44 @@ describe('payment domain', () => {
 
     const { items } = await listPaymentsByOrder(order.id, db)
     expect(items).toHaveLength(1)
+  })
+
+  test('refundOrder refunds the payment and marks the order refunded', async () => {
+    const order = await seedOrder()
+    const payment = (
+      await initiatePayment(order.id, createMockPaymentGateway(), db)
+    )._unsafeUnwrap()
+    await confirmPayment(payment.id, db)
+
+    const result = await refundOrder(order.id, db)
+    expect(result.isOk()).toBe(true)
+    expect(result._unsafeUnwrap().status).toBe('refunded')
+
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('refunded')
+  })
+
+  test('refundOrder returns NO_REFUNDABLE_PAYMENT without a succeeded payment', async () => {
+    const order = await seedOrder()
+    await db.update(schema.orders).set({ status: 'paid' }).where(eq(schema.orders.id, order.id))
+    await initiatePayment(order.id, createMockPaymentGateway(), db)
+
+    const result = await refundOrder(order.id, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('NO_REFUNDABLE_PAYMENT')
+  })
+
+  test('refundOrder rejects orders that are not refundable', async () => {
+    const order = await seedOrder()
+
+    const result = await refundOrder(order.id, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
+  })
+
+  test('refundOrder returns ORDER_NOT_FOUND for unknown order', async () => {
+    const result = await refundOrder('00000000-0000-4000-8000-000000000000', db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
   })
 })

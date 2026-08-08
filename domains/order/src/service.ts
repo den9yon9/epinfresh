@@ -1,4 +1,4 @@
-import { type DbClient, type OrderStatus, schema } from '@epinfresh/database'
+import { type DbClient, ORDER_STATUS, type OrderStatus, schema } from '@epinfresh/database'
 import { err, fromCents, ok, type Result, toCents } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
 import { and, count, eq } from 'drizzle-orm'
@@ -26,6 +26,8 @@ const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   paid: ['shipped', 'cancelled'],
   shipped: ['completed'],
   completed: [],
+  // refunded 只能走退款专用接口（payment 侧事务联动），不进 PATCH 流转表
+  refunded: [],
   cancelled: [],
 }
 
@@ -140,6 +142,16 @@ export async function listOrders(
   })
   const [{ total }] = await client.select({ total: count() }).from(schema.orders).where(where)
   return { items, total: Number(total), page, pageSize }
+}
+
+export async function getOrderStatusCounts(client: DbClient): Promise<Record<OrderStatus, number>> {
+  const rows = await client
+    .select({ status: schema.orders.status, total: count() })
+    .from(schema.orders)
+    .groupBy(schema.orders.status)
+  const counts = Object.fromEntries(ORDER_STATUS.map((s) => [s, 0])) as Record<OrderStatus, number>
+  for (const row of rows) counts[row.status] = Number(row.total)
+  return counts
 }
 
 export async function updateOrderStatus(

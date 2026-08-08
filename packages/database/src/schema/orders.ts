@@ -3,7 +3,14 @@ import { decimal, index, pgEnum, pgTable, timestamp, uuid, varchar } from 'drizz
 import { addresses } from './addresses'
 import { users } from './users'
 
-export const ORDER_STATUS = ['pending', 'paid', 'shipped', 'completed', 'cancelled'] as const
+export const ORDER_STATUS = [
+  'pending',
+  'paid',
+  'shipped',
+  'completed',
+  'refunded',
+  'cancelled',
+] as const
 export type OrderStatus = (typeof ORDER_STATUS)[number]
 
 export const orderStatus = pgEnum('order_status', ORDER_STATUS)
@@ -22,6 +29,8 @@ export const orders = pgTable(
     recipientName: varchar('recipient_name', { length: 100 }).notNull().default(''),
     recipientPhone: varchar('recipient_phone', { length: 50 }).notNull().default(''),
     shippingAddress: varchar('shipping_address', { length: 500 }).notNull().default(''),
+    trackingNumber: varchar('tracking_number', { length: 100 }),
+    shippedAt: timestamp('shipped_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .defaultNow()
