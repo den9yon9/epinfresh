@@ -1,6 +1,8 @@
 ARG APP=storefront-api
 
 FROM oven/bun:1.2-alpine AS base
+ARG APP
+ENV APP=$APP
 WORKDIR /app
 
 # 1. 优先复制依赖清单，利用 Docker 缓存

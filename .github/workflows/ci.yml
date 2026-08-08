@@ -80,5 +80,7 @@ jobs:
           DATABASE_URL: postgres://epinfresh:epinfresh@localhost:5432/epinfresh
           NODE_ENV: test
 
-      - name: Build docker image
-        run: docker build --build-arg APP=storefront-api .
+      - name: Build & smoke test docker image
+        run: |
+          docker build --build-arg APP=storefront-api -t epinfresh-smoke .
+          docker run --rm --entrypoint sh epinfresh-smoke -c 'test "$APP" = "storefront-api"'
