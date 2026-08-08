@@ -160,5 +160,8 @@ expect(res.error.value).toMatchObject({ error: 'SKU_NOT_FOUND' })
 
 ## CI / Docker
 
-- GitHub Actions：ESLint + Prettier → typecheck → build → commitlint → 真实 Postgres 迁移重放
+- GitHub Actions：ESLint + Prettier → typecheck → build → commitlint → 真实 Postgres 迁移重放 → Docker 镜像构建验证
 - 镜像：根目录 Dockerfile，`--build-arg APP=<app 名>` 选择服务；docker compose 含 migrate 前置服务
+- compose 容器内网互访用 `postgres:5432` / `redis:6379`；若本地用非 compose 方式跑 PG
+  （如 WSL 直装实例），端口以 `.env` 的 `DATABASE_URL` 为准（当前为 5433）——两套环境
+  不能共用同一份 `.env` 端口配置
