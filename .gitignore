@@ -9,4 +9,5 @@ dist/
 .idea/
 .vscode/
 *.tsbuildinfo
+.tanstack/
 repomix-output.xml
