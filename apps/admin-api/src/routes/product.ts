@@ -9,7 +9,7 @@ import {
   updateProduct,
 } from '@epinfresh/product'
 import * as ProductModel from '@epinfresh/product/model'
-import { ErrorResponse } from '@epinfresh/shared'
+import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
 import { type AdminPlugins } from '../plugins'
@@ -34,6 +34,8 @@ export function createProductRoutes(plugins: AdminPlugins) {
             switch (code) {
               case 'PRODUCT_NOT_FOUND':
                 return status(404, { error: code, message: 'Product not found' })
+              default:
+                return assertNever(code)
             }
           },
         )
@@ -61,6 +63,8 @@ export function createProductRoutes(plugins: AdminPlugins) {
             switch (code) {
               case 'PRODUCT_NOT_FOUND':
                 return status(404, { error: code, message: 'Product not found' })
+              default:
+                return assertNever(code)
             }
           },
         )
@@ -83,6 +87,8 @@ export function createProductRoutes(plugins: AdminPlugins) {
             switch (code) {
               case 'PRODUCT_NOT_FOUND':
                 return status(404, { error: code, message: 'Product not found' })
+              default:
+                return assertNever(code)
             }
           },
         )
@@ -117,6 +123,8 @@ export function createProductRoutes(plugins: AdminPlugins) {
                 return status(404, { error: code, message: 'Category not found' })
               case 'CATEGORY_HAS_PRODUCTS':
                 return status(409, { error: code, message: 'Category still has products' })
+              default:
+                return assertNever(code)
             }
           },
         )

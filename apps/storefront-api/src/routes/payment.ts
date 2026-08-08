@@ -1,7 +1,7 @@
 import { getOrderForUser } from '@epinfresh/order'
 import { confirmPayment, getPaymentById, initiatePayment } from '@epinfresh/payment'
 import * as PaymentModel from '@epinfresh/payment/model'
-import { ErrorResponse } from '@epinfresh/shared'
+import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
 import { type StorefrontPlugins } from '../plugins'
@@ -27,6 +27,8 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
                 return status(404, { error: code, message: 'Order not found' })
               case 'ORDER_NOT_PENDING':
                 return status(409, { error: code, message: 'Order is not payable' })
+              default:
+                return assertNever(code)
             }
           },
         )
@@ -62,6 +64,8 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
                 return status(404, { error: code, message: 'Payment not found' })
               case 'INVALID_PAYMENT_STATE':
                 return status(409, { error: code, message: 'Payment cannot be confirmed' })
+              default:
+                return assertNever(code)
             }
           },
         )

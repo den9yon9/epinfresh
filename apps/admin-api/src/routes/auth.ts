@@ -1,5 +1,5 @@
 import { clearSessionCookie, setSessionCookie } from '@epinfresh/session'
-import { ErrorResponse } from '@epinfresh/shared'
+import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { getUserById, loginUser } from '@epinfresh/user'
 import * as UserModel from '@epinfresh/user/model'
 import { Elysia, status } from 'elysia'
@@ -32,6 +32,8 @@ export function createAuthRoutes(plugins: AdminPlugins) {
             switch (code) {
               case 'LOGIN_FAILED':
                 return status(401, { error: code, message: 'Invalid email or password' })
+              default:
+                return assertNever(code)
             }
           },
         )
@@ -69,6 +71,8 @@ export function createAuthRoutes(plugins: AdminPlugins) {
             switch (code) {
               case 'USER_NOT_FOUND':
                 return status(404, { error: code, message: 'User not found' })
+              default:
+                return assertNever(code)
             }
           },
         )

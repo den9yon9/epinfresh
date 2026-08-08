@@ -2,7 +2,7 @@ import { checkoutWorkflow } from '@epinfresh/checkout'
 import { CreateOrderInputSchema } from '@epinfresh/checkout/model'
 import { getOrderForUser, listOrdersByUser } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
-import { ErrorResponse } from '@epinfresh/shared'
+import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
 import { type StorefrontPlugins } from '../plugins'
@@ -28,6 +28,8 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
                 return status(409, { error: code, message: 'Product not available' })
               case 'INSUFFICIENT_STOCK':
                 return status(409, { error: code, message: 'Insufficient stock' })
+              default:
+                return assertNever(code)
             }
           },
         )
@@ -61,6 +63,8 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
             switch (code) {
               case 'ORDER_NOT_FOUND':
                 return status(404, { error: code, message: 'Order not found' })
+              default:
+                return assertNever(code)
             }
           },
         )

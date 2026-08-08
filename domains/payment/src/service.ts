@@ -19,9 +19,6 @@ export function createMockPaymentGateway(): PaymentGateway {
   }
 }
 
-export type PaymentErrorCode =
-  'ORDER_NOT_FOUND' | 'ORDER_NOT_PENDING' | 'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'
-
 const PAYMENT_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   pending: ['succeeded', 'failed', 'cancelled'],
   succeeded: ['refunded'],
@@ -34,7 +31,7 @@ export async function initiatePayment(
   orderId: string,
   gateway: PaymentGateway,
   client: DbClient,
-): Promise<Result<typeof schema.payments.$inferSelect, PaymentErrorCode>> {
+): Promise<Result<typeof schema.payments.$inferSelect, 'ORDER_NOT_FOUND' | 'ORDER_NOT_PENDING'>> {
   const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
   if (!order) return err('ORDER_NOT_FOUND')
   if (order.status !== 'pending') return err('ORDER_NOT_PENDING')
@@ -110,7 +107,9 @@ export async function confirmPayment(
 export async function failPayment(
   paymentId: string,
   client: DbClient,
-): Promise<Result<typeof schema.payments.$inferSelect, PaymentErrorCode>> {
+): Promise<
+  Result<typeof schema.payments.$inferSelect, 'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'>
+> {
   const [payment] = await client
     .update(schema.payments)
     .set({ status: 'failed' })
@@ -130,7 +129,9 @@ export async function failPayment(
 export async function refundPayment(
   paymentId: string,
   client: DbClient,
-): Promise<Result<typeof schema.payments.$inferSelect, PaymentErrorCode>> {
+): Promise<
+  Result<typeof schema.payments.$inferSelect, 'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'>
+> {
   const [payment] = await client
     .update(schema.payments)
     .set({ status: 'refunded' })

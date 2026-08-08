@@ -1,4 +1,4 @@
-import { ErrorResponse } from '@epinfresh/shared'
+import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { getUserById, listUsers } from '@epinfresh/user'
 import * as UserModel from '@epinfresh/user/model'
 import { Elysia, status, t } from 'elysia'
@@ -25,6 +25,8 @@ export function createUserRoutes(plugins: AdminPlugins) {
             switch (code) {
               case 'USER_NOT_FOUND':
                 return status(404, { error: code, message: 'User not found' })
+              default:
+                return assertNever(code)
             }
           },
         )

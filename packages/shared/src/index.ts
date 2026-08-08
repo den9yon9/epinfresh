@@ -11,3 +11,7 @@ export {
   PaginationQuery,
 } from './schemas'
 export { err, ok, type Result } from 'neverthrow'
+
+export function assertNever(code: never): never {
+  throw new Error(`[controller] unhandled error code: ${code}`)
+}

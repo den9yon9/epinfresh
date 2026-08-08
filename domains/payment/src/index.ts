@@ -1,4 +1,4 @@
-export type { PaymentErrorCode, PaymentGateway } from './service'
+export type { PaymentGateway } from './service'
 export {
   confirmPayment,
   createMockPaymentGateway,

@@ -3,7 +3,7 @@ import * as OrderModel from '@epinfresh/order/model'
 import { cancelOrder } from '@epinfresh/order-cancel'
 import { listPaymentsByOrder } from '@epinfresh/payment'
 import * as PaymentModel from '@epinfresh/payment/model'
-import { ErrorResponse } from '@epinfresh/shared'
+import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
 import { type AdminPlugins } from '../plugins'
@@ -28,6 +28,8 @@ export function createOrderRoutes(plugins: AdminPlugins) {
             switch (code) {
               case 'ORDER_NOT_FOUND':
                 return status(404, { error: code, message: 'Order not found' })
+              default:
+                return assertNever(code)
             }
           },
         )
@@ -54,6 +56,8 @@ export function createOrderRoutes(plugins: AdminPlugins) {
                 return status(404, { error: code, message: 'Order not found' })
               case 'INVALID_TRANSITION':
                 return status(409, { error: code, message: 'Invalid status transition' })
+              default:
+                return assertNever(code)
             }
           },
         )

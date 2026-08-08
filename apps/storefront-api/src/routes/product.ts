@@ -1,6 +1,6 @@
 import { getProductByIdPublic, listCategories, listPublishedProducts } from '@epinfresh/product'
 import * as ProductModel from '@epinfresh/product/model'
-import { ErrorResponse } from '@epinfresh/shared'
+import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
 import { type StorefrontPlugins } from '../plugins'
@@ -23,6 +23,8 @@ export function createProductRoutes(plugins: StorefrontPlugins) {
             switch (code) {
               case 'PRODUCT_NOT_FOUND':
                 return status(404, { error: code, message: 'Product not found' })
+              default:
+                return assertNever(code)
             }
           },
         )

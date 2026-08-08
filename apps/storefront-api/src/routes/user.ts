@@ -1,5 +1,5 @@
 import { clearSessionCookie, setSessionCookie } from '@epinfresh/session'
-import { ErrorResponse } from '@epinfresh/shared'
+import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { getUserById, loginUser, registerUser } from '@epinfresh/user'
 import { EMAIL_JOB_NAMES } from '@epinfresh/user/jobs'
 import * as UserModel from '@epinfresh/user/model'
@@ -53,6 +53,8 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
             switch (code) {
               case 'LOGIN_FAILED':
                 return status(401, { error: code, message: 'Invalid email or password' })
+              default:
+                return assertNever(code)
             }
           },
         )
@@ -86,6 +88,8 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
             switch (code) {
               case 'USER_NOT_FOUND':
                 return status(404, { error: code, message: 'User not found' })
+              default:
+                return assertNever(code)
             }
           },
         )
