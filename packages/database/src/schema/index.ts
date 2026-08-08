@@ -1,4 +1,5 @@
 export { addresses } from './addresses'
+export { cartItems } from './cart-items'
 export { categories } from './categories'
 export { checkoutIdempotencyKeys } from './checkout-idempotency-keys'
 export { orderItems } from './order-items'
@@ -8,6 +9,7 @@ export { productSkus } from './product-skus'
 export { products, productStatus } from './products'
 export {
   addressesRelations,
+  cartItemsRelations,
   categoriesRelations,
   checkoutIdempotencyKeysRelations,
   orderItemsRelations,

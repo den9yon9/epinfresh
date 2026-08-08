@@ -17,6 +17,7 @@ export const table = {
   select: {
     user: Type.Omit(userSelect, ['passwordHash']),
     address: select(schema.addresses),
+    cartItem: select(schema.cartItems),
     category: select(schema.categories),
     product: select(schema.products, {
       images: Type.Array(Type.String()),

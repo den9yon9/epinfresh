@@ -291,6 +291,103 @@ describe('addresses', () => {
   })
 })
 
+describe('cart', () => {
+  test('adds, merges, updates, lists and clears items', async () => {
+    const user = await seedUser('alice@example.com')
+    const cookie = await loginCookie(user.email)
+    const { sku } = await seedSku('apple', '5.00', 10)
+
+    const first = await api.cart.items.post(
+      { skuId: sku.id, quantity: 2 },
+      { fetch: { headers: { cookie } } },
+    )
+    expect(first.status).toBe(201)
+    if (first.error !== null) throw first.error
+    expect(first.data.quantity).toBe(2)
+    expect(first.data.sku.price).toBe('5.00')
+    expect(first.data.product.slug).toBe('apple')
+
+    const merged = await api.cart.items.post(
+      { skuId: sku.id, quantity: 3 },
+      { fetch: { headers: { cookie } } },
+    )
+    expect(merged.status).toBe(201)
+    if (merged.error !== null) throw merged.error
+    expect(merged.data.quantity).toBe(5)
+
+    const list = await api.cart.get({ fetch: { headers: { cookie } } })
+    expect(list.status).toBe(200)
+    if (list.error !== null) throw list.error
+    expect(list.data.items).toHaveLength(1)
+
+    const updated = await api.cart
+      .items({ skuId: sku.id })
+      .put({ quantity: 7 }, { fetch: { headers: { cookie } } })
+    expect(updated.status).toBe(200)
+    if (updated.error !== null) throw updated.error
+    expect(updated.data.quantity).toBe(7)
+
+    const removed = await api.cart
+      .items({ skuId: sku.id })
+      .delete(undefined, { fetch: { headers: { cookie } } })
+    expect(removed.status).toBe(204)
+
+    const second = await api.cart.items.post(
+      { skuId: sku.id, quantity: 1 },
+      { fetch: { headers: { cookie } } },
+    )
+    expect(second.status).toBe(201)
+
+    const cleared = await api.cart.delete(undefined, { fetch: { headers: { cookie } } })
+    expect(cleared.status).toBe(204)
+
+    const after = await api.cart.get({ fetch: { headers: { cookie } } })
+    if (after.error !== null) throw after.error
+    expect(after.data.items).toHaveLength(0)
+  })
+
+  test('rejects adding an unavailable sku', async () => {
+    const user = await seedUser('alice@example.com')
+    const cookie = await loginCookie(user.email)
+    const { sku } = await seedSku('apple-draft', '5.00', 10, 'draft')
+
+    const res = await api.cart.items.post(
+      { skuId: sku.id, quantity: 1 },
+      { fetch: { headers: { cookie } } },
+    )
+    expect(res.status).toBe(409)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'PRODUCT_UNAVAILABLE' })
+  })
+
+  test('carts are isolated per user', async () => {
+    const user = await seedUser('alice@example.com')
+    const cookie = await loginCookie(user.email)
+    const other = await seedUser('bob@example.com')
+    const otherCookie = await loginCookie(other.email)
+    const { sku } = await seedSku('apple', '5.00', 10)
+
+    await api.cart.items.post(
+      { skuId: sku.id, quantity: 1 },
+      { fetch: { headers: { cookie: otherCookie } } },
+    )
+
+    const list = await api.cart.get({ fetch: { headers: { cookie } } })
+    if (list.error !== null) throw list.error
+    expect(list.data.items).toHaveLength(0)
+
+    const del = await api.cart
+      .items({ skuId: sku.id })
+      .delete(undefined, { fetch: { headers: { cookie } } })
+    expect(del.status).toBe(404)
+  })
+
+  test('requires authentication', async () => {
+    const res = await api.cart.get()
+    expect(res.status).toBe(401)
+  })
+})
+
 describe('orders', () => {
   test('creates an order and reduces stock', async () => {
     const user = await seedUser('alice@example.com')
