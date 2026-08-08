@@ -28,6 +28,8 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
                 return status(409, { error: code, message: 'Product not available' })
               case 'INSUFFICIENT_STOCK':
                 return status(409, { error: code, message: 'Insufficient stock' })
+              case 'ADDRESS_NOT_FOUND':
+                return status(404, { error: code, message: 'Address not found' })
               default:
                 return assertNever(code)
             }

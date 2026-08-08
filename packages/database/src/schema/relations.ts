@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm'
 
+import { addresses } from './addresses'
 import { categories } from './categories'
 import { checkoutIdempotencyKeys } from './checkout-idempotency-keys'
 import { orderItems } from './order-items'
@@ -36,13 +37,25 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
 
 export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
+  addresses: many(addresses),
   checkoutIdempotencyKeys: many(checkoutIdempotencyKeys),
+}))
+
+export const addressesRelations = relations(addresses, ({ one }) => ({
+  user: one(users, {
+    fields: [addresses.userId],
+    references: [users.id],
+  }),
 }))
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, {
     fields: [orders.userId],
     references: [users.id],
+  }),
+  address: one(addresses, {
+    fields: [orders.addressId],
+    references: [addresses.id],
   }),
   items: many(orderItems),
   payments: many(payments),

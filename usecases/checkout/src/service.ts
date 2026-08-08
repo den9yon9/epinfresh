@@ -7,7 +7,8 @@ import { and, eq } from 'drizzle-orm'
 
 import type { CreateOrderInputSchema } from './model'
 
-export type CheckoutErrorCode = 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'PRODUCT_UNAVAILABLE'
+export type CheckoutErrorCode =
+  'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'PRODUCT_UNAVAILABLE' | 'ADDRESS_NOT_FOUND'
 
 class CheckoutError extends Error {
   constructor(readonly code: CheckoutErrorCode) {
@@ -58,6 +59,12 @@ export async function checkoutWorkflow(
       const skus = await getSkusByIds(skuIds, tx)
       const skuMap = new Map(skus.map((s) => [s.id, s]))
 
+      const [address] = await tx
+        .select()
+        .from(schema.addresses)
+        .where(and(eq(schema.addresses.id, input.addressId), eq(schema.addresses.userId, userId)))
+      if (!address) throw new CheckoutError('ADDRESS_NOT_FOUND')
+
       const validated = items.map((item) => {
         const sku = skuMap.get(item.skuId)
         if (!sku) throw new CheckoutError('SKU_NOT_FOUND')
@@ -78,7 +85,12 @@ export async function checkoutWorkflow(
         quantity: item.quantity,
       }))
 
-      const order = await createOrderRecord(tx, userId, lines)
+      const order = await createOrderRecord(tx, userId, lines, {
+        addressId: address.id,
+        recipientName: address.recipientName,
+        phone: address.phone,
+        address: address.address,
+      })
       if (idempotencyKey) {
         // 故意不用 onConflictDoNothing：冲突必须抛 23505 让本事务回滚（含扣库存），
         // 否则并发同 key 会静默跳过并各自提交重复订单

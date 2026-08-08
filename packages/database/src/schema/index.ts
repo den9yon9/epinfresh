@@ -1,3 +1,4 @@
+export { addresses } from './addresses'
 export { categories } from './categories'
 export { checkoutIdempotencyKeys } from './checkout-idempotency-keys'
 export { orderItems } from './order-items'
@@ -6,6 +7,7 @@ export { PAYMENT_STATUS, payments, type PaymentStatus, paymentStatus } from './p
 export { productSkus } from './product-skus'
 export { products, productStatus } from './products'
 export {
+  addressesRelations,
   categoriesRelations,
   checkoutIdempotencyKeysRelations,
   orderItemsRelations,

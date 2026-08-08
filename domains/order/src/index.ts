@@ -1,4 +1,4 @@
-export type { OrderDetail, OrderLineInput } from './service'
+export type { OrderDetail, OrderLineInput, OrderShippingInput } from './service'
 export {
   createOrderRecord,
   getOrderById,

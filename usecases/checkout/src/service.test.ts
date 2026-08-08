@@ -27,6 +27,20 @@ async function seedUser(email = 'alice@example.com') {
   return user
 }
 
+async function seedAddress(userId: string) {
+  const [address] = await db
+    .insert(schema.addresses)
+    .values({
+      userId,
+      recipientName: 'Alice',
+      phone: '13800000000',
+      address: 'Shanghai Pudong',
+      isDefault: true,
+    })
+    .returning()
+  return address
+}
+
 async function seedSku(
   name: string,
   slug: string,
@@ -56,12 +70,14 @@ async function orderCount() {
 describe('checkoutWorkflow', () => {
   test('creates order with price/name snapshots and reduces stock', async () => {
     const user = await seedUser()
+    const address = await seedAddress(user.id)
     const { sku: apple } = await seedSku('Apple', 'apple', '5.00', 10)
     const { sku: banana } = await seedSku('Banana', 'banana', '3.50', 5)
 
     const result = await checkoutWorkflow(
       {
         userId: user.id,
+        addressId: address.id,
         items: [
           { skuId: apple.id, quantity: 2 },
           { skuId: banana.id, quantity: 1 },
@@ -99,9 +115,11 @@ describe('checkoutWorkflow', () => {
 
   test('returns SKU_NOT_FOUND and creates no order', async () => {
     const user = await seedUser()
+    const address = await seedAddress(user.id)
     const result = await checkoutWorkflow(
       {
         userId: user.id,
+        addressId: address.id,
         items: [{ skuId: '00000000-0000-4000-8000-000000000000', quantity: 1 }],
       },
       db,
@@ -113,10 +131,11 @@ describe('checkoutWorkflow', () => {
 
   test('rejects SKU whose product is not published', async () => {
     const user = await seedUser()
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('Apple', 'apple-draft', '5.00', 10, 'draft')
 
     const result = await checkoutWorkflow(
-      { userId: user.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { userId: user.id, addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
       db,
     )
 
@@ -132,11 +151,13 @@ describe('checkoutWorkflow', () => {
 
   test('merges duplicate SKUs into a single line', async () => {
     const user = await seedUser()
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
     const result = await checkoutWorkflow(
       {
         userId: user.id,
+        addressId: address.id,
         items: [
           { skuId: sku.id, quantity: 2 },
           { skuId: sku.id, quantity: 3 },
@@ -159,12 +180,14 @@ describe('checkoutWorkflow', () => {
 
   test('insufficient stock rolls back the whole order', async () => {
     const user = await seedUser()
+    const address = await seedAddress(user.id)
     const { sku: apple } = await seedSku('Apple', 'apple', '5.00', 10)
     const { sku: banana } = await seedSku('Banana', 'banana', '3.00', 1)
 
     const result = await checkoutWorkflow(
       {
         userId: user.id,
+        addressId: address.id,
         items: [
           { skuId: apple.id, quantity: 2 },
           { skuId: banana.id, quantity: 5 },
@@ -185,11 +208,18 @@ describe('checkoutWorkflow', () => {
 
   test('concurrent checkouts do not oversell', async () => {
     const user = await seedUser()
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
     const results = await Promise.all([
-      checkoutWorkflow({ userId: user.id, items: [{ skuId: sku.id, quantity: 6 }] }, db),
-      checkoutWorkflow({ userId: user.id, items: [{ skuId: sku.id, quantity: 6 }] }, db),
+      checkoutWorkflow(
+        { userId: user.id, addressId: address.id, items: [{ skuId: sku.id, quantity: 6 }] },
+        db,
+      ),
+      checkoutWorkflow(
+        { userId: user.id, addressId: address.id, items: [{ skuId: sku.id, quantity: 6 }] },
+        db,
+      ),
     ])
 
     expect(results.filter((r) => r.isOk())).toHaveLength(1)
@@ -206,10 +236,16 @@ describe('checkoutWorkflow', () => {
 
   test('same idempotency key replays the existing order without re-deducting stock', async () => {
     const user = await seedUser()
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
     const first = await checkoutWorkflow(
-      { userId: user.id, idempotencyKey: 'key-1', items: [{ skuId: sku.id, quantity: 2 }] },
+      {
+        userId: user.id,
+        idempotencyKey: 'key-1',
+        addressId: address.id,
+        items: [{ skuId: sku.id, quantity: 2 }],
+      },
       db,
     )
     expect(first.isOk()).toBe(true)
@@ -217,7 +253,12 @@ describe('checkoutWorkflow', () => {
     const orderId = first._unsafeUnwrap().order.id
 
     const second = await checkoutWorkflow(
-      { userId: user.id, idempotencyKey: 'key-1', items: [{ skuId: sku.id, quantity: 2 }] },
+      {
+        userId: user.id,
+        idempotencyKey: 'key-1',
+        addressId: address.id,
+        items: [{ skuId: sku.id, quantity: 2 }],
+      },
       db,
     )
     expect(second.isOk()).toBe(true)
@@ -235,17 +276,29 @@ describe('checkoutWorkflow', () => {
 
   test('idempotency keys are scoped per user', async () => {
     const alice = await seedUser('alice@example.com')
+    const aliceAddress = await seedAddress(alice.id)
     const bob = await seedUser('bob@example.com')
+    const bobAddress = await seedAddress(bob.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
     const aliceOrder = await checkoutWorkflow(
-      { userId: alice.id, idempotencyKey: 'shared-key', items: [{ skuId: sku.id, quantity: 1 }] },
+      {
+        userId: alice.id,
+        idempotencyKey: 'shared-key',
+        addressId: aliceAddress.id,
+        items: [{ skuId: sku.id, quantity: 1 }],
+      },
       db,
     )
     expect(aliceOrder.isOk()).toBe(true)
 
     const bobOrder = await checkoutWorkflow(
-      { userId: bob.id, idempotencyKey: 'shared-key', items: [{ skuId: sku.id, quantity: 1 }] },
+      {
+        userId: bob.id,
+        idempotencyKey: 'shared-key',
+        addressId: bobAddress.id,
+        items: [{ skuId: sku.id, quantity: 1 }],
+      },
       db,
     )
     expect(bobOrder.isOk()).toBe(true)
@@ -256,15 +309,26 @@ describe('checkoutWorkflow', () => {
 
   test('concurrent same-key checkouts create only one order', async () => {
     const user = await seedUser()
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
     const results = await Promise.all([
       checkoutWorkflow(
-        { userId: user.id, idempotencyKey: 'race-key', items: [{ skuId: sku.id, quantity: 2 }] },
+        {
+          userId: user.id,
+          idempotencyKey: 'race-key',
+          addressId: address.id,
+          items: [{ skuId: sku.id, quantity: 2 }],
+        },
         db,
       ),
       checkoutWorkflow(
-        { userId: user.id, idempotencyKey: 'race-key', items: [{ skuId: sku.id, quantity: 2 }] },
+        {
+          userId: user.id,
+          idempotencyKey: 'race-key',
+          addressId: address.id,
+          items: [{ skuId: sku.id, quantity: 2 }],
+        },
         db,
       ),
     ])
@@ -281,14 +345,36 @@ describe('checkoutWorkflow', () => {
     expect(Number(after.stock)).toBe(8)
   })
 
+  test('returns ADDRESS_NOT_FOUND for an address not owned by the user', async () => {
+    const user = await seedUser()
+    const other = await seedUser('bob@example.com')
+    const otherAddress = await seedAddress(other.id)
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+
+    const result = await checkoutWorkflow(
+      { userId: user.id, addressId: otherAddress.id, items: [{ skuId: sku.id, quantity: 2 }] },
+      db,
+    )
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('ADDRESS_NOT_FOUND')
+    expect(await orderCount()).toBe(0)
+    const [after] = await db
+      .select()
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, sku.id))
+    expect(Number(after.stock)).toBe(10)
+  })
+
   test('failed checkout does not persist the idempotency key', async () => {
     const user = await seedUser()
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
     const failed = await checkoutWorkflow(
       {
         userId: user.id,
         idempotencyKey: 'fail-key',
+        addressId: address.id,
         items: [{ skuId: sku.id, quantity: 99 }],
       },
       db,
@@ -300,6 +386,7 @@ describe('checkoutWorkflow', () => {
       {
         userId: user.id,
         idempotencyKey: 'fail-key',
+        addressId: address.id,
         items: [{ skuId: sku.id, quantity: 1 }],
       },
       db,

@@ -87,6 +87,20 @@ async function seedSku(
   return { product, sku }
 }
 
+async function seedAddress(userId: string) {
+  const [address] = await db
+    .insert(schema.addresses)
+    .values({
+      userId,
+      recipientName: 'Alice',
+      phone: '13800000000',
+      address: 'Shanghai Pudong',
+      isDefault: true,
+    })
+    .returning()
+  return address
+}
+
 function sessionCookie(res: { headers: unknown }): string {
   return (new Headers(res.headers as Headers).get('set-cookie') ?? '').split(';')[0]
 }
@@ -159,14 +173,133 @@ describe('auth', () => {
   })
 })
 
+describe('addresses', () => {
+  test('creates, lists, updates and deletes own addresses', async () => {
+    const user = await seedUser('alice@example.com')
+    const cookie = await loginCookie(user.email)
+
+    const created = await api.addresses.post(
+      { recipientName: 'Alice', phone: '13800000000', address: 'Shanghai Pudong' },
+      { fetch: { headers: { cookie } } },
+    )
+    expect(created.status).toBe(201)
+    if (created.error !== null) throw created.error
+    expect(created.data.isDefault).toBe(true)
+
+    const second = await api.addresses.post(
+      { recipientName: 'Bob', phone: '13900000000', address: 'Beijing Haidian', isDefault: true },
+      { fetch: { headers: { cookie } } },
+    )
+    expect(second.status).toBe(201)
+    if (second.error !== null) throw second.error
+
+    const list = await api.addresses.get({ fetch: { headers: { cookie } } })
+    expect(list.status).toBe(200)
+    if (list.error !== null) throw list.error
+    expect(list.data.items).toHaveLength(2)
+    expect(list.data.items.filter((a) => a.isDefault)).toHaveLength(1)
+    expect(list.data.items[0].id).toBe(second.data.id)
+
+    const updated = await api
+      .addresses({ id: created.data.id })
+      .put({ address: 'Shanghai Minhang' }, { fetch: { headers: { cookie } } })
+    expect(updated.status).toBe(200)
+    if (updated.error !== null) throw updated.error
+    expect(updated.data.address).toBe('Shanghai Minhang')
+
+    const deleted = await api
+      .addresses({ id: created.data.id })
+      .delete(undefined, { fetch: { headers: { cookie } } })
+    expect(deleted.status).toBe(204)
+  })
+
+  test('cannot see or touch another user address', async () => {
+    const user = await seedUser('alice@example.com')
+    const cookie = await loginCookie(user.email)
+    const other = await seedUser('bob@example.com')
+    const otherCookie = await loginCookie(other.email)
+    const created = await api.addresses.post(
+      { recipientName: 'Bob', phone: '1', address: 'Home' },
+      { fetch: { headers: { cookie: otherCookie } } },
+    )
+    if (created.error !== null) throw created.error
+
+    const list = await api.addresses.get({ fetch: { headers: { cookie } } })
+    if (list.error !== null) throw list.error
+    expect(list.data.items).toHaveLength(0)
+
+    const get = await api.addresses({ id: created.data.id }).get({ fetch: { headers: { cookie } } })
+    expect(get.status).toBe(404)
+
+    const del = await api
+      .addresses({ id: created.data.id })
+      .delete(undefined, { fetch: { headers: { cookie } } })
+    expect(del.status).toBe(404)
+  })
+
+  test('order carries an address snapshot even after the address is deleted', async () => {
+    const user = await seedUser('alice@example.com')
+    const cookie = await loginCookie(user.email)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const created = await api.addresses.post(
+      { recipientName: 'Alice', phone: '13800000000', address: 'Shanghai Pudong' },
+      { fetch: { headers: { cookie } } },
+    )
+    if (created.error !== null) throw created.error
+
+    const orderRes = await api.orders.post(
+      { addressId: created.data.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    expect(orderRes.status).toBe(201)
+    if (orderRes.error !== null) throw orderRes.error
+    expect(orderRes.data.recipientName).toBe('Alice')
+    expect(orderRes.data.shippingAddress).toBe('Shanghai Pudong')
+
+    const del = await api
+      .addresses({ id: created.data.id })
+      .delete(undefined, { fetch: { headers: { cookie } } })
+    expect(del.status).toBe(204)
+
+    const [after] = await db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.id, orderRes.data.id))
+    expect(after.addressId).toBeNull()
+    expect(after.shippingAddress).toBe('Shanghai Pudong')
+  })
+
+  test('checkout with another user address returns 404', async () => {
+    const user = await seedUser('alice@example.com')
+    const cookie = await loginCookie(user.email)
+    const other = await seedUser('bob@example.com')
+    const otherCookie = await loginCookie(other.email)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const created = await api.addresses.post(
+      { recipientName: 'Bob', phone: '1', address: 'Home' },
+      { fetch: { headers: { cookie: otherCookie } } },
+    )
+    if (created.error !== null) throw created.error
+
+    const res = await api.orders.post(
+      { addressId: created.data.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    expect(res.status).toBe(404)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'ADDRESS_NOT_FOUND' })
+  })
+})
+
 describe('orders', () => {
   test('creates an order and reduces stock', async () => {
     const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('apple', '5.00', 10)
     const cookie = await loginCookie(user.email)
 
     const res = await api.orders.post(
-      { items: [{ skuId: sku.id, quantity: 3 }] },
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 3 }] },
       { fetch: { headers: { cookie } } },
     )
     expect(res.status).toBe(201)
@@ -183,10 +316,14 @@ describe('orders', () => {
 
   test('returns 404 SKU_NOT_FOUND for unknown sku', async () => {
     const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
     const cookie = await loginCookie(user.email)
 
     const res = await api.orders.post(
-      { items: [{ skuId: '00000000-0000-4000-8000-000000000000', quantity: 1 }] },
+      {
+        addressId: address.id,
+        items: [{ skuId: '00000000-0000-4000-8000-000000000000', quantity: 1 }],
+      },
       { fetch: { headers: { cookie } } },
     )
     expect(res.status).toBe(404)
@@ -196,11 +333,12 @@ describe('orders', () => {
 
   test('returns 409 INSUFFICIENT_STOCK when quantity exceeds stock', async () => {
     const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('apple', '5.00', 2)
     const cookie = await loginCookie(user.email)
 
     const res = await api.orders.post(
-      { items: [{ skuId: sku.id, quantity: 5 }] },
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 5 }] },
       { fetch: { headers: { cookie } } },
     )
     expect(res.status).toBe(409)
@@ -210,11 +348,12 @@ describe('orders', () => {
 
   test('returns 409 PRODUCT_UNAVAILABLE for a draft product sku', async () => {
     const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('apple-draft', '5.00', 10, 'draft')
     const cookie = await loginCookie(user.email)
 
     const res = await api.orders.post(
-      { items: [{ skuId: sku.id, quantity: 1 }] },
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
       { fetch: { headers: { cookie } } },
     )
     expect(res.status).toBe(409)
@@ -224,6 +363,7 @@ describe('orders', () => {
 
   test('requires authentication', async () => {
     const res = await api.orders.post({
+      addressId: '00000000-0000-4000-8000-000000000000',
       items: [{ skuId: '00000000-0000-4000-8000-000000000000', quantity: 1 }],
     })
     expect(res.status).toBe(401)
@@ -231,9 +371,10 @@ describe('orders', () => {
 
   test('same Idempotency-Key returns the same order twice', async () => {
     const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('apple', '5.00', 10)
     const cookie = await loginCookie(user.email)
-    const body = { items: [{ skuId: sku.id, quantity: 2 }] }
+    const body = { addressId: address.id, items: [{ skuId: sku.id, quantity: 2 }] }
     const options = { fetch: { headers: { cookie, 'idempotency-key': 'idem-1' } } }
 
     const first = await api.orders.post(body, options)
@@ -256,11 +397,12 @@ describe('orders', () => {
 describe('payments', () => {
   test('pay then confirm transitions the order to paid', async () => {
     const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('apple', '5.00', 10)
     const cookie = await loginCookie(user.email)
 
     const orderRes = await api.orders.post(
-      { items: [{ skuId: sku.id, quantity: 2 }] },
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 2 }] },
       { fetch: { headers: { cookie } } },
     )
     if (orderRes.error !== null) throw orderRes.error
@@ -289,10 +431,11 @@ describe('payments', () => {
     await seedUser('alice@example.com')
     const { sku } = await seedSku('apple', '5.00', 10)
     const alice = await seedUser('bob@example.com')
+    const address = await seedAddress(alice.id)
     const cookie = await loginCookie(alice.email)
 
     const orderRes = await api.orders.post(
-      { items: [{ skuId: sku.id, quantity: 1 }] },
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
       { fetch: { headers: { cookie } } },
     )
     if (orderRes.error !== null) throw orderRes.error
@@ -308,11 +451,12 @@ describe('payments', () => {
 
   test('paying a non-pending order is rejected', async () => {
     const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('apple', '5.00', 10)
     const cookie = await loginCookie(user.email)
 
     const orderRes = await api.orders.post(
-      { items: [{ skuId: sku.id, quantity: 1 }] },
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
       { fetch: { headers: { cookie } } },
     )
     if (orderRes.error !== null) throw orderRes.error
@@ -329,11 +473,12 @@ describe('payments', () => {
 
   test('confirming an already confirmed payment is rejected', async () => {
     const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
     const { sku } = await seedSku('apple', '5.00', 10)
     const cookie = await loginCookie(user.email)
 
     const orderRes = await api.orders.post(
-      { items: [{ skuId: sku.id, quantity: 1 }] },
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
       { fetch: { headers: { cookie } } },
     )
     if (orderRes.error !== null) throw orderRes.error

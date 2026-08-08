@@ -6,6 +6,7 @@ import { Elysia } from 'elysia'
 import { createStorefrontDeps, type StorefrontAppOptions } from './deps'
 import { createEnv } from './env'
 import { createPlugins } from './plugins'
+import { createAddressRoutes } from './routes/address'
 import { createOrderRoutes } from './routes/order'
 import { createPaymentRoutes } from './routes/payment'
 import { createProductRoutes } from './routes/product'
@@ -31,6 +32,7 @@ export function buildApp(options: StorefrontAppOptions) {
         : new Elysia(),
     )
     .use(plugins.emailQueuePlugin)
+    .use(createAddressRoutes(plugins))
     .use(createUserRoutes(plugins))
     .use(createProductRoutes(plugins))
     .use(createOrderRoutes(plugins))

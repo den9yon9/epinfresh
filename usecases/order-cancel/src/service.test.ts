@@ -49,9 +49,21 @@ async function seedSku(name: string, slug: string, price = '5.00', stock = 10) {
 }
 
 async function seedOrder(userId: string, skuId: string, quantity = 2) {
-  const order = await createOrderRecord(db, userId, [
-    { skuId, productName: 'Apple', skuName: '1kg', unitPrice: '5.00', quantity },
-  ])
+  const [address] = await db
+    .insert(schema.addresses)
+    .values({ userId, recipientName: 'Alice', phone: '13800000000', address: 'Shanghai Pudong' })
+    .returning()
+  const order = await createOrderRecord(
+    db,
+    userId,
+    [{ skuId, productName: 'Apple', skuName: '1kg', unitPrice: '5.00', quantity }],
+    {
+      addressId: address.id,
+      recipientName: address.recipientName,
+      phone: address.phone,
+      address: address.address,
+    },
+  )
   await reduceProductStock(skuId, quantity, db)
   return order
 }

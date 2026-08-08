@@ -14,6 +14,13 @@ export interface OrderLineInput {
   quantity: number
 }
 
+export interface OrderShippingInput {
+  addressId: string
+  recipientName: string
+  phone: string
+  address: string
+}
+
 const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending: ['paid', 'cancelled'],
   paid: ['shipped', 'cancelled'],
@@ -26,6 +33,7 @@ export async function createOrderRecord(
   client: DbClient,
   userId: string,
   lines: OrderLineInput[],
+  shipping: OrderShippingInput,
 ): Promise<OrderDetail> {
   let totalCents = 0n
   const rows = lines.map((line) => {
@@ -44,7 +52,15 @@ export async function createOrderRecord(
 
   const [order] = await client
     .insert(schema.orders)
-    .values({ userId, status: 'pending', totalAmount: fromCents(totalCents) })
+    .values({
+      userId,
+      status: 'pending',
+      totalAmount: fromCents(totalCents),
+      addressId: shipping.addressId,
+      recipientName: shipping.recipientName,
+      recipientPhone: shipping.phone,
+      shippingAddress: shipping.address,
+    })
     .returning()
   await client.insert(schema.orderItems).values(rows.map((row) => ({ ...row, orderId: order.id })))
   const items = await client

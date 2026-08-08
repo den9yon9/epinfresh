@@ -52,21 +52,49 @@ async function seedSku(name: string, slug: string, price = '5.00', stock = 10) {
   return { product, sku }
 }
 
+async function seedAddress(userId: string) {
+  const [address] = await db
+    .insert(schema.addresses)
+    .values({ userId, recipientName: 'Alice', phone: '13800000000', address: 'Shanghai Pudong' })
+    .returning()
+  return address
+}
+
 async function seedOrder(userId: string, skuId: string, quantity = 1, unitPrice = '5.00') {
-  return createOrderRecord(db, userId, [
-    { skuId, productName: 'Apple', skuName: '1kg', unitPrice, quantity },
-  ])
+  const address = await seedAddress(userId)
+  return createOrderRecord(
+    db,
+    userId,
+    [{ skuId, productName: 'Apple', skuName: '1kg', unitPrice, quantity }],
+    {
+      addressId: address.id,
+      recipientName: address.recipientName,
+      phone: address.phone,
+      address: address.address,
+    },
+  )
 }
 
 describe('createOrderRecord', () => {
   test('persists order with computed total and snapshot lines', async () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const address = await seedAddress(user.id)
 
-    const order = await createOrderRecord(db, user.id, [
-      { skuId: sku.id, productName: 'Apple', skuName: '1kg', unitPrice: '5.00', quantity: 2 },
-      { skuId: sku.id, productName: 'Apple', skuName: '1kg', unitPrice: '3.50', quantity: 1 },
-    ])
+    const order = await createOrderRecord(
+      db,
+      user.id,
+      [
+        { skuId: sku.id, productName: 'Apple', skuName: '1kg', unitPrice: '5.00', quantity: 2 },
+        { skuId: sku.id, productName: 'Apple', skuName: '1kg', unitPrice: '3.50', quantity: 1 },
+      ],
+      {
+        addressId: address.id,
+        recipientName: address.recipientName,
+        phone: address.phone,
+        address: address.address,
+      },
+    )
 
     expect(order.userId).toBe(user.id)
     expect(order.status).toBe('pending')

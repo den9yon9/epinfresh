@@ -8,4 +8,5 @@ export const CreateOrderInputSchema = Type.Object({
     }),
     { minItems: 1, maxItems: 100 },
   ),
+  addressId: Type.String({ format: 'uuid' }),
 })

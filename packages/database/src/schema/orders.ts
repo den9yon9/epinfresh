@@ -1,5 +1,6 @@
 import { decimal, index, pgEnum, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
 
+import { addresses } from './addresses'
 import { users } from './users'
 
 export const ORDER_STATUS = ['pending', 'paid', 'shipped', 'completed', 'cancelled'] as const
@@ -17,6 +18,10 @@ export const orders = pgTable(
     status: orderStatus('status').default('pending').notNull(),
     totalAmount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
     currency: varchar('currency', { length: 3 }).default('CNY').notNull(),
+    addressId: uuid('address_id').references(() => addresses.id, { onDelete: 'set null' }),
+    recipientName: varchar('recipient_name', { length: 100 }).notNull().default(''),
+    recipientPhone: varchar('recipient_phone', { length: 50 }).notNull().default(''),
+    shippingAddress: varchar('shipping_address', { length: 500 }).notNull().default(''),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .defaultNow()

@@ -16,6 +16,7 @@ export const emailSchema = Type.Transform(Type.String({ format: 'email', maxLeng
 export const table = {
   select: {
     user: Type.Omit(userSelect, ['passwordHash']),
+    address: select(schema.addresses),
     category: select(schema.categories),
     product: select(schema.products, {
       images: Type.Array(Type.String()),
@@ -46,6 +47,11 @@ export const table = {
       attributes: Type.Record(Type.String(), Type.String()),
     }),
     order: insert(schema.orders),
+    address: insert(schema.addresses, {
+      recipientName: Type.String({ minLength: 1, maxLength: 100 }),
+      phone: Type.String({ minLength: 1, maxLength: 50 }),
+      address: Type.String({ minLength: 1, maxLength: 500 }),
+    }),
     orderItem: insert(schema.orderItems),
     payment: insert(schema.payments),
     checkoutIdempotencyKey: insert(schema.checkoutIdempotencyKeys),
@@ -64,6 +70,11 @@ export const table = {
       attributes: Type.Record(Type.String(), Type.String()),
     }),
     order: update(schema.orders),
+    address: update(schema.addresses, {
+      recipientName: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+      phone: Type.Optional(Type.String({ minLength: 1, maxLength: 50 })),
+      address: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+    }),
     orderItem: update(schema.orderItems),
     payment: update(schema.payments),
   },
