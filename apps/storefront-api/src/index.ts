@@ -14,7 +14,7 @@ import { createUserRoutes } from './routes/user'
 export function buildApp(options: StorefrontAppOptions) {
   const plugins = createPlugins(options)
   const enableDocs = !options.isProduction
-  return new Elysia()
+  return new Elysia({ cookie: { secrets: options.sessionSecret, sign: ['session_id'] } })
     .use(requestLogger(options.logger))
     .use(securityHeaders(options.isProduction))
     .use(plugins.redisPlugin)

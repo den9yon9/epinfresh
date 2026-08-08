@@ -117,11 +117,12 @@ describe('auth', () => {
     expect('passwordHash' in res.data).toBe(false)
   })
 
-  test('login sets a session cookie and me returns the user without passwordHash', async () => {
+  test('login sets a signed session cookie and tampering is rejected', async () => {
     await seedUser('alice@example.com')
     const login = await api.auth.login.post({ email: 'alice@example.com', password: 'password123' })
     expect(login.status).toBe(200)
     const cookie = sessionCookie(login)
+    expect(cookie).toMatch(/^session_id=[^;]+\./)
     expect(cookie).not.toBe('')
 
     const me = await api.auth.me.get({ fetch: { headers: { cookie } } })
@@ -129,6 +130,10 @@ describe('auth', () => {
     if (me.error !== null) throw me.error
     expect(me.data.email).toBe('alice@example.com')
     expect('passwordHash' in me.data).toBe(false)
+
+    const tampered = cookie.replace(/\.\S+$/, '.forged')
+    const rejected = await api.auth.me.get({ fetch: { headers: { cookie: tampered } } })
+    expect(rejected.status).toBe(400)
   })
 
   test('login rejects wrong password with 401', async () => {

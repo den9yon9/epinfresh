@@ -41,17 +41,9 @@ export interface SessionPluginOptions {
 
 export function createSessionPlugin(options: SessionPluginOptions) {
   const { redis, isProduction, logger } = options
-  const secret = resolveSecret(options.sessionSecret)
-  // ponytail: debt — Elysia 1.4.x 的 cookie sign 配置实际未生效：serializeCookie 不签名，
-  // 解析也不校验签名（无签名/带签名串都按原值使用）。当前 session_id 是 128-bit 随机 UUID（bearer token），
-  // 攻击者无法伪造 Redis 中不存在的会话，风险低；但 sign 配置是假的，升级 Elysia 或改用显式签名时需复核。
-  return new Elysia({
-    name: 'session',
-    cookie: {
-      secrets: secret,
-      sign: ['session_id'],
-    },
-  })
+  // 签名配置在根 app 的 Elysia 构造选项上（session_id 由 Elysia 负责签名/验签）；插件侧只做启动校验
+  resolveSecret(options.sessionSecret)
+  return new Elysia({ name: 'session' })
     .decorate('sessionStore', createSessionStore(redis))
     .derive({ as: 'scoped' }, async ({ cookie }) => {
       const sessionId = cookie.session_id?.value

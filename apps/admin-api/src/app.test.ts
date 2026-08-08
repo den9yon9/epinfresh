@@ -87,6 +87,18 @@ async function login(email: string): Promise<{ status: number; cookie: string }>
   }
 }
 
+async function signCookieValue(value: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value))
+  return `${value}.${Buffer.from(digest).toString('base64').replace(/=+$/, '')}`
+}
+
 async function forgeSessionCookie(userId: string, role: 'customer' | 'admin'): Promise<string> {
   const client = createRedisClient(env.TESTING_REDIS_URL)
   const sessionId = crypto.randomUUID()
@@ -95,7 +107,7 @@ async function forgeSessionCookie(userId: string, role: 'customer' | 'admin'): P
   } finally {
     await client.quit()
   }
-  return `session_id=${sessionId}`
+  return `session_id=${await signCookieValue(sessionId, env.TESTING_SESSION_SECRET)}`
 }
 
 describe('auth', () => {
