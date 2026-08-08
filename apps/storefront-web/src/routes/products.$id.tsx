@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 
-import { api } from '../api/client'
+import { api } from '../libs/api/client'
 import { QuantityStepper } from '../components/QuantityStepper'
 
 export const Route = createFileRoute('/products/$id')({

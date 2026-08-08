@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 
-import { api } from '../api/client'
+import { api } from '../libs/api/client'
 import { CategoryChips } from '../components/CategoryChips'
 import { ProductCard } from '../components/ProductCard'
 

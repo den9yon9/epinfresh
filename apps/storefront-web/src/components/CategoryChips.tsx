@@ -1,5 +1,7 @@
+import type { Category } from '../libs/api/types'
+
 interface CategoryChipsProps {
-  categories: Array<{ id: string; name: string }>
+  categories: Category[]
   activeId?: string
   onSelect: (id?: string) => void
 }

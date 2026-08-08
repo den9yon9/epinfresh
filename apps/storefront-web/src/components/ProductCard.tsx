@@ -1,12 +1,9 @@
 import { Link } from '@tanstack/react-router'
 
+import type { Product } from '../libs/api/types'
+
 interface ProductCardProps {
-  product: {
-    id: string
-    name: string
-    images: string[]
-    skus: Array<{ price: string }>
-  }
+  product: Product
 }
 
 export function ProductCard({ product }: ProductCardProps) {
