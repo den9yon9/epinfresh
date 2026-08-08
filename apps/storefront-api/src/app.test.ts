@@ -87,9 +87,8 @@ async function seedSku(
   return { product, sku }
 }
 
-function sessionCookie(res: { headers: ResponseInit['headers'] }): string {
-  const raw = res.headers as unknown as { get?: (name: string) => string | null } | undefined
-  return (raw?.get?.('set-cookie') ?? '').split(';')[0]
+function sessionCookie(res: { headers: unknown }): string {
+  return (new Headers(res.headers as Headers).get('set-cookie') ?? '').split(';')[0]
 }
 
 async function loginCookie(email: string): Promise<string> {
@@ -113,8 +112,9 @@ describe('auth', () => {
       password: 'password123',
     })
     expect(res.status).toBe(200)
-    expect(res.data?.email).toBe('a@example.com')
-    expect('passwordHash' in (res.data as object)).toBe(false)
+    if (res.error !== null) throw res.error
+    expect(res.data.email).toBe('a@example.com')
+    expect('passwordHash' in res.data).toBe(false)
   })
 
   test('login sets a session cookie and me returns the user without passwordHash', async () => {
@@ -126,8 +126,9 @@ describe('auth', () => {
 
     const me = await api.auth.me.get({ fetch: { headers: { cookie } } })
     expect(me.status).toBe(200)
-    expect(me.data?.email).toBe('alice@example.com')
-    expect('passwordHash' in (me.data as object)).toBe(false)
+    if (me.error !== null) throw me.error
+    expect(me.data.email).toBe('alice@example.com')
+    expect('passwordHash' in me.data).toBe(false)
   })
 
   test('login rejects wrong password with 401', async () => {
@@ -164,8 +165,9 @@ describe('orders', () => {
       { fetch: { headers: { cookie } } },
     )
     expect(res.status).toBe(201)
-    expect(res.data?.totalAmount).toBe('15.00')
-    expect(res.data?.items).toHaveLength(1)
+    if (res.error !== null) throw res.error
+    expect(res.data.totalAmount).toBe('15.00')
+    expect(res.data.items).toHaveLength(1)
 
     const [after] = await db
       .select()
@@ -183,7 +185,8 @@ describe('orders', () => {
       { fetch: { headers: { cookie } } },
     )
     expect(res.status).toBe(404)
-    expect(res.error?.value).toMatchObject({ error: 'SKU_NOT_FOUND' })
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'SKU_NOT_FOUND' })
   })
 
   test('returns 409 INSUFFICIENT_STOCK when quantity exceeds stock', async () => {
@@ -196,7 +199,8 @@ describe('orders', () => {
       { fetch: { headers: { cookie } } },
     )
     expect(res.status).toBe(409)
-    expect(res.error?.value).toMatchObject({ error: 'INSUFFICIENT_STOCK' })
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'INSUFFICIENT_STOCK' })
   })
 
   test('returns 409 PRODUCT_UNAVAILABLE for a draft product sku', async () => {
@@ -209,7 +213,8 @@ describe('orders', () => {
       { fetch: { headers: { cookie } } },
     )
     expect(res.status).toBe(409)
-    expect(res.error?.value).toMatchObject({ error: 'PRODUCT_UNAVAILABLE' })
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'PRODUCT_UNAVAILABLE' })
   })
 
   test('requires authentication', async () => {
@@ -228,10 +233,12 @@ describe('orders', () => {
 
     const first = await api.orders.post(body, options)
     expect(first.status).toBe(201)
+    if (first.error !== null) throw first.error
 
     const second = await api.orders.post(body, options)
     expect(second.status).toBe(200)
-    expect(second.data?.id).toBe(first.data?.id)
+    if (second.error !== null) throw second.error
+    expect(second.data.id).toBe(first.data.id)
 
     const [after] = await db
       .select()
@@ -251,20 +258,23 @@ describe('payments', () => {
       { items: [{ skuId: sku.id, quantity: 2 }] },
       { fetch: { headers: { cookie } } },
     )
-    const orderId = orderRes.data?.id as string
+    if (orderRes.error !== null) throw orderRes.error
+    const orderId = orderRes.data.id
 
     const payRes = await api
       .orders({ id: orderId })
       .pay.post({} as never, { fetch: { headers: { cookie } } })
     expect(payRes.status).toBe(201)
-    expect(payRes.data?.status).toBe('pending')
-    const paymentId = payRes.data?.id as string
+    if (payRes.error !== null) throw payRes.error
+    expect(payRes.data.status).toBe('pending')
+    const paymentId = payRes.data.id
 
     const confirmRes = await api
       .payments({ id: paymentId })
       .confirm.post({} as never, { fetch: { headers: { cookie } } })
     expect(confirmRes.status).toBe(200)
-    expect(confirmRes.data?.status).toBe('succeeded')
+    if (confirmRes.error !== null) throw confirmRes.error
+    expect(confirmRes.data.status).toBe('succeeded')
 
     const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, orderId))
     expect(afterOrder.status).toBe('paid')
@@ -280,7 +290,8 @@ describe('payments', () => {
       { items: [{ skuId: sku.id, quantity: 1 }] },
       { fetch: { headers: { cookie } } },
     )
-    const orderId = orderRes.data?.id as string
+    if (orderRes.error !== null) throw orderRes.error
+    const orderId = orderRes.data.id
 
     const other = await seedUser('carol@example.com')
     const otherCookie = await loginCookie(other.email)
@@ -299,14 +310,16 @@ describe('payments', () => {
       { items: [{ skuId: sku.id, quantity: 1 }] },
       { fetch: { headers: { cookie } } },
     )
-    const orderId = orderRes.data?.id as string
+    if (orderRes.error !== null) throw orderRes.error
+    const orderId = orderRes.data.id
     await db.update(schema.orders).set({ status: 'cancelled' }).where(eq(schema.orders.id, orderId))
 
     const res = await api
       .orders({ id: orderId })
       .pay.post({} as never, { fetch: { headers: { cookie } } })
     expect(res.status).toBe(409)
-    expect(res.error?.value).toMatchObject({ error: 'ORDER_NOT_PENDING' })
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'ORDER_NOT_PENDING' })
   })
 })
 
@@ -317,7 +330,8 @@ describe('products', () => {
 
     const res = await api.products.get({ query: { page: 1, pageSize: 10 } })
     expect(res.status).toBe(200)
-    expect(res.data?.total).toBe(1)
-    expect(res.data?.items[0]?.slug).toBe('apple')
+    if (res.error !== null) throw res.error
+    expect(res.data.total).toBe(1)
+    expect(res.data.items[0].slug).toBe('apple')
   })
 })

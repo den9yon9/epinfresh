@@ -81,10 +81,9 @@ async function skuStock(skuId: string) {
 
 async function login(email: string): Promise<{ status: number; cookie: string }> {
   const res = await api.auth.login.post({ email, password: 'password123' })
-  const headers = res.headers as unknown as { get?: (name: string) => string | null } | undefined
   return {
     status: res.status,
-    cookie: (headers?.get?.('set-cookie') ?? '').split(';')[0],
+    cookie: (new Headers(res.headers as Headers).get('set-cookie') ?? '').split(';')[0],
   }
 }
 
@@ -108,15 +107,17 @@ describe('auth', () => {
 
     const me = await api.auth.me.get({ fetch: { headers: { cookie } } })
     expect(me.status).toBe(200)
-    expect(me.data?.role).toBe('admin')
-    expect('passwordHash' in (me.data as object)).toBe(false)
+    if (me.error !== null) throw me.error
+    expect(me.data.role).toBe('admin')
+    expect('passwordHash' in me.data).toBe(false)
   })
 
   test('customer login is rejected with 403', async () => {
     await seedUser('alice@example.com', 'customer')
     const res = await api.auth.login.post({ email: 'alice@example.com', password: 'password123' })
     expect(res.status).toBe(403)
-    expect(res.error?.value).toMatchObject({ error: 'FORBIDDEN' })
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'FORBIDDEN' })
   })
 })
 
@@ -146,8 +147,9 @@ describe('admin guard', () => {
       fetch: { headers: { cookie } },
     })
     expect(res.status).toBe(200)
-    expect(res.data?.total).toBe(2)
-    for (const row of res.data?.items ?? []) expect('passwordHash' in row).toBe(false)
+    if (res.error !== null) throw res.error
+    expect(res.data.total).toBe(2)
+    for (const row of res.data.items) expect('passwordHash' in row).toBe(false)
   })
 })
 
@@ -166,7 +168,8 @@ describe('order status transitions', () => {
       .orders({ id: order.id })
       .status.patch({ status: 'paid' } as never, { fetch: { headers: { cookie } } })
     expect(res.status).toBe(200)
-    expect(res.data?.status).toBe('paid')
+    if (res.error !== null) throw res.error
+    expect(res.data.status).toBe('paid')
   })
 
   test('cancelling a pending order restores stock', async () => {
@@ -178,7 +181,8 @@ describe('order status transitions', () => {
       .orders({ id: order.id })
       .status.patch({ status: 'cancelled' } as never, { fetch: { headers: { cookie } } })
     expect(res.status).toBe(200)
-    expect(res.data?.status).toBe('cancelled')
+    if (res.error !== null) throw res.error
+    expect(res.data.status).toBe('cancelled')
     expect(await skuStock(sku.id)).toBe(10)
   })
 
@@ -191,7 +195,8 @@ describe('order status transitions', () => {
       .orders({ id: order.id })
       .status.patch({ status: 'cancelled' } as never, { fetch: { headers: { cookie } } })
     expect(res.status).toBe(200)
-    expect(res.data?.status).toBe('cancelled')
+    if (res.error !== null) throw res.error
+    expect(res.data.status).toBe('cancelled')
     expect(await skuStock(sku.id)).toBe(8)
   })
 
@@ -203,8 +208,8 @@ describe('order status transitions', () => {
       .orders({ id: order.id })
       .status.patch({ status: 'completed' } as never, { fetch: { headers: { cookie } } })
     expect(res.status).toBe(409)
-    const errorValue = res.error as unknown as { value?: { error?: string } } | null
-    expect(errorValue?.value?.error).toBe('INVALID_TRANSITION')
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'INVALID_TRANSITION' })
   })
 })
 
@@ -227,8 +232,9 @@ describe('admin payments', () => {
       .orders({ id: order.id })
       .payments.get({ fetch: { headers: { cookie } } })
     expect(res.status).toBe(200)
-    expect(res.data?.items).toHaveLength(1)
-    expect(res.data?.items[0]?.status).toBe('succeeded')
+    if (res.error !== null) throw res.error
+    expect(res.data.items).toHaveLength(1)
+    expect(res.data.items[0].status).toBe('succeeded')
   })
 
   test('returns 404 for unknown order payments', async () => {
