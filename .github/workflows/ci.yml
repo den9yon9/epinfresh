@@ -79,3 +79,6 @@ jobs:
         env:
           DATABASE_URL: postgres://epinfresh:epinfresh@localhost:5432/epinfresh
           NODE_ENV: test
+
+      - name: Build docker image
+        run: docker build --build-arg APP=storefront-api .
