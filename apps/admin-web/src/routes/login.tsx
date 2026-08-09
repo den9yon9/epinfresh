@@ -34,16 +34,22 @@ function LoginPage() {
         className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
       >
         <h1 className="mb-6 text-xl font-bold text-gray-900">一品鲜管理后台</h1>
-        <label className="mb-1 block text-sm text-gray-600">邮箱</label>
+        <label htmlFor="email" className="mb-1 block text-sm text-gray-600">
+          邮箱
+        </label>
         <input
+          id="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
           className="mb-4 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none"
         />
-        <label className="mb-1 block text-sm text-gray-600">密码</label>
+        <label htmlFor="password" className="mb-1 block text-sm text-gray-600">
+          密码
+        </label>
         <input
+          id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
