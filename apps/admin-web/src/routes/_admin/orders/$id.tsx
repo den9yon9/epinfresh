@@ -1,9 +1,9 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 
-import { OrderStatusBadge } from '../../components/OrderStatusBadge'
-import { api } from '../../libs/api/client'
-import type { Payment } from '../../libs/api/types'
+import { OrderStatusBadge } from '../../../components/OrderStatusBadge'
+import { api } from '../../../libs/api/client'
+import type { Payment } from '../../../libs/api/types'
 
 export const Route = createFileRoute('/_admin/orders/$id')({
   loader: async ({ params }) => {

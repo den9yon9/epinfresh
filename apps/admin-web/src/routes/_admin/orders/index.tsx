@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import * as v from 'valibot'
 
-import { OrderStatusBadge, ORDER_STATUSES } from '../../components/OrderStatusBadge'
-import { api } from '../../libs/api/client'
+import { OrderStatusBadge, ORDER_STATUSES } from '../../../components/OrderStatusBadge'
+import { api } from '../../../libs/api/client'
 
 const PAGE_SIZE = 20
 
@@ -11,7 +11,7 @@ const OrdersSearchSchema = v.object({
   status: v.optional(v.picklist([...ORDER_STATUSES] as [string, ...string[]])),
 })
 
-export const Route = createFileRoute('/_admin/orders')({
+export const Route = createFileRoute('/_admin/orders/')({
   validateSearch: OrdersSearchSchema,
   loaderDeps: ({ search }) => ({ page: search.page, status: search.status }),
   loader: async ({ deps }) => {
