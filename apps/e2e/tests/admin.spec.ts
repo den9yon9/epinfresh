@@ -70,3 +70,56 @@ test('商品新建: 表单提交后出现在列表', async ({ page }) => {
   await expect(page).toHaveURL(/\/products(\?page=1)?$/)
   await expect(page.getByText('E2E 商品').first()).toBeVisible()
 })
+
+// 列表按 createdAt 升序, 新商品在末页; 直接按页码访问直到找到目标行
+async function findProductRow(page: Page, name: string) {
+  for (let i = 1; i <= 20; i++) {
+    await page.goto(`/products?page=${i}`)
+    // 等列表加载完成(筛选 chips 出现), 避免 loader 竞态
+    await expect(page.getByRole('button', { name: '全部' })).toBeVisible()
+    const row = page.getByRole('row', { name: new RegExp(name) })
+    if (
+      await row
+        .first()
+        .isVisible()
+        .catch(() => false)
+    )
+      return row.first()
+    const next = page.getByRole('button', { name: '下一页' })
+    if (!(await next.isEnabled())) break
+  }
+  throw new Error(`product row not found: ${name}`)
+}
+
+test('商品编辑改价 → 列表最低价变化 → 删除商品', async ({ page }) => {
+  await login(page)
+
+  await page.getByRole('navigation').getByText('商品').click()
+  await page.getByRole('link', { name: '新建商品' }).click()
+  const suffix = Date.now()
+  const name = `编辑测试-${suffix}`
+  await page.getByLabel('名称').first().fill(name)
+  await page.getByLabel('Slug').fill(`edit-prod-${suffix}`)
+  await page.getByLabel('名称').nth(1).fill('1kg')
+  await page.getByLabel('SKU 编码').fill(`EDIT-${suffix}`)
+  await page.getByLabel('价格（元）').fill('19.9')
+  await page.getByRole('button', { name: '创建商品' }).click()
+
+  const row = await findProductRow(page, name)
+  await expect(row.getByText('¥19.90')).toBeVisible()
+
+  // 进入编辑页改价
+  await row.getByRole('link', { name: '编辑' }).click()
+  await expect(page).toHaveURL(/\/products\/[0-9a-f-]{36}$/)
+  await page.getByLabel('价格（元）').fill('29.9')
+  await page.getByRole('button', { name: '保存' }).click()
+
+  await expect(page).toHaveURL(/\/products(\?page=1)?$/)
+  const editedRow = await findProductRow(page, name)
+  await expect(editedRow.getByText('¥29.90')).toBeVisible()
+
+  // 删除该商品
+  page.on('dialog', (d) => d.accept())
+  await editedRow.getByRole('button', { name: '删除' }).click()
+  await expect(page.getByText(name)).toHaveCount(0)
+})

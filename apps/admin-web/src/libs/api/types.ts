@@ -19,3 +19,5 @@ export type Product = EdenListItem<typeof api.admin.products.get>
 export type ProductStatus = Product['status']
 export type Category = EdenListItem<typeof api.admin.categories.get>
 export type CreateProductBody = EdenBody<typeof api.admin.products.post>
+export type UpdateProductBody = EdenApiBody<ParamsResult<typeof api.admin.products>['put']>
+export type ProductDetail = EdenApiData<ParamsResult<typeof api.admin.products>['get']>

@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate, useRouter } from '@tanstack/react-router'
+import { useState } from 'react'
 import * as v from 'valibot'
 
 import { api } from '../../../libs/api/client'
@@ -43,6 +44,8 @@ function ProductsPage() {
   const { products } = Route.useLoaderData()
   const search = Route.useSearch()
   const navigate = useNavigate()
+  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
   const page = search.page ?? 1
 
   const selectStatus = (status?: string) =>
@@ -58,10 +61,26 @@ function ProductsPage() {
       replace: true,
     })
 
+  async function removeProduct(id: string) {
+    if (!window.confirm('确认删除该商品？关联的 SKU 将一并删除')) return
+    setError(null)
+    const res = await api.admin.products({ id }).delete()
+    if (res.error) {
+      setError(res.error.value.message ?? '删除失败')
+      return
+    }
+    router.invalidate()
+  }
+
   const totalPages = Math.max(1, Math.ceil(products.total / products.pageSize))
 
   return (
     <div className="flex flex-col gap-4">
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          {error}
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           <button
@@ -108,6 +127,7 @@ function ProductsPage() {
                 <th className="px-4 py-3 font-medium">SKU 数</th>
                 <th className="px-4 py-3 font-medium">最低价</th>
                 <th className="px-4 py-3 font-medium">更新时间</th>
+                <th className="px-4 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -129,6 +149,23 @@ function ProductsPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-500">
                     {new Date(product.updatedAt).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Link
+                        to="/products/$id"
+                        params={{ id: product.id }}
+                        className="text-brand-600 hover:underline"
+                      >
+                        编辑
+                      </Link>
+                      <button
+                        onClick={() => removeProduct(product.id)}
+                        className="text-red-600 hover:underline"
+                      >
+                        删除
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
