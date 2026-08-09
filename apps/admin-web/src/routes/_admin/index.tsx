@@ -1,16 +1,8 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 
+import { OrderStatusBadge, ORDER_STATUSES } from '../../components/OrderStatusBadge'
 import { api } from '../../libs/api/client'
 import type { Dashboard } from '../../libs/api/types'
-
-const STATUS_META: Record<keyof Dashboard, { label: string; badge: string }> = {
-  pending: { label: '待支付', badge: 'bg-amber-100 text-amber-700' },
-  paid: { label: '已支付', badge: 'bg-blue-100 text-blue-700' },
-  shipped: { label: '已发货', badge: 'bg-indigo-100 text-indigo-700' },
-  completed: { label: '已完成', badge: 'bg-green-100 text-green-700' },
-  refunded: { label: '已退款', badge: 'bg-gray-100 text-gray-600' },
-  cancelled: { label: '已取消', badge: 'bg-red-100 text-red-600' },
-}
 
 export const Route = createFileRoute('/_admin/')({
   loader: async () => {
@@ -33,15 +25,18 @@ function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        {(Object.keys(STATUS_META) as (keyof Dashboard)[]).map((status) => (
-          <div key={status} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div
-              className={`mb-2 inline-block rounded-full px-2 py-0.5 text-xs ${STATUS_META[status].badge}`}
-            >
-              {STATUS_META[status].label}
+        {ORDER_STATUSES.map((status) => (
+          <Link
+            key={status}
+            to="/orders"
+            search={{ status }}
+            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-brand-500"
+          >
+            <OrderStatusBadge status={status} />
+            <div className="mt-2 text-3xl font-bold text-gray-900">
+              {dashboard[status as keyof Dashboard]}
             </div>
-            <div className="text-3xl font-bold text-gray-900">{dashboard[status]}</div>
-          </div>
+          </Link>
         ))}
       </div>
       <div>
