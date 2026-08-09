@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AddressesRouteImport } from './routes/addresses'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as LoginRouteImport } from './routes/login'
@@ -18,19 +17,15 @@ import { Route as MeRouteImport } from './routes/me'
 import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as PayRouteImport } from './routes/pay'
 import { Route as RegisterRouteImport } from './routes/register'
-import { Route as AddressesNewRouteImport } from './routes/addresses.new'
+import { Route as AddressesIndexRouteImport } from './routes/addresses/index'
+import { Route as AddressesNewRouteImport } from './routes/addresses/new'
 import { Route as OrdersIdRouteImport } from './routes/orders.$id'
 import { Route as ProductsIdRouteImport } from './routes/products.$id'
-import { Route as AddressesIdEditRouteImport } from './routes/addresses.$id.edit'
+import { Route as AddressesIdEditRouteImport } from './routes/addresses/$id.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AddressesRoute = AddressesRouteImport.update({
-  id: '/addresses',
-  path: '/addresses',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CartRoute = CartRouteImport.update({
@@ -68,10 +63,15 @@ const RegisterRoute = RegisterRouteImport.update({
   path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AddressesIndexRoute = AddressesIndexRouteImport.update({
+  id: '/addresses/',
+  path: '/addresses/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AddressesNewRoute = AddressesNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AddressesRoute,
+  id: '/addresses/new',
+  path: '/addresses/new',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OrdersIdRoute = OrdersIdRouteImport.update({
   id: '/$id',
@@ -84,14 +84,13 @@ const ProductsIdRoute = ProductsIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AddressesIdEditRoute = AddressesIdEditRouteImport.update({
-  id: '/$id/edit',
-  path: '/$id/edit',
-  getParentRoute: () => AddressesRoute,
+  id: '/addresses/$id/edit',
+  path: '/addresses/$id/edit',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/addresses': typeof AddressesRouteWithChildren
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
@@ -102,11 +101,11 @@ export interface FileRoutesByFullPath {
   '/addresses/new': typeof AddressesNewRoute
   '/orders/$id': typeof OrdersIdRoute
   '/products/$id': typeof ProductsIdRoute
+  '/addresses/': typeof AddressesIndexRoute
   '/addresses/$id/edit': typeof AddressesIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/addresses': typeof AddressesRouteWithChildren
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
@@ -117,12 +116,12 @@ export interface FileRoutesByTo {
   '/addresses/new': typeof AddressesNewRoute
   '/orders/$id': typeof OrdersIdRoute
   '/products/$id': typeof ProductsIdRoute
+  '/addresses': typeof AddressesIndexRoute
   '/addresses/$id/edit': typeof AddressesIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/addresses': typeof AddressesRouteWithChildren
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
@@ -133,13 +132,13 @@ export interface FileRoutesById {
   '/addresses/new': typeof AddressesNewRoute
   '/orders/$id': typeof OrdersIdRoute
   '/products/$id': typeof ProductsIdRoute
+  '/addresses/': typeof AddressesIndexRoute
   '/addresses/$id/edit': typeof AddressesIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/addresses'
     | '/cart'
     | '/checkout'
     | '/login'
@@ -150,11 +149,11 @@ export interface FileRouteTypes {
     | '/addresses/new'
     | '/orders/$id'
     | '/products/$id'
+    | '/addresses/'
     | '/addresses/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/addresses'
     | '/cart'
     | '/checkout'
     | '/login'
@@ -165,11 +164,11 @@ export interface FileRouteTypes {
     | '/addresses/new'
     | '/orders/$id'
     | '/products/$id'
+    | '/addresses'
     | '/addresses/$id/edit'
   id:
     | '__root__'
     | '/'
-    | '/addresses'
     | '/cart'
     | '/checkout'
     | '/login'
@@ -180,12 +179,12 @@ export interface FileRouteTypes {
     | '/addresses/new'
     | '/orders/$id'
     | '/products/$id'
+    | '/addresses/'
     | '/addresses/$id/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AddressesRoute: typeof AddressesRouteWithChildren
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
   LoginRoute: typeof LoginRoute
@@ -193,7 +192,10 @@ export interface RootRouteChildren {
   OrdersRoute: typeof OrdersRouteWithChildren
   PayRoute: typeof PayRoute
   RegisterRoute: typeof RegisterRoute
+  AddressesNewRoute: typeof AddressesNewRoute
   ProductsIdRoute: typeof ProductsIdRoute
+  AddressesIndexRoute: typeof AddressesIndexRoute
+  AddressesIdEditRoute: typeof AddressesIdEditRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -203,13 +205,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/addresses': {
-      id: '/addresses'
-      path: '/addresses'
-      fullPath: '/addresses'
-      preLoaderRoute: typeof AddressesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cart': {
@@ -261,12 +256,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/addresses/': {
+      id: '/addresses/'
+      path: '/addresses'
+      fullPath: '/addresses/'
+      preLoaderRoute: typeof AddressesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/addresses/new': {
       id: '/addresses/new'
-      path: '/new'
+      path: '/addresses/new'
       fullPath: '/addresses/new'
       preLoaderRoute: typeof AddressesNewRouteImport
-      parentRoute: typeof AddressesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/orders/$id': {
       id: '/orders/$id'
@@ -284,27 +286,13 @@ declare module '@tanstack/react-router' {
     }
     '/addresses/$id/edit': {
       id: '/addresses/$id/edit'
-      path: '/$id/edit'
+      path: '/addresses/$id/edit'
       fullPath: '/addresses/$id/edit'
       preLoaderRoute: typeof AddressesIdEditRouteImport
-      parentRoute: typeof AddressesRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
-
-interface AddressesRouteChildren {
-  AddressesNewRoute: typeof AddressesNewRoute
-  AddressesIdEditRoute: typeof AddressesIdEditRoute
-}
-
-const AddressesRouteChildren: AddressesRouteChildren = {
-  AddressesNewRoute: AddressesNewRoute,
-  AddressesIdEditRoute: AddressesIdEditRoute,
-}
-
-const AddressesRouteWithChildren = AddressesRoute._addFileChildren(
-  AddressesRouteChildren,
-)
 
 interface OrdersRouteChildren {
   OrdersIdRoute: typeof OrdersIdRoute
@@ -319,7 +307,6 @@ const OrdersRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AddressesRoute: AddressesRouteWithChildren,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
   LoginRoute: LoginRoute,
@@ -327,7 +314,10 @@ const rootRouteChildren: RootRouteChildren = {
   OrdersRoute: OrdersRouteWithChildren,
   PayRoute: PayRoute,
   RegisterRoute: RegisterRoute,
+  AddressesNewRoute: AddressesNewRoute,
   ProductsIdRoute: ProductsIdRoute,
+  AddressesIndexRoute: AddressesIndexRoute,
+  AddressesIdEditRoute: AddressesIdEditRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
