@@ -1,14 +1,6 @@
-import { type ConsoleMessage, expect, type Page, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
-function collectConsoleErrors(page: Page): { errors: ConsoleMessage[]; pageErrors: Error[] } {
-  const errors: ConsoleMessage[] = []
-  const pageErrors: Error[] = []
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') errors.push(msg)
-  })
-  page.on('pageerror', (err) => pageErrors.push(err))
-  return { errors, pageErrors }
-}
+import { collectConsoleErrors } from './helpers'
 
 test('首页渲染：品牌、TabBar、内容', async ({ page }) => {
   const { errors, pageErrors } = collectConsoleErrors(page)

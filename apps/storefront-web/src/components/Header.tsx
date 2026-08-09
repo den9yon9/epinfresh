@@ -1,4 +1,7 @@
 import { Link, useRouter, useRouterState } from '@tanstack/react-router'
+import { useEffect } from 'react'
+
+import { logout, refreshSession, useSession } from '../libs/api/session'
 
 // ponytail: staticData 类型太松, 读侧用窄接口断言
 interface PageMeta {
@@ -42,10 +45,41 @@ export function Header() {
   }
 
   return (
-    <header className="flex h-12 items-center px-4 bg-brand-600 text-white md:px-6">
+    <header className="flex h-12 items-center justify-between px-4 bg-brand-600 text-white md:px-6">
       <Link to="/" className="text-xl font-bold">
         一品鲜
       </Link>
+      <UserArea />
     </header>
+  )
+}
+
+function UserArea() {
+  const user = useSession()
+
+  useEffect(() => {
+    void refreshSession()
+  }, [])
+
+  if (user === undefined) return <span className="text-sm opacity-70">…</span>
+  if (user === null) {
+    return (
+      <Link to="/login" className="text-sm hover:underline">
+        登录
+      </Link>
+    )
+  }
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <Link to="/me" className="max-w-28 truncate hover:underline">
+        {user.name ?? user.email}
+      </Link>
+      <button
+        onClick={() => void logout()}
+        className="rounded border border-white/40 px-2 py-0.5 text-xs hover:bg-white/10"
+      >
+        退出
+      </button>
+    </div>
   )
 }
