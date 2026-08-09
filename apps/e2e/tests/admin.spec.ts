@@ -39,7 +39,7 @@ test('登录 → 仪表盘 → 订单列表 → 详情页导航', async ({ page 
   // 回归点: 详情页必须真实渲染 (此前 URL 跳转但 UI 停留在列表页)
   await expect(page).toHaveURL(/\/orders\/[0-9a-f-]{36}$/)
   await expect(page.getByText('订单详情', { exact: true })).toBeVisible()
-  await expect(page.getByText(/支付记录/)).toBeVisible()
+  await expect(page.getByRole('heading', { name: /支付记录/ })).toBeVisible()
 
   expect(pageErrors).toEqual([])
   expect(errors).toEqual([])

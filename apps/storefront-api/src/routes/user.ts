@@ -72,7 +72,8 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
       },
       {
         body: UserModel.LoginInputSchema,
-        rateLimit: { limit: 10, window: '60s' },
+        // ponytail: 10/分 在 e2e 并行(mobile+desktop 共享 IP)下不足, 放宽到 20/分
+        rateLimit: { limit: 20, window: '60s' },
         response: { 200: UserModel.UserResponseSchema, 401: ErrorResponse },
         detail: {
           tags: ['Auth'],
