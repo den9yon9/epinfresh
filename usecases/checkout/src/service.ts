@@ -74,7 +74,7 @@ export async function checkoutWorkflow(
 
       for (const { item } of validated) {
         const result = await reduceProductStock(item.skuId, item.quantity, tx)
-        if (result.isErr()) throw new CheckoutError(result._unsafeUnwrapErr())
+        if (result.isErr()) throw new CheckoutError(result.error)
       }
 
       const lines = validated.map(({ item, sku }) => ({

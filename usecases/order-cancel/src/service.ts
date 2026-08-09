@@ -14,7 +14,7 @@ export async function cancelOrder(
   return client.transaction(async (tx) => {
     const result = await updateOrderStatus(orderId, 'cancelled', tx)
     if (result.isErr()) {
-      return err(result._unsafeUnwrapErr())
+      return err(result.error)
     }
     const { from, order } = result.value
     if (from === 'pending') {

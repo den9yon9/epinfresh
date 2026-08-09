@@ -97,5 +97,24 @@ export default [
       ],
     },
   },
+  {
+    files: ['apps/**/*.{ts,tsx}', 'domains/**/*.ts', 'usecases/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts', '**/e2e/**'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          property: '_unsafeUnwrap',
+          message:
+            'Forbidden in production code. Use .match(), or result.value after isOk()/isErr() narrowing instead.',
+        },
+        {
+          property: '_unsafeUnwrapErr',
+          message:
+            'Forbidden in production code. Use .match(), or result.error after isErr() narrowing instead.',
+        },
+      ],
+    },
+  },
   eslintConfigPrettier,
 ]
