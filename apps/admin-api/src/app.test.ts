@@ -150,7 +150,7 @@ describe('auth', () => {
   })
 
   test('rate limits login attempts with 429', async () => {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 20; i++) {
       const res = await api.auth.login.post({ email: 'x@example.com', password: 'wrong' })
       expect(res.status).toBe(401)
     }
