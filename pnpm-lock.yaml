@@ -181,6 +181,9 @@ importers:
       '@epinfresh/order':
         specifier: workspace:*
         version: link:../../domains/order
+      '@epinfresh/order-cancel':
+        specifier: workspace:*
+        version: link:../../usecases/order-cancel
       '@epinfresh/payment':
         specifier: workspace:*
         version: link:../../domains/payment

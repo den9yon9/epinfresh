@@ -517,6 +517,78 @@ describe('orders', () => {
     expect(res.status).toBe(401)
   })
 
+  test('cancels a pending order and restores stock', async () => {
+    const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const order = await api.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 3 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    if (order.error !== null) throw order.error
+
+    const res = await api
+      .orders({ id: order.data.id })
+      .cancel.post({}, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(200)
+    if (res.error !== null) throw res.error
+    expect(res.data.status).toBe('cancelled')
+
+    const [after] = await db
+      .select()
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, sku.id))
+    expect(Number(after.stock)).toBe(10)
+  })
+
+  test("rejects cancelling another user's order", async () => {
+    const alice = await seedUser('alice@example.com')
+    const bob = await seedUser('bob@example.com')
+    const address = await seedAddress(alice.id)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const aliceCookie = await loginCookie(alice.email)
+    const bobCookie = await loginCookie(bob.email)
+
+    const order = await api.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie: aliceCookie } } },
+    )
+    if (order.error !== null) throw order.error
+
+    const res = await api
+      .orders({ id: order.data.id })
+      .cancel.post({}, { fetch: { headers: { cookie: bobCookie } } })
+    expect(res.status).toBe(404)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'ORDER_NOT_FOUND' })
+  })
+
+  test('rejects cancelling a shipped order with 409', async () => {
+    const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const order = await api.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    if (order.error !== null) throw order.error
+    await db
+      .update(schema.orders)
+      .set({ status: 'shipped' })
+      .where(eq(schema.orders.id, order.data.id))
+
+    const res = await api
+      .orders({ id: order.data.id })
+      .cancel.post({}, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(409)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'INVALID_TRANSITION' })
+  })
+
   test('same Idempotency-Key returns the same order twice', async () => {
     const user = await seedUser('alice@example.com')
     const address = await seedAddress(user.id)

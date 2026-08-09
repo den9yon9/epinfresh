@@ -2,6 +2,7 @@ import { checkoutWorkflow } from '@epinfresh/checkout'
 import { CreateOrderInputSchema } from '@epinfresh/checkout/model'
 import { getOrderForUser, listOrdersByUser } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
+import { cancelOrder } from '@epinfresh/order-cancel'
 import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
@@ -89,6 +90,40 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           summary: '订单详情',
           description:
             '按 ID 获取当前登录用户的订单详情。\n\n- 需要登录\n- 订单不存在或不属于当前用户返回 404',
+        },
+      },
+    )
+    .post(
+      '/orders/:id/cancel',
+      async ({ params, session, db }) => {
+        const ownership = await getOrderForUser(session.userId, params.id, db)
+        if (ownership.isErr()) {
+          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+        }
+        const result = await cancelOrder(params.id, db)
+        return result.match(
+          (order) => order,
+          (code) => {
+            switch (code) {
+              case 'ORDER_NOT_FOUND':
+                return status(404, { error: code, message: 'Order not found' })
+              case 'INVALID_TRANSITION':
+                return status(409, { error: code, message: 'Order cannot be cancelled' })
+              default:
+                return assertNever(code)
+            }
+          },
+        )
+      },
+      {
+        isAuth: true,
+        params: t.Object({ id: t.String({ format: 'uuid' }) }),
+        response: { 200: OrderModel.OrderResponseSchema, 404: ErrorResponse, 409: ErrorResponse },
+        detail: {
+          tags: ['Orders'],
+          summary: '取消订单',
+          description:
+            '取消当前用户的待支付/已支付订单，回滚库存并触发退款。\n\n- 需要登录，且订单必须属于当前用户\n- 订单不存在返回 404\n- 状态不允许取消返回 409',
         },
       },
     )
