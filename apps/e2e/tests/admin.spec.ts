@@ -14,15 +14,18 @@ function collectConsoleErrors(page: Page): { errors: ConsoleMessage[]; pageError
   return { errors, pageErrors }
 }
 
-test('登录 → 仪表盘 → 订单列表 → 详情页导航', async ({ page }) => {
-  const { errors, pageErrors } = collectConsoleErrors(page)
-
+async function login(page: Page): Promise<void> {
   await page.goto('/login')
   await page.getByLabel('邮箱').fill(ADMIN_EMAIL)
   await page.getByLabel('密码').fill(ADMIN_PASSWORD)
   await page.getByRole('button', { name: '登录' }).click()
-
   await expect(page).toHaveURL(/\/$/)
+}
+
+test('登录 → 仪表盘 → 订单列表 → 详情页导航', async ({ page }) => {
+  const { errors, pageErrors } = collectConsoleErrors(page)
+
+  await login(page)
   await expect(page.getByText('快捷入口')).toBeVisible()
 
   await page.getByRole('navigation').getByText('订单').click()
@@ -46,4 +49,24 @@ test('未登录访问受保护页面被重定向到登录页', async ({ page }) 
   await page.goto('/orders')
   await expect(page).toHaveURL(/\/login/)
   await expect(page.getByRole('button', { name: '登录' })).toBeVisible()
+})
+
+test('商品新建: 表单提交后出现在列表', async ({ page }) => {
+  await login(page)
+
+  await page.getByRole('navigation').getByText('商品').click()
+  await expect(page).toHaveURL(/\/products(\?page=1)?$/)
+  await page.getByRole('link', { name: '新建商品' }).click()
+  await expect(page).toHaveURL(/\/products\/new/)
+
+  const suffix = Date.now()
+  await page.getByLabel('名称').first().fill('E2E 商品')
+  await page.getByLabel('Slug').fill(`e2e-prod-${suffix}`)
+  await page.getByLabel('名称').nth(1).fill('1kg')
+  await page.getByLabel('SKU 编码').fill(`E2E-${suffix}`)
+  await page.getByLabel('价格（元）').fill('19.9')
+  await page.getByRole('button', { name: '创建商品' }).click()
+
+  await expect(page).toHaveURL(/\/products(\?page=1)?$/)
+  await expect(page.getByText('E2E 商品').first()).toBeVisible()
 })

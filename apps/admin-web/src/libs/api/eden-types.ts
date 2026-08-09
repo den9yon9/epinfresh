@@ -20,9 +20,14 @@ export type EdenApiBody<T> = T extends (body: infer B, ...rest: any[]) => unknow
   : never
 
 // 请求参数类型提取
-// body：仅 POST/PUT/PATCH/DELETE 系列（两参签名）可取；GET/HEAD 单参签名 → never，误用即编译失败
+// body：仅 POST/PUT/PATCH/DELETE 系列可取；GET/HEAD 单参签名 → never，误用即编译失败
+// (treaty 方法第二参 options 是可选元组, 不能用 [B, unknown, ...] 模式匹配)
 export type EdenBody<T extends EdenMethod> =
-  Parameters<T> extends [infer B, unknown, ...unknown[]] ? B : never
+  Parameters<T> extends [infer B, ...unknown[]]
+    ? Parameters<T> extends [unknown]
+      ? never
+      : B
+    : never
 // options（含 query/headers/fetch）：POST 系列第二参，GET 系列第一参
 export type EdenOptions<T extends EdenMethod> =
   Parameters<T> extends [unknown, infer O, ...unknown[]]
