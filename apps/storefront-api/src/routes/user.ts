@@ -1,6 +1,12 @@
 import { clearSessionCookie, setSessionCookie } from '@epinfresh/session'
 import { assertNever, ErrorResponse, getRequestId } from '@epinfresh/shared'
-import { getUserById, loginUser, registerUser } from '@epinfresh/user'
+import {
+  consumePasswordResetToken,
+  getUserById,
+  loginUser,
+  registerUser,
+  requestPasswordReset,
+} from '@epinfresh/user'
 import { EMAIL_JOB_NAMES } from '@epinfresh/user/jobs'
 import * as UserModel from '@epinfresh/user/model'
 import { Elysia, status } from 'elysia'
@@ -72,6 +78,60 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
           summary: '登录',
           description:
             '邮箱密码登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 限流：60 秒内最多 10 次尝试',
+        },
+      },
+    )
+    .post(
+      '/forgot-password',
+      async ({ body, db, emailQueue }) => {
+        const result = await requestPasswordReset(body.email, db)
+        const token = result.isOk() ? result.value.token : assertNever(result.error)
+        await emailQueue.add(
+          EMAIL_JOB_NAMES.RESET_PASSWORD,
+          {
+            to: body.email,
+            requestId: getRequestId(),
+            payload: { token },
+          },
+          { jobId: `reset-${crypto.randomUUID()}` },
+        )
+        return status(202)
+      },
+      {
+        body: UserModel.ForgotPasswordInputSchema,
+        rateLimit: { limit: 5, window: '60s' },
+        detail: {
+          tags: ['Auth'],
+          summary: '忘记密码',
+          description: '发送密码重置邮件。邮箱不存在也返回 202, 不泄露注册状态',
+        },
+      },
+    )
+    .post(
+      '/reset-password',
+      async ({ body, db }) => {
+        const result = await consumePasswordResetToken(body.token, body.password, db)
+        return result.match(
+          () => status(204),
+          (code) => {
+            switch (code) {
+              case 'RESET_TOKEN_INVALID':
+                return status(400, { error: code, message: 'Invalid or already used token' })
+              case 'RESET_TOKEN_EXPIRED':
+                return status(400, { error: code, message: 'Token expired' })
+              default:
+                return assertNever(code)
+            }
+          },
+        )
+      },
+      {
+        body: UserModel.ResetPasswordInputSchema,
+        rateLimit: { limit: 10, window: '60s' },
+        detail: {
+          tags: ['Auth'],
+          summary: '重置密码',
+          description: '用邮件中的令牌设置新密码。令牌一次性使用, 1 小时过期',
         },
       },
     )

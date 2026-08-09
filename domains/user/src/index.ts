@@ -1,2 +1,9 @@
-export { getUserById, listUsers, loginUser, registerUser } from './service'
+export {
+  consumePasswordResetToken,
+  getUserById,
+  listUsers,
+  loginUser,
+  registerUser,
+  requestPasswordReset,
+} from './service'
 export type { UserRole } from '@epinfresh/database'

@@ -1,8 +1,14 @@
-import { closeDb, type Db } from '@epinfresh/database'
+import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 
-import { getUserById, loginUser, registerUser } from './service'
+import {
+  consumePasswordResetToken,
+  getUserById,
+  loginUser,
+  registerUser,
+  requestPasswordReset,
+} from './service'
 
 let db: Db
 
@@ -73,5 +79,54 @@ describe('getUserById', () => {
     const result = await getUserById(id, db)
     expect(result.isOk()).toBe(true)
     expect(result._unsafeUnwrap().email).toBe('a@example.com')
+  })
+})
+
+describe('requestPasswordReset / consumePasswordResetToken', () => {
+  async function seedUserWithReset(): Promise<{ userId: string; token: string }> {
+    const { id } = await registerUser(
+      { name: 'Alice', email: 'reset@example.com', password: 'old-password-1' },
+      db,
+    )
+    const result = await requestPasswordReset('reset@example.com', db)
+    const { token } = result._unsafeUnwrap()
+    return { userId: id, token }
+  }
+
+  test('full cycle: token resets password and is single-use', async () => {
+    const { token } = await seedUserWithReset()
+
+    const first = await consumePasswordResetToken(token, 'new-password-2', db)
+    expect(first.isOk()).toBe(true)
+
+    const loginNew = await loginUser({ email: 'reset@example.com', password: 'new-password-2' }, db)
+    expect(loginNew.isOk()).toBe(true)
+    const loginOld = await loginUser({ email: 'reset@example.com', password: 'old-password-1' }, db)
+    expect(loginOld.isErr()).toBe(true)
+
+    const replay = await consumePasswordResetToken(token, 'another-password-3', db)
+    expect(replay.isErr()).toBe(true)
+    expect(replay._unsafeUnwrapErr()).toBe('RESET_TOKEN_INVALID')
+  })
+
+  test('returns ok for unknown email without creating a token', async () => {
+    const result = await requestPasswordReset('ghost@example.com', db)
+    expect(result.isOk()).toBe(true)
+    const rows = await db.select().from(schema.passwordResetTokens)
+    expect(rows.length).toBe(0)
+  })
+
+  test('rejects unknown token', async () => {
+    const result = await consumePasswordResetToken('f'.repeat(64), 'whatever-1', db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('RESET_TOKEN_INVALID')
+  })
+
+  test('rejects expired token', async () => {
+    const { token } = await seedUserWithReset()
+    await db.update(schema.passwordResetTokens).set({ expiresAt: new Date(Date.now() - 1000) })
+    const result = await consumePasswordResetToken(token, 'whatever-1', db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('RESET_TOKEN_EXPIRED')
   })
 })

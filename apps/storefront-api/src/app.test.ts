@@ -150,6 +150,57 @@ describe('auth', () => {
     expect(rejected.status).toBe(400)
   })
 
+  test('forgot-password returns 202 for known and unknown emails', async () => {
+    await seedUser('reset@example.com')
+    const known = await api.auth['forgot-password'].post({ email: 'reset@example.com' })
+    expect(known.status).toBe(202)
+    const unknown = await api.auth['forgot-password'].post({ email: 'ghost@example.com' })
+    expect(unknown.status).toBe(202)
+  })
+
+  test('reset-password full cycle via token from queued job', async () => {
+    await seedUser('reset@example.com')
+    await api.auth['forgot-password'].post({ email: 'reset@example.com' })
+
+    const jobs = await emailQueue.getJobs(['waiting'])
+    const resetJob = jobs.find((j) => j.name === 'reset-password')
+    expect(resetJob).toBeDefined()
+    const token = resetJob!.data.payload.token as string
+    expect(token).toMatch(/^[0-9a-f]{64}$/)
+
+    const res = await api.auth['reset-password'].post({ token, password: 'new-password-2' })
+    expect(res.status).toBe(204)
+
+    const oldLogin = await api.auth.login.post({
+      email: 'reset@example.com',
+      password: 'password123',
+    })
+    expect(oldLogin.status).toBe(401)
+    const newLogin = await api.auth.login.post({
+      email: 'reset@example.com',
+      password: 'new-password-2',
+    })
+    expect(newLogin.status).toBe(200)
+
+    const replay = await api.auth['reset-password'].post({
+      token,
+      password: 'another-pass-3',
+    })
+    expect(replay.status).toBe(400)
+    if (replay.error === null) throw new Error('expected error response')
+    expect(replay.error.value).toMatchObject({ error: 'RESET_TOKEN_INVALID' })
+  })
+
+  test('reset-password rejects unknown token with 400', async () => {
+    const res = await api.auth['reset-password'].post({
+      token: 'f'.repeat(64),
+      password: 'new-password-2',
+    })
+    expect(res.status).toBe(400)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'RESET_TOKEN_INVALID' })
+  })
+
   test('login rejects wrong password with 401', async () => {
     await seedUser('alice@example.com')
     const res = await api.auth.login.post({ email: 'alice@example.com', password: 'wrong-pass' })
