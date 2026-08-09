@@ -16,16 +16,28 @@ const skuInput = Type.Intersect([
   }),
 ])
 
+export const UpdateProductInputSchema = Type.Intersect([
+  Type.Partial(Type.Omit(table.update.product, ['id', 'createdAt', 'updatedAt'])),
+  Type.Object({
+    skus: Type.Optional(
+      Type.Array(
+        Type.Intersect([
+          skuInput,
+          // 带 id = 更新现有 SKU; 缺省 = 新建
+          Type.Object({ id: Type.Optional(Type.String({ format: 'uuid' })) }),
+        ]),
+        { maxItems: 100 },
+      ),
+    ),
+  }),
+])
+
 export const CreateProductInputSchema = Type.Intersect([
   Type.Omit(table.insert.product, ['id', 'createdAt', 'updatedAt']),
   Type.Object({
     skus: Type.Optional(Type.Array(skuInput, { maxItems: 100 })),
   }),
 ])
-
-export const UpdateProductInputSchema = Type.Partial(
-  Type.Omit(table.update.product, ['id', 'createdAt', 'updatedAt']),
-)
 
 export const CreateCategoryInputSchema = Type.Omit(table.insert.category, [
   'id',

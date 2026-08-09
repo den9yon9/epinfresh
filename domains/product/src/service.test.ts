@@ -10,6 +10,7 @@ import {
   reduceProductStock,
   removeCategory,
   restoreProductStock,
+  updateProduct,
 } from './service'
 
 let db: Db
@@ -114,6 +115,104 @@ describe('createProduct', () => {
       .from(schema.productSkus)
       .where(eq(schema.productSkus.productId, product.id))
     expect(Number(persisted.stock)).toBe(20)
+  })
+})
+
+describe('updateProduct', () => {
+  async function seedProduct() {
+    return createProduct(
+      {
+        name: 'Orange',
+        slug: 'orange',
+        status: 'draft',
+        images: [],
+        skus: [{ name: '1kg', skuCode: 'ORANGE-1KG', price: 6.5, stock: 20, attributes: {} }],
+      },
+      db,
+    )
+  }
+
+  test('updates product fields and keeps skus unchanged', async () => {
+    const product = await seedProduct()
+    const updated = await updateProduct(product.id, { name: 'Apple', status: 'published' }, db)
+    expect(updated._unsafeUnwrap().name).toBe('Apple')
+    expect(updated._unsafeUnwrap().status).toBe('published')
+    expect(updated._unsafeUnwrap().skus).toHaveLength(1)
+  })
+
+  test('updates existing sku by id', async () => {
+    const product = await seedProduct()
+    const [sku] = product.skus
+    const updated = await updateProduct(
+      product.id,
+      { skus: [{ id: sku.id, name: '2kg', skuCode: 'ORANGE-2KG', price: 12, stock: 5 }] },
+      db,
+    )
+    const [after] = updated._unsafeUnwrap().skus
+    expect(after.name).toBe('2kg')
+    expect(after.price).toBe('12.00')
+    expect(Number(after.stock)).toBe(5)
+  })
+
+  test('inserts new sku without id', async () => {
+    const product = await seedProduct()
+    const updated = await updateProduct(
+      product.id,
+      { skus: [{ name: '5kg', skuCode: 'ORANGE-5KG', price: 25, stock: 2 }] },
+      db,
+    )
+    expect(updated._unsafeUnwrap().skus).toHaveLength(2)
+    expect(updated._unsafeUnwrap().skus.map((s) => s.skuCode)).toContain('ORANGE-5KG')
+  })
+
+  test('silently skips sku id belonging to another product', async () => {
+    const productA = await seedProduct()
+    const productB = await createProduct(
+      {
+        name: 'Banana',
+        slug: 'banana',
+        images: [],
+        skus: [{ name: '1kg', skuCode: 'BANANA-1KG', price: 3 }],
+      },
+      db,
+    )
+    const [otherSku] = productB.skus
+    const updated = await updateProduct(
+      productA.id,
+      { skus: [{ id: otherSku.id, name: 'hacked', skuCode: 'BANANA-1KG', price: 99 }] },
+      db,
+    )
+    expect(updated._unsafeUnwrap().skus).toHaveLength(1)
+    const [check] = await db
+      .select({ name: schema.productSkus.name })
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, otherSku.id))
+    expect(check.name).toBe('1kg')
+  })
+
+  test('duplicate skuCode rolls back the whole update', async () => {
+    const product = await seedProduct()
+    await createProduct(
+      {
+        name: 'Banana',
+        slug: 'banana',
+        images: [],
+        skus: [{ name: '1kg', skuCode: 'TAKEN-1', price: 3 }],
+      },
+      db,
+    )
+    expect(
+      updateProduct(
+        product.id,
+        { name: 'Renamed', skus: [{ name: 'x', skuCode: 'TAKEN-1', price: 1 }] },
+        db,
+      ),
+    ).rejects.toThrow()
+    const [after] = await db
+      .select({ name: schema.products.name })
+      .from(schema.products)
+      .where(eq(schema.products.id, product.id))
+    expect(after.name).toBe('Orange')
   })
 })
 

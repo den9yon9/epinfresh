@@ -173,17 +173,40 @@ export async function updateProduct(
   client: DbClient,
 ) {
   return client.transaction(async (tx) => {
-    const [product] = await tx
-      .update(schema.products)
-      .set(input)
-      .where(eq(schema.products.id, id))
-      .returning()
-    if (!product) return err('PRODUCT_NOT_FOUND')
-    const skus = await tx
+    const { skus, ...productFields } = input
+    const [existing] = await tx.select().from(schema.products).where(eq(schema.products.id, id))
+    if (!existing) return err('PRODUCT_NOT_FOUND')
+    if (Object.keys(productFields).length > 0) {
+      await tx.update(schema.products).set(productFields).where(eq(schema.products.id, id))
+    }
+    const [product] = await tx.select().from(schema.products).where(eq(schema.products.id, id))
+
+    if (skus && skus.length > 0) {
+      for (const sku of skus) {
+        const values = {
+          name: sku.name,
+          skuCode: sku.skuCode,
+          price: String(sku.price),
+          stock: sku.stock ?? 0,
+          attributes: sku.attributes ?? {},
+        }
+        if (sku.id) {
+          // 仅更新属于该商品的行; 跨商品 id 静默跳过
+          await tx
+            .update(schema.productSkus)
+            .set(values)
+            .where(and(eq(schema.productSkus.id, sku.id), eq(schema.productSkus.productId, id)))
+        } else {
+          await tx.insert(schema.productSkus).values({ productId: id, ...values })
+        }
+      }
+    }
+
+    const skusAfter = await tx
       .select()
       .from(schema.productSkus)
       .where(eq(schema.productSkus.productId, product.id))
-    return ok({ ...product, skus })
+    return ok({ ...product, skus: skusAfter })
   })
 }
 

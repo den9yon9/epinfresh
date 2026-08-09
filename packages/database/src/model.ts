@@ -45,7 +45,7 @@ export const table = {
       categoryId: Type.Optional(Type.String({ format: 'uuid' })),
     }),
     productSku: insert(schema.productSkus, {
-      attributes: Type.Record(Type.String(), Type.String()),
+      attributes: Type.Optional(Type.Record(Type.String(), Type.String())),
     }),
     order: insert(schema.orders),
     address: insert(schema.addresses, {
