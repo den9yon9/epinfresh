@@ -9,6 +9,16 @@ export type EdenData<T extends EdenMethod> = NonNullable<Awaited<ReturnType<T>>[
 // 列表响应（项目约定 PaginatedResponse{ items, total, page, pageSize }）元素类型
 export type EdenListItem<T extends EdenMethod> = EdenData<T>['items'][number]
 
+// 动态段子路径方法类型是交叉类型, 无法过 EdenMethod 约束, 用条件推断提取
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 类型工具必须放宽签名
+export type EdenApiData<T> = T extends (...args: any[]) => infer R
+  ? NonNullable<Awaited<R> extends { data: infer D } ? D : never>
+  : never
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 类型工具必须放宽签名
+export type EdenApiBody<T> = T extends (body: infer B, ...rest: any[]) => unknown
+  ? NonNullable<B>
+  : never
+
 // 请求参数类型提取
 // body：仅 POST/PUT/PATCH/DELETE 系列（两参签名）可取；GET/HEAD 单参签名 → never，误用即编译失败
 export type EdenBody<T extends EdenMethod> =
