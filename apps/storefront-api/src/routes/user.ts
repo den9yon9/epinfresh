@@ -38,6 +38,7 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
       {
         body: UserModel.RegisterInputSchema,
         response: { 200: UserModel.UserResponseSchema },
+        rateLimit: { limit: 20, window: '60s' },
         detail: {
           tags: ['Auth'],
           summary: '注册',
