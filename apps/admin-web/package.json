@@ -1,0 +1,28 @@
+{
+  "name": "@epinfresh/admin-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsr generate && tsc --noEmit"
+  },
+  "dependencies": {
+    "@elysiajs/eden": "^1.4.9",
+    "@tanstack/react-router": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "valibot": "^1.4.2"
+  },
+  "devDependencies": {
+    "@epinfresh/admin-api": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/router-cli": "^1.167.25",
+    "@tanstack/router-plugin": "^1.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^4.3.3",
+    "vite": "^7.0.0"
+  }
+}
