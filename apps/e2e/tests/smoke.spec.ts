@@ -25,10 +25,11 @@ test('TabBar 切换与 active 高亮', async ({ page }) => {
   await expect(page).toHaveURL(/\/login/)
 
   await page.goto('/')
+  // 我的页需要登录: 未登录被守卫重定向到登录页
   await page.getByRole('navigation').getByText('我的').click()
-  await expect(page).toHaveURL(/\/me/)
-  await expect(page.getByText('我的 — 开发中')).toBeVisible()
+  await expect(page).toHaveURL(/\/login/)
 
+  await page.goto('/')
   await page.getByRole('navigation').getByText('首页').click()
   await expect(page).toHaveURL(/\/(\?page=1)?$/)
 })
