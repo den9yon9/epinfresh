@@ -2,8 +2,9 @@ import { type DbClient, type PaymentStatus, schema } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import { and, eq } from 'drizzle-orm'
 
-// ponytail: 接缝 — 真实支付网关（微信/支付宝等）实现该契约后，confirm 逻辑挪到 webhook handler，
-// 域内 service 函数保持不变；mock 当前同步成功
+// TODO(payment): 暂无商户账号, 暂用 mock; 申请到微信/支付宝商户号后接入真实网关 —
+// 实现 PaymentGateway 契约(charge/回调), confirm 逻辑挪到 webhook handler,
+// 域内 service 函数保持不变; mock 当前同步成功
 export interface PaymentGateway {
   charge(input: { orderId: string; amount: string; currency: string }): Promise<{
     providerRef: string
