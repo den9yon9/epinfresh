@@ -19,7 +19,7 @@ export function buildApp(options: AdminAppOptions) {
     .use(securityHeaders(options.isProduction))
     .use(plugins.redisPlugin)
     .use(plugins.dbPlugin)
-    .use(cors({ origin: options.corsOrigin, credentials: true }))
+    .use(cors({ origin: options.corsOrigin, credentials: true, exposeHeaders: ['x-request-id'] }))
     .use(
       enableDocs
         ? openapi({

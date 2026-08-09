@@ -7,5 +7,6 @@ export const EMAIL_JOB_NAMES = {
 
 export interface SendEmailJobData {
   to: string
+  requestId?: string
   payload: Record<string, unknown>
 }

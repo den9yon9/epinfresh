@@ -1,4 +1,5 @@
 import type { Logger } from '@epinfresh/shared'
+import { runWithRequestId } from '@epinfresh/shared'
 import {
   type ConnectionOptions,
   type Processor,
@@ -46,7 +47,8 @@ export function createDispatcher<T = unknown>(
     if (!handler) {
       throw new Error(`No handler registered for job name "${job.name}"`)
     }
-    await handler(job.data, logger)
+    const requestId = (job.data as { requestId?: string } | null)?.requestId ?? `job-${job.id}`
+    await runWithRequestId(requestId, () => handler(job.data, logger))
   }
 }
 

@@ -1,12 +1,6 @@
 import type { Logger } from '@epinfresh/shared'
+import { getRequestContext } from '@epinfresh/shared'
 import { Elysia } from 'elysia'
-
-interface RequestContext {
-  requestId: string
-  start: number
-}
-
-const contexts = new WeakMap<Request, RequestContext>()
 
 function getStatus(set: { status?: number | string }): number {
   const s = set.status
@@ -25,16 +19,15 @@ function getPath(request: Request): string {
 export const requestLogger = (logger: Logger) =>
   new Elysia({ name: 'request-logger' })
     .onRequest((ctx) => {
-      const requestId = crypto.randomUUID()
-      contexts.set(ctx.request, { requestId, start: Date.now() })
-      ctx.set.headers['x-request-id'] = requestId
+      const { requestId } = getRequestContext() ?? { requestId: undefined }
+      ctx.set.headers['x-request-id'] = requestId ?? ''
       logger.info(
         { requestId, msg: 'request', method: ctx.request.method, path: getPath(ctx.request) },
         'request',
       )
     })
     .onAfterResponse({ as: 'global' }, (ctx) => {
-      const rc = contexts.get(ctx.request)
+      const rc = getRequestContext()
       const requestId = rc?.requestId ?? '-'
       const durationMs = rc ? Date.now() - rc.start : 0
       logger.info(
@@ -48,10 +41,9 @@ export const requestLogger = (logger: Logger) =>
         },
         'response',
       )
-      contexts.delete(ctx.request)
     })
     .onError({ as: 'global' }, (ctx) => {
-      const rc = contexts.get(ctx.request)
+      const rc = getRequestContext()
       const requestId = rc?.requestId ?? '-'
       const durationMs = rc ? Date.now() - rc.start : 0
       const err = ctx.error as Error & { code?: string }
