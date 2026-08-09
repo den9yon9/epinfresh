@@ -123,3 +123,35 @@ test('商品编辑改价 → 列表最低价变化 → 删除商品', async ({ p
   await editedRow.getByRole('button', { name: '删除' }).click()
   await expect(page.getByText(name)).toHaveCount(0)
 })
+
+test('分类: 新建 → 列表可见 → 删除', async ({ page }) => {
+  await login(page)
+
+  await page.getByRole('navigation').getByText('分类').click()
+  await expect(page).toHaveURL(/\/categories/)
+  await page.getByRole('button', { name: '新建分类' }).click()
+
+  const suffix = Date.now()
+  const name = `e2e分类-${suffix}`
+  await page.getByLabel('名称').fill(name)
+  await page.getByLabel('Slug').fill(`e2e-cat-${suffix}`)
+  await page.getByRole('button', { name: '创建', exact: true }).click()
+
+  await expect(page.getByText(name)).toBeVisible()
+
+  page.on('dialog', (d) => d.accept())
+  await page
+    .getByRole('row', { name: new RegExp(name) })
+    .getByRole('button', { name: '删除' })
+    .click()
+  await expect(page.getByText(name)).toHaveCount(0)
+})
+
+test('用户列表渲染管理员账号', async ({ page }) => {
+  await login(page)
+
+  await page.getByRole('navigation').getByText('用户').click()
+  await expect(page).toHaveURL(/\/users(\?page=1)?$/)
+  await expect(page.getByRole('cell', { name: 'admin@example.com' })).toBeVisible()
+  await expect(page.getByText('管理员')).toBeVisible()
+})
