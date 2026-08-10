@@ -74,7 +74,7 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
     .post(
       '/orders',
       async ({ body, session, db }) => {
-        const result = await checkoutWorkflow({ ...body, userId: session.userId }, db)
+        const result = await checkout({ ...body, userId: session.userId }, db)
         return result.match(
           (order) => status(201, order),
           (code) => {

@@ -25,7 +25,7 @@ function isUniqueViolation(caught: unknown): boolean {
   )
 }
 
-export async function checkoutWorkflow(
+export async function checkout(
   input: Static<typeof CreateOrderInputSchema> & { userId: string; idempotencyKey?: string },
   client: DbClient,
 ): Promise<Result<{ order: OrderDetail; replayed: boolean }, CheckoutErrorCode>> {

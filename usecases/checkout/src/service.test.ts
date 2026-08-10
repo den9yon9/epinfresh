@@ -3,7 +3,7 @@ import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { count, eq } from 'drizzle-orm'
 
-import { checkoutWorkflow } from './service'
+import { checkout } from './service'
 
 let db: Db
 
@@ -67,14 +67,14 @@ async function orderCount() {
   return Number(total)
 }
 
-describe('checkoutWorkflow', () => {
+describe('checkout', () => {
   test('creates order with price/name snapshots and reduces stock', async () => {
     const user = await seedUser()
     const address = await seedAddress(user.id)
     const { sku: apple } = await seedSku('Apple', 'apple', '5.00', 10)
     const { sku: banana } = await seedSku('Banana', 'banana', '3.50', 5)
 
-    const result = await checkoutWorkflow(
+    const result = await checkout(
       {
         userId: user.id,
         addressId: address.id,
@@ -116,7 +116,7 @@ describe('checkoutWorkflow', () => {
   test('returns SKU_NOT_FOUND and creates no order', async () => {
     const user = await seedUser()
     const address = await seedAddress(user.id)
-    const result = await checkoutWorkflow(
+    const result = await checkout(
       {
         userId: user.id,
         addressId: address.id,
@@ -134,7 +134,7 @@ describe('checkoutWorkflow', () => {
     const address = await seedAddress(user.id)
     const { sku } = await seedSku('Apple', 'apple-draft', '5.00', 10, 'draft')
 
-    const result = await checkoutWorkflow(
+    const result = await checkout(
       { userId: user.id, addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
       db,
     )
@@ -154,7 +154,7 @@ describe('checkoutWorkflow', () => {
     const address = await seedAddress(user.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
-    const result = await checkoutWorkflow(
+    const result = await checkout(
       {
         userId: user.id,
         addressId: address.id,
@@ -184,7 +184,7 @@ describe('checkoutWorkflow', () => {
     const { sku: apple } = await seedSku('Apple', 'apple', '5.00', 10)
     const { sku: banana } = await seedSku('Banana', 'banana', '3.00', 1)
 
-    const result = await checkoutWorkflow(
+    const result = await checkout(
       {
         userId: user.id,
         addressId: address.id,
@@ -212,11 +212,11 @@ describe('checkoutWorkflow', () => {
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
     const results = await Promise.all([
-      checkoutWorkflow(
+      checkout(
         { userId: user.id, addressId: address.id, items: [{ skuId: sku.id, quantity: 6 }] },
         db,
       ),
-      checkoutWorkflow(
+      checkout(
         { userId: user.id, addressId: address.id, items: [{ skuId: sku.id, quantity: 6 }] },
         db,
       ),
@@ -239,7 +239,7 @@ describe('checkoutWorkflow', () => {
     const address = await seedAddress(user.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
-    const first = await checkoutWorkflow(
+    const first = await checkout(
       {
         userId: user.id,
         idempotencyKey: 'key-1',
@@ -252,7 +252,7 @@ describe('checkoutWorkflow', () => {
     expect(first._unsafeUnwrap().replayed).toBe(false)
     const orderId = first._unsafeUnwrap().order.id
 
-    const second = await checkoutWorkflow(
+    const second = await checkout(
       {
         userId: user.id,
         idempotencyKey: 'key-1',
@@ -281,7 +281,7 @@ describe('checkoutWorkflow', () => {
     const bobAddress = await seedAddress(bob.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
-    const aliceOrder = await checkoutWorkflow(
+    const aliceOrder = await checkout(
       {
         userId: alice.id,
         idempotencyKey: 'shared-key',
@@ -292,7 +292,7 @@ describe('checkoutWorkflow', () => {
     )
     expect(aliceOrder.isOk()).toBe(true)
 
-    const bobOrder = await checkoutWorkflow(
+    const bobOrder = await checkout(
       {
         userId: bob.id,
         idempotencyKey: 'shared-key',
@@ -313,7 +313,7 @@ describe('checkoutWorkflow', () => {
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
     const results = await Promise.all([
-      checkoutWorkflow(
+      checkout(
         {
           userId: user.id,
           idempotencyKey: 'race-key',
@@ -322,7 +322,7 @@ describe('checkoutWorkflow', () => {
         },
         db,
       ),
-      checkoutWorkflow(
+      checkout(
         {
           userId: user.id,
           idempotencyKey: 'race-key',
@@ -351,7 +351,7 @@ describe('checkoutWorkflow', () => {
     const otherAddress = await seedAddress(other.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
-    const result = await checkoutWorkflow(
+    const result = await checkout(
       { userId: user.id, addressId: otherAddress.id, items: [{ skuId: sku.id, quantity: 2 }] },
       db,
     )
@@ -370,7 +370,7 @@ describe('checkoutWorkflow', () => {
     const address = await seedAddress(user.id)
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
 
-    const failed = await checkoutWorkflow(
+    const failed = await checkout(
       {
         userId: user.id,
         idempotencyKey: 'fail-key',
@@ -382,7 +382,7 @@ describe('checkoutWorkflow', () => {
     expect(failed.isErr()).toBe(true)
     expect(failed._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
 
-    const retry = await checkoutWorkflow(
+    const retry = await checkout(
       {
         userId: user.id,
         idempotencyKey: 'fail-key',

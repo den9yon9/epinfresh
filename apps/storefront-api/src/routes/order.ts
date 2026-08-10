@@ -1,4 +1,4 @@
-import { checkoutWorkflow } from '@epinfresh/checkout'
+import { checkout } from '@epinfresh/checkout'
 import { CreateOrderInputSchema } from '@epinfresh/checkout/model'
 import { getOrderForUser, listOrdersByUser } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
@@ -15,7 +15,7 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
     .post(
       '/orders',
       async ({ body, headers, session, db }) => {
-        const result = await checkoutWorkflow(
+        const result = await checkout(
           { ...body, userId: session.userId, idempotencyKey: headers['idempotency-key'] },
           db,
         )
