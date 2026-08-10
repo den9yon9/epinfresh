@@ -58,6 +58,9 @@ export function AddressForm({ initial, submitLabel, onSubmit, onDone }: AddressF
         <span className="mb-1 block text-sm text-gray-600">手机号</span>
         <input
           type="tel"
+          inputMode="numeric"
+          pattern="1[3-9]\d{9}"
+          title="请输入 11 位手机号"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           required

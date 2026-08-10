@@ -73,7 +73,10 @@ function ProductDetailPage() {
           {product.skus.map((s) => (
             <button
               key={s.id}
-              onClick={() => setSelectedSkuId(s.id)}
+              onClick={() => {
+                setSelectedSkuId(s.id)
+                setQuantity(1)
+              }}
               className={`rounded-lg border px-3 py-2 text-sm ${
                 s.id === sku?.id
                   ? 'border-brand-600 bg-brand-50 text-brand-700'

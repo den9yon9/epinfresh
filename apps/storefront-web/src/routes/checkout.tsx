@@ -9,7 +9,7 @@ export const Route = createFileRoute('/checkout')({
   loader: async () => {
     const [cartRes, addressesRes] = await Promise.all([api.cart.get(), api.addresses.get()])
     if (cartRes.error && cartRes.error.status === 401) {
-      throw redirect({ to: '/login' })
+      throw redirect({ to: '/login', search: { redirectTo: '/checkout' } })
     }
     if (cartRes.error || addressesRes.error) {
       throw new Error('结算信息加载失败，请稍后重试')

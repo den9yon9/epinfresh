@@ -44,7 +44,7 @@ test('加购 → 购物车改数量 → 删除 → 空车态', async ({ page }) 
   await expect(page.getByText(`¥${unit.toFixed(2)}`).last()).toBeVisible()
 
   // 加数量 → 合计翻倍
-  await page.getByRole('button', { name: '+' }).click()
+  await page.getByRole('button', { name: '增加数量' }).click()
   await expect(page.getByText(`¥${(unit * 2).toFixed(2)}`).last()).toBeVisible()
 
   // 删除 → 空车态

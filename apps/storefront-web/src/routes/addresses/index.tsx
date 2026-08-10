@@ -8,7 +8,7 @@ export const Route = createFileRoute('/addresses/')({
   loader: async () => {
     const res = await api.addresses.get()
     if (res.error && res.error.status === 401) {
-      throw redirect({ to: '/login' })
+      throw redirect({ to: '/login', search: { redirectTo: '/addresses' } })
     }
     if (res.error) {
       throw new Error('地址加载失败，请稍后重试')
@@ -23,12 +23,21 @@ function AddressesPage() {
   const router = useRouter()
   const navigate = useNavigate()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  function flash(msg: string) {
+    setNotice(msg)
+    setTimeout(() => setNotice(null), 2500)
+  }
 
   async function setDefault(id: string) {
     setBusyId(id)
     const res = await api.addresses({ id }).put({ isDefault: true })
     setBusyId(null)
-    if (res.error) return
+    if (res.error) {
+      flash('设置失败，请稍后重试')
+      return
+    }
     router.invalidate()
   }
 
@@ -37,7 +46,10 @@ function AddressesPage() {
     setBusyId(id)
     const res = await api.addresses({ id }).delete()
     setBusyId(null)
-    if (res.error) return
+    if (res.error) {
+      flash('删除失败，请稍后重试')
+      return
+    }
     router.invalidate()
   }
 
@@ -98,6 +110,12 @@ function AddressesPage() {
           </div>
         </div>
       ))}
+
+      {notice && (
+        <div className="fixed inset-x-0 top-20 z-20 mx-auto w-fit rounded-full bg-gray-900/80 px-4 py-1.5 text-sm text-white">
+          {notice}
+        </div>
+      )}
 
       <button
         onClick={() => navigate({ to: '/addresses/new' })}

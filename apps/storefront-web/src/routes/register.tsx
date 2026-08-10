@@ -1,16 +1,23 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import * as v from 'valibot'
 import { useState } from 'react'
 
 import { api } from '../libs/api/client'
 import { login } from '../libs/api/session'
 
+const RegisterSearchSchema = v.object({
+  redirectTo: v.optional(v.string()),
+})
+
 export const Route = createFileRoute('/register')({
   staticData: { title: '注册', showBack: true },
+  validateSearch: RegisterSearchSchema,
   component: RegisterPage,
 })
 
 function RegisterPage() {
   const navigate = useNavigate()
+  const { redirectTo } = Route.useSearch()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -28,13 +35,14 @@ function RegisterPage() {
       return
     }
     // 注册不自动建立会话, 顺手登录一次直接进入
-    const user = await login(email, password)
+    const { user } = await login(email, password)
     setSubmitting(false)
     if (!user) {
       navigate({ to: '/login' })
       return
     }
-    navigate({ to: '/' })
+    if (redirectTo && redirectTo.startsWith('/')) navigate({ to: redirectTo })
+    else navigate({ to: '/' })
   }
 
   return (

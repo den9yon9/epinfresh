@@ -39,9 +39,9 @@ test('下单 → 订单列表 → 详情 → 取消订单', async ({ page }) => 
   await page.getByRole('button', { name: '提交订单' }).click()
   await expect(page).toHaveURL(/\/pay\?orderId=/)
 
-  // 订单列表: 显示待支付订单
+  // 订单列表: 显示待支付订单(筛选 chips 与徽章同文, 用 link 内的徽章定位)
   await page.goto('/orders')
-  await expect(page.getByText('待支付')).toBeVisible()
+  await expect(page.getByRole('link', { name: /待支付/ })).toBeVisible()
   await expect(page.getByText('王五')).toBeVisible()
 
   // 详情页: 商品清单 + 取消按钮

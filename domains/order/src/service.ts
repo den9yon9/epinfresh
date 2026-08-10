@@ -77,18 +77,18 @@ export async function listOrdersByUser(
   query: Static<typeof OrderListQuerySchema>,
   client: DbClient,
 ) {
-  const { page, pageSize } = query
+  const { page, pageSize, status } = query
   const offset = (page - 1) * pageSize
+  const where = status
+    ? and(eq(schema.orders.userId, userId), eq(schema.orders.status, status))
+    : eq(schema.orders.userId, userId)
   const items = await client.query.orders.findMany({
-    where: eq(schema.orders.userId, userId),
+    where,
     orderBy: (orders, { desc }) => desc(orders.createdAt),
     limit: pageSize,
     offset,
   })
-  const [{ total }] = await client
-    .select({ total: count() })
-    .from(schema.orders)
-    .where(eq(schema.orders.userId, userId))
+  const [{ total }] = await client.select({ total: count() }).from(schema.orders).where(where)
   return { items, total: Number(total), page, pageSize }
 }
 

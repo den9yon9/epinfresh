@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import * as v from 'valibot'
 
 import { OrderStatusBadge } from '../../components/OrderStatusBadge'
@@ -6,18 +6,33 @@ import { api } from '../../libs/api/client'
 
 const PAGE_SIZE = 20
 
+const STATUS_TABS = [
+  { key: undefined, label: '全部' },
+  { key: 'pending', label: '待支付' },
+  { key: 'paid', label: '已支付' },
+  { key: 'shipped', label: '已发货' },
+  { key: 'completed', label: '已完成' },
+] as const
+
 const OrdersSearchSchema = v.object({
   page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
+  status: v.optional(v.picklist(['pending', 'paid', 'shipped', 'completed'])),
 })
 
 export const Route = createFileRoute('/orders/')({
   staticData: { title: '我的订单', showBack: true },
   validateSearch: OrdersSearchSchema,
-  loaderDeps: ({ search }) => ({ page: search.page }),
+  loaderDeps: ({ search }) => ({ page: search.page, status: search.status }),
   loader: async ({ deps }) => {
-    const res = await api.orders.get({ query: { page: deps.page, pageSize: PAGE_SIZE } })
+    const res = await api.orders.get({
+      query: {
+        page: deps.page,
+        pageSize: PAGE_SIZE,
+        ...(deps.status ? { status: deps.status } : {}),
+      },
+    })
     if (res.error && res.error.status === 401) {
-      throw redirect({ to: '/login' })
+      throw redirect({ to: '/login', search: { redirectTo: '/orders' } })
     }
     if (res.error) {
       throw new Error('订单加载失败，请稍后重试')
@@ -29,8 +44,13 @@ export const Route = createFileRoute('/orders/')({
 
 function OrdersPage() {
   const orders = Route.useLoaderData()
-  const page = Route.useSearch().page ?? 1
+  const search = Route.useSearch()
+  const navigate = useNavigate()
+  const page = search.page ?? 1
   const totalPages = Math.max(1, Math.ceil(orders.total / orders.pageSize))
+
+  const selectStatus = (status: (typeof STATUS_TABS)[number]['key']) =>
+    navigate({ to: '/orders', search: { page: 1, status }, replace: true })
 
   if (orders.items.length === 0) {
     return (
@@ -48,6 +68,19 @@ function OrdersPage() {
 
   return (
     <div className="flex flex-col gap-3 pb-8">
+      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.label}
+            onClick={() => selectStatus(tab.key)}
+            className={`shrink-0 rounded-full px-4 py-1.5 text-sm ${
+              search.status === tab.key ? 'bg-brand-600 text-white' : 'bg-white text-gray-600'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
       {orders.items.map((order) => (
         <Link
           key={order.id}

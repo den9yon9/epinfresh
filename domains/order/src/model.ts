@@ -16,7 +16,10 @@ const OrderDetailSchema = Type.Intersect([
 export { OrderDetailSchema }
 export const OrderResponseSchema = OrderDetailSchema
 export const OrderListResponseSchema = PaginatedResponse(table.select.order)
-export const OrderListQuerySchema = PaginationQuery
+export const OrderListQuerySchema = Type.Composite([
+  PaginationQuery,
+  Type.Object({ status: Type.Optional(statusLiteral) }),
+])
 export const AdminOrderListQuerySchema = Type.Composite([
   PaginationQuery,
   Type.Object({ status: Type.Optional(statusLiteral) }),

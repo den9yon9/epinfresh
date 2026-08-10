@@ -1,15 +1,22 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import * as v from 'valibot'
 import { useState } from 'react'
 
 import { login } from '../libs/api/session'
 
+const LoginSearchSchema = v.object({
+  redirectTo: v.optional(v.string()),
+})
+
 export const Route = createFileRoute('/login')({
   staticData: { title: '登录', showBack: true },
+  validateSearch: LoginSearchSchema,
   component: LoginPage,
 })
 
 function LoginPage() {
   const navigate = useNavigate()
+  const { redirectTo } = Route.useSearch()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -19,13 +26,14 @@ function LoginPage() {
     e.preventDefault()
     setError(null)
     setSubmitting(true)
-    const user = await login(email, password)
+    const { user, error } = await login(email, password)
     setSubmitting(false)
     if (!user) {
-      setError('邮箱或密码错误')
+      setError(error === 'ACCOUNT_DISABLED' ? '该账号已被禁用，请联系管理员' : '邮箱或密码错误')
       return
     }
-    navigate({ to: '/' })
+    if (redirectTo && redirectTo.startsWith('/')) navigate({ to: redirectTo })
+    else navigate({ to: '/' })
   }
 
   return (
@@ -60,9 +68,18 @@ function LoginPage() {
       >
         {submitting ? '登录中…' : '登录'}
       </button>
+      <p className="text-right text-sm">
+        <Link to="/forgot-password" className="text-brand-600 hover:underline">
+          忘记密码？
+        </Link>
+      </p>
       <p className="text-center text-sm text-gray-500">
         还没有账号？
-        <Link to="/register" className="ml-1 text-brand-600 hover:underline">
+        <Link
+          to="/register"
+          search={redirectTo ? { redirectTo } : undefined}
+          className="ml-1 text-brand-600 hover:underline"
+        >
           去注册
         </Link>
       </p>

@@ -10,7 +10,7 @@ export const Route = createFileRoute('/cart')({
   loader: async () => {
     const res = await api.cart.get()
     if (res.error && res.error.status === 401) {
-      throw redirect({ to: '/login' })
+      throw redirect({ to: '/login', search: { redirectTo: '/cart' } })
     }
     if (res.error) {
       throw new Error('购物车加载失败，请稍后重试')
@@ -25,14 +25,24 @@ function CartPage() {
   const navigate = useNavigate()
   const router = useRouter()
   const [busySkuId, setBusySkuId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const total = cart.items.reduce((sum, item) => sum + Number(item.sku.price) * item.quantity, 0)
+
+  function flash(msg: string) {
+    setNotice(msg)
+    setTimeout(() => setNotice(null), 2500)
+  }
 
   async function changeQuantity(item: CartItem, quantity: number) {
     setBusySkuId(item.sku.id)
     const res = await api.cart.items({ skuId: item.sku.id }).put({ quantity })
     setBusySkuId(null)
-    if (res.error) return
+    if (res.error) {
+      flash(`库存不足，最多 ${item.sku.stock} 件`)
+      router.invalidate()
+      return
+    }
     router.invalidate()
   }
 
@@ -40,7 +50,10 @@ function CartPage() {
     setBusySkuId(skuId)
     const res = await api.cart.items({ skuId }).delete()
     setBusySkuId(null)
-    if (res.error) return
+    if (res.error) {
+      flash('删除失败，请稍后重试')
+      return
+    }
     router.invalidate()
   }
 
@@ -93,13 +106,19 @@ function CartPage() {
               <QuantityStepper
                 value={item.quantity}
                 min={1}
-                max={9999}
+                max={item.sku.stock}
                 onChange={(q) => changeQuantity(item, q)}
               />
             </div>
           </div>
         </div>
       ))}
+
+      {notice && (
+        <div className="fixed inset-x-0 top-20 z-20 mx-auto w-fit rounded-full bg-gray-900/80 px-4 py-1.5 text-sm text-white">
+          {notice}
+        </div>
+      )}
 
       <div className="fixed inset-x-0 bottom-14 z-10 border-t border-gray-200 bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">

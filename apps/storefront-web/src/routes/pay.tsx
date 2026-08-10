@@ -15,7 +15,7 @@ export const Route = createFileRoute('/pay')({
   loader: async ({ deps }) => {
     const res = await api.orders({ id: deps.orderId }).get()
     if (res.error && res.error.status === 401) {
-      throw redirect({ to: '/login' })
+      throw redirect({ to: '/login', search: { redirectTo: `/pay?orderId=${deps.orderId}` } })
     }
     if (res.error) {
       throw new Error(res.error.status === 404 ? '订单不存在' : '订单加载失败，请稍后重试')
@@ -25,12 +25,14 @@ export const Route = createFileRoute('/pay')({
   component: PayPage,
 })
 
+const PAID_STATUSES = new Set(['paid', 'shipped', 'completed'])
+
 function PayPage() {
   const order = Route.useLoaderData()
   const { orderId } = Route.useSearch()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [paid, setPaid] = useState(order.status !== 'pending')
+  const [paid, setPaid] = useState(PAID_STATUSES.has(order.status))
 
   async function pay() {
     setError(null)
@@ -62,6 +64,30 @@ function PayPage() {
         <p className="text-sm text-gray-500">
           订单金额 <span className="font-semibold text-gray-900">¥{order.totalAmount}</span>
         </p>
+        <Link
+          to="/orders/$id"
+          params={{ id: order.id }}
+          className="rounded-lg bg-brand-600 px-6 py-2 text-sm text-white hover:bg-brand-700"
+        >
+          查看订单
+        </Link>
+      </div>
+    )
+  }
+
+  if (order.status !== 'pending') {
+    const labels: Record<string, string> = {
+      cancelled: '订单已取消',
+      refunded: '订单已退款',
+    }
+    return (
+      <div className="flex flex-col items-center gap-4 py-16 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-3xl text-gray-400">
+          !
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900">
+          {labels[order.status] ?? '订单状态已变化'}
+        </h2>
         <Link
           to="/orders/$id"
           params={{ id: order.id }}

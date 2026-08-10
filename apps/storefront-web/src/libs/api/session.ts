@@ -31,12 +31,18 @@ export async function refreshSession(): Promise<AuthUser | null> {
   return current
 }
 
-export async function login(email: string, password: string): Promise<AuthUser | null> {
+export async function login(
+  email: string,
+  password: string,
+): Promise<{ user: AuthUser | null; error: string | null }> {
   const res = await api.auth.login.post({ email, password })
-  if (res.error) return null
+  if (res.error) {
+    const code = 'error' in res.error.value ? res.error.value.error : undefined
+    return { user: null, error: code ?? 'LOGIN_FAILED' }
+  }
   current = res.data
   notify()
-  return current
+  return { user: res.data, error: null }
 }
 
 export async function logout(): Promise<void> {

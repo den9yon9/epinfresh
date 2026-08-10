@@ -3,7 +3,7 @@ import { createOrderRecord, getOrderById, type OrderDetail } from '@epinfresh/or
 import { getSkusByIds, reduceProductStock } from '@epinfresh/product'
 import { err, ok, type Result } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 
 import type { CreateOrderInputSchema } from './model'
 
@@ -91,6 +91,10 @@ export async function checkout(
         phone: address.phone,
         address: address.address,
       })
+      // 只清结算涉及的 SKU: 契约允许按 SKU 直接结算, 整车清空会误删未结算商品
+      await tx
+        .delete(schema.cartItems)
+        .where(and(eq(schema.cartItems.userId, userId), inArray(schema.cartItems.skuId, skuIds)))
       if (idempotencyKey) {
         // 故意不用 onConflictDoNothing：冲突必须抛 23505 让本事务回滚（含扣库存），
         // 否则并发同 key 会静默跳过并各自提交重复订单

@@ -113,6 +113,35 @@ describe('checkout', () => {
     expect(Number(afterBanana.stock)).toBe(4)
   })
 
+  test('clears only the checked-out skus from the cart', async () => {
+    const user = await seedUser()
+    const address = await seedAddress(user.id)
+    const { sku: apple } = await seedSku('Apple', 'apple2', '5.00', 10)
+    const { sku: banana } = await seedSku('Banana', 'banana2', '3.50', 5)
+    await db.insert(schema.cartItems).values([
+      { userId: user.id, skuId: apple.id, quantity: 2 },
+      { userId: user.id, skuId: banana.id, quantity: 1 },
+    ])
+
+    const result = await checkout(
+      { userId: user.id, addressId: address.id, items: [{ skuId: apple.id, quantity: 2 }] },
+      db,
+    )
+    expect(result.isOk()).toBe(true)
+
+    const [appleRow] = await db
+      .select()
+      .from(schema.cartItems)
+      .where(eq(schema.cartItems.skuId, apple.id))
+    const [bananaRow] = await db
+      .select()
+      .from(schema.cartItems)
+      .where(eq(schema.cartItems.skuId, banana.id))
+    expect(appleRow).toBeUndefined()
+    expect(bananaRow).toBeDefined()
+    expect(bananaRow.quantity).toBe(1)
+  })
+
   test('returns SKU_NOT_FOUND and creates no order', async () => {
     const user = await seedUser()
     const address = await seedAddress(user.id)

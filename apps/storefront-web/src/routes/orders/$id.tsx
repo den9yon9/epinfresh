@@ -9,7 +9,7 @@ export const Route = createFileRoute('/orders/$id')({
   loader: async ({ params }) => {
     const res = await api.orders({ id: params.id }).get()
     if (res.error && res.error.status === 401) {
-      throw redirect({ to: '/login' })
+      throw redirect({ to: '/login', search: { redirectTo: `/orders/${params.id}` } })
     }
     if (res.error) {
       throw new Error(res.error.status === 404 ? '订单不存在' : '订单加载失败，请稍后重试')
