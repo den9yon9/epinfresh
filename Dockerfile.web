@@ -1,0 +1,27 @@
+ARG APP=storefront-web
+
+FROM node:22-alpine AS build
+ARG APP
+WORKDIR /app
+
+# 1. 依赖清单先行，利用 Docker 缓存
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/ ./apps/
+COPY packages/ ./packages/
+COPY domains/ ./domains/
+COPY usecases/ ./usecases/
+
+RUN corepack enable && pnpm install --frozen-lockfile
+
+# 2. 构建目标前端（edn client 直接引 api 源码, 无需先构建后端）
+RUN pnpm --filter @epinfresh/${APP} build
+
+FROM nginx:1.27-alpine AS prod
+ARG APP
+ENV APP=$APP
+COPY --from=build /app/apps/${APP}/dist /usr/share/nginx/html
+COPY nginx-web.template /etc/nginx/templates/default.conf.template
+
+EXPOSE 80
+
+# nginx 官方镜像入口自动对 /etc/nginx/templates/*.template 做 envsubst (API_UPSTREAM)

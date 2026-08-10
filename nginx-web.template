@@ -1,0 +1,34 @@
+# 与 Vite dev 相同的分流逻辑: 带 Accept: text/html 的请求是 SPA 导航, 其余反代 API
+map $http_accept $api_request {
+    default 1;
+    ~*text/html 0;
+}
+
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        if ($api_request) {
+            error_page 418 = @api;
+            return 418;
+        }
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Vite 产物固定在 /assets/, 静态直出不走反代
+    location /assets/ {
+        try_files $uri =404;
+    }
+
+    location @api {
+        proxy_pass ${API_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

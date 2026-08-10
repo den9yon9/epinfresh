@@ -106,6 +106,46 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  storefront-web:
+    build:
+      context: ..
+      dockerfile: Dockerfile.web
+      args:
+        APP: storefront-web
+    environment:
+      API_UPSTREAM: http://storefront-api:3000
+    ports:
+      - '8080:80'
+    depends_on:
+      storefront-api:
+        condition: service_started
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  admin-web:
+    build:
+      context: ..
+      dockerfile: Dockerfile.web
+      args:
+        APP: admin-web
+    environment:
+      API_UPSTREAM: http://admin-api:3001
+    ports:
+      - '8081:80'
+    depends_on:
+      admin-api:
+        condition: service_started
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   pgdata:
   redisdata:
