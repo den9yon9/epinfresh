@@ -8,6 +8,7 @@ import {
   loginUser,
   registerUser,
   requestPasswordReset,
+  updateUser,
 } from './service'
 
 let db: Db
@@ -61,6 +62,36 @@ describe('loginUser', () => {
     const result = await loginUser({ email: 'nobody@example.com', password: 'secret123' }, db)
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('LOGIN_FAILED')
+  })
+
+  test('returns ACCOUNT_DISABLED for disabled user', async () => {
+    const user = await registerUser(
+      { name: 'Bob', email: 'bob@example.com', password: 'secret123' },
+      db,
+    )
+    await updateUser(user.id, { isActive: false }, db)
+    const result = await loginUser({ email: 'bob@example.com', password: 'secret123' }, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('ACCOUNT_DISABLED')
+  })
+})
+
+describe('updateUser', () => {
+  test('updates role and isActive', async () => {
+    const user = await registerUser(
+      { name: 'Carol', email: 'carol@example.com', password: 'secret123' },
+      db,
+    )
+    const updated = await updateUser(user.id, { role: 'admin', isActive: false }, db)
+    expect(updated.isOk()).toBe(true)
+    expect(updated._unsafeUnwrap().role).toBe('admin')
+    expect(updated._unsafeUnwrap().isActive).toBe(false)
+  })
+
+  test('returns USER_NOT_FOUND for missing user', async () => {
+    const result = await updateUser('00000000-0000-4000-8000-000000000000', { isActive: false }, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('USER_NOT_FOUND')
   })
 })
 

@@ -32,6 +32,8 @@ export function createAuthRoutes(plugins: AdminPlugins) {
             switch (code) {
               case 'LOGIN_FAILED':
                 return status(401, { error: code, message: 'Invalid email or password' })
+              case 'ACCOUNT_DISABLED':
+                return status(403, { error: code, message: 'Account is disabled' })
               default:
                 return assertNever(code)
             }
@@ -51,7 +53,7 @@ export function createAuthRoutes(plugins: AdminPlugins) {
           tags: ['Auth'],
           summary: '管理员登录',
           description:
-            '管理员登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 仅 admin 角色可登录，否则返回 403\n- 限流：60 秒内最多 10 次尝试',
+            '管理员登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 仅 admin 角色可登录，否则返回 403\n- 账号被禁用返回 403\n- 限流：60 秒内最多 10 次尝试',
         },
       },
     )

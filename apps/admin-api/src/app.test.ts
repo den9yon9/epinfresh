@@ -193,6 +193,61 @@ describe('admin guard', () => {
   })
 })
 
+describe('admin user management', () => {
+  async function adminCookie(): Promise<string> {
+    await seedUser('admin@example.com', 'admin')
+    return (await login('admin@example.com')).cookie
+  }
+
+  test('disables a user and kicks their sessions', async () => {
+    const cookie = await adminCookie()
+    const user = await seedUser('bob@example.com', 'customer')
+
+    // bob 的会话 (customer 角色走 /auth/me 只要求 isAuth, 可作会话存活性探针)
+    const bobCookie = await forgeSessionCookie(user.id, 'customer')
+    const before = await api.auth.me.get({ fetch: { headers: { cookie: bobCookie } } })
+    expect(before.status).toBe(200)
+
+    const res = await api.admin
+      .users({ id: user.id })
+      .patch({ isActive: false } as never, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(200)
+
+    const after = await api.auth.me.get({ fetch: { headers: { cookie: bobCookie } } })
+    expect(after.status).toBe(401)
+  })
+
+  test('updates role to admin', async () => {
+    const cookie = await adminCookie()
+    const user = await seedUser('carol@example.com', 'customer')
+
+    const res = await api.admin
+      .users({ id: user.id })
+      .patch({ role: 'admin' } as never, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(200)
+    if (res.error !== null) throw res.error
+    expect(res.data.role).toBe('admin')
+  })
+
+  test('rejects modifying own account with 400', async () => {
+    const admin = await seedUser('admin@example.com', 'admin')
+    const { cookie } = await login('admin@example.com')
+
+    const res = await api.admin
+      .users({ id: admin.id })
+      .patch({ role: 'customer' } as never, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(400)
+  })
+
+  test('returns 404 for unknown user', async () => {
+    const cookie = await adminCookie()
+    const res = await api.admin
+      .users({ id: '00000000-0000-4000-8000-000000000000' })
+      .patch({ isActive: false } as never, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('order status transitions', () => {
   async function adminCookie(): Promise<string> {
     await seedUser('admin@example.com', 'admin')

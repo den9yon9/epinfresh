@@ -116,6 +116,7 @@ export interface SessionStore {
   create(session: Session): Promise<string>
   read(sessionId: string): Promise<Session | null>
   destroy(sessionId: string): Promise<void>
+  destroyAllForUser(userId: string): Promise<void>
 }
 
 export function createSessionStore(redis: Redis): SessionStore {
@@ -132,6 +133,18 @@ export function createSessionStore(redis: Redis): SessionStore {
     async destroy(sessionId) {
       if (!sessionId) return
       await redis.del(`session:${sessionId}`)
+    },
+    // ponytail: O(n) 全量 scanStream, 会话量为百千级毫秒完成;
+    // 会话量大到需要每次登录 SADD 维护 per-user 索引时再换 Set 方案
+    async destroyAllForUser(userId) {
+      const keys: string[] = []
+      for await (const chunk of redis.scanStream({ match: 'session:*' })) {
+        for (const key of chunk) {
+          const raw = await redis.get(key)
+          if (parseSession(raw)?.userId === userId) keys.push(key)
+        }
+      }
+      if (keys.length > 0) await redis.del(keys)
     },
   }
 }

@@ -5,5 +5,6 @@ export {
   loginUser,
   registerUser,
   requestPasswordReset,
+  updateUser,
 } from './service'
 export type { UserRole } from '@epinfresh/database'

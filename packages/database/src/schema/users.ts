@@ -1,4 +1,13 @@
-import { index, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  index,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core'
 
 export const USER_ROLE = ['customer', 'admin'] as const
 export type UserRole = (typeof USER_ROLE)[number]
@@ -15,6 +24,7 @@ export const users = pgTable(
     phone: varchar('phone', { length: 50 }),
     avatar: text('avatar'),
     role: userRole('role').default('customer').notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .defaultNow()

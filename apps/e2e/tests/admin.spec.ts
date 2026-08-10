@@ -147,11 +147,44 @@ test('分类: 新建 → 列表可见 → 删除', async ({ page }) => {
   await expect(page.getByText(name)).toHaveCount(0)
 })
 
-test('用户列表渲染管理员账号', async ({ page }) => {
+test('用户列表渲染管理员账号与操作列', async ({ page }) => {
   await login(page)
 
   await page.getByRole('navigation').getByText('用户').click()
   await expect(page).toHaveURL(/\/users(\?page=1)?$/)
   await expect(page.getByRole('cell', { name: 'admin@example.com' })).toBeVisible()
-  await expect(page.getByText('管理员')).toBeVisible()
+  await expect(page.getByText('管理员', { exact: true }).first()).toBeVisible()
+  // 操作列: 角色切换 + 禁用按钮 (深层逻辑由 admin-api 集成测试覆盖)
+  await expect(page.getByRole('button', { name: '禁用' }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: '设为管理员' }).first()).toBeVisible()
+})
+
+test('禁用用户: 状态徽章变更', async ({ page, request }) => {
+  const email = `disabled-${Date.now()}@example.com`
+  const res = await request.post('http://localhost:3000/auth/register', {
+    data: { name: 'E2E 禁用', email, password: 'password123' },
+  })
+  expect(res.ok()).toBe(true)
+
+  await login(page)
+  await page.getByRole('navigation').getByText('用户').click()
+  await expect(page).toHaveURL(/\/users(\?page=1)?$/)
+  // 列表按 createdAt 升序, 新用户在最末页; 直接按页码访问直到找到目标行
+  let row = page.getByRole('row').filter({ hasText: email })
+  for (let i = 1; i <= 30 && (await row.count()) === 0; i++) {
+    await page.goto(`/users?page=${i}`)
+    await expect(page.getByText(/下一页|上一页/).first()).toBeVisible()
+    row = page.getByRole('row').filter({ hasText: email })
+  }
+  await expect(row).toBeVisible()
+  await expect(row.getByText('正常')).toBeVisible()
+
+  page.once('dialog', (dialog) => void dialog.accept())
+  await row.getByRole('button', { name: '禁用' }).click()
+  await expect(row.getByText('已禁用')).toBeVisible()
+
+  const relogin = await request.post('http://localhost:3000/auth/login', {
+    data: { email, password: 'password123' },
+  })
+  expect(relogin.status()).toBe(403)
 })

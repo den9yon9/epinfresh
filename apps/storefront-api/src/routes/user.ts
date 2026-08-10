@@ -64,6 +64,8 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
             switch (code) {
               case 'LOGIN_FAILED':
                 return status(401, { error: code, message: 'Invalid email or password' })
+              case 'ACCOUNT_DISABLED':
+                return status(403, { error: code, message: 'Account is disabled' })
               default:
                 return assertNever(code)
             }
@@ -74,12 +76,12 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
         body: UserModel.LoginInputSchema,
         // ponytail: 10/分 在 e2e 并行(mobile+desktop 共享 IP)下不足, 放宽到 20/分
         rateLimit: { limit: 20, window: '60s' },
-        response: { 200: UserModel.UserResponseSchema, 401: ErrorResponse },
+        response: { 200: UserModel.UserResponseSchema, 401: ErrorResponse, 403: ErrorResponse },
         detail: {
           tags: ['Auth'],
           summary: '登录',
           description:
-            '邮箱密码登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 限流：60 秒内最多 10 次尝试',
+            '邮箱密码登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 账号被禁用返回 403\n- 限流：60 秒内最多 10 次尝试',
         },
       },
     )

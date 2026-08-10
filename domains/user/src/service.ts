@@ -5,7 +5,12 @@ import { err, hashPassword, ok, type Result, verifyPassword } from '@epinfresh/s
 import type { Static } from '@sinclair/typebox'
 import { count, eq } from 'drizzle-orm'
 
-import type { LoginInputSchema, RegisterInputSchema, UserListQuerySchema } from './model'
+import type {
+  LoginInputSchema,
+  RegisterInputSchema,
+  UpdateUserInputSchema,
+  UserListQuerySchema,
+} from './model'
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000
 
@@ -86,7 +91,22 @@ export async function loginUser(input: Static<typeof LoginInputSchema>, client: 
   }
   const valid = await verifyPassword(input.password, user.passwordHash)
   if (!valid) return err('LOGIN_FAILED')
+  if (!user.isActive) return err('ACCOUNT_DISABLED')
   return ok(user)
+}
+
+export async function updateUser(
+  id: string,
+  input: Static<typeof UpdateUserInputSchema>,
+  client: DbClient,
+): Promise<Result<typeof schema.users.$inferSelect, 'USER_NOT_FOUND'>> {
+  const [updated] = await client
+    .update(schema.users)
+    .set(input)
+    .where(eq(schema.users.id, id))
+    .returning()
+  if (!updated) return err('USER_NOT_FOUND')
+  return ok(updated)
 }
 
 export async function getUserById(id: string, client: DbClient) {

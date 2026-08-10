@@ -1,4 +1,4 @@
-import { emailSchema, table } from '@epinfresh/database'
+import { emailSchema, table, USER_ROLE } from '@epinfresh/database'
 import { PaginatedResponse, PaginationQuery } from '@epinfresh/shared'
 import { Type } from '@sinclair/typebox'
 
@@ -15,6 +15,11 @@ export const RegisterInputSchema = Type.Intersect([
 export const LoginInputSchema = Type.Object({
   email: emailSchema,
   password: Type.String(),
+})
+
+export const UpdateUserInputSchema = Type.Object({
+  role: Type.Optional(Type.Union(USER_ROLE.map((r) => Type.Literal(r)))),
+  isActive: Type.Optional(Type.Boolean()),
 })
 
 export const ForgotPasswordInputSchema = Type.Object({
