@@ -80,6 +80,37 @@ jobs:
           DATABASE_URL: postgres://epinfresh:epinfresh@localhost:5432/epinfresh
           NODE_ENV: test
 
+      - name: Prepare .env for e2e
+        run: |
+          cat > .env <<'EOF'
+          DATABASE_URL=postgres://epinfresh:epinfresh@localhost:5432/epinfresh
+          REDIS_URL=redis://localhost:6379
+          SESSION_SECRET=test-session-secret-0123456789abcdef
+          LOG_LEVEL=silent
+          CORS_ORIGIN=*
+          TRUST_PROXY=false
+          ADMIN_EMAIL=admin@example.com
+          ADMIN_PASSWORD=admin123456
+          STOREFRONT_PORT=3000
+          ADMIN_PORT=3001
+          TESTING_DATABASE_URL=postgres://epinfresh:epinfresh@localhost:5432/epinfresh_test
+          TESTING_REDIS_URL=redis://localhost:6379/1
+          TESTING_SESSION_SECRET=test-session-secret-0123456789abcdef
+          EOF
+
+      - name: Seed admin and fixtures
+        run: |
+          pnpm --filter @epinfresh/database db:seed
+          pnpm --filter @epinfresh/database db:fixtures
+
+      - name: Install Playwright browser
+        run: pnpm --filter @epinfresh/e2e exec playwright install --with-deps chromium
+
+      - name: Run e2e
+        run: pnpm e2e
+        env:
+          NODE_ENV: test
+
       - name: Build & smoke test docker image
         run: |
           docker build --build-arg APP=storefront-api -t epinfresh-smoke .
