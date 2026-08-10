@@ -7,20 +7,26 @@ import { api } from '../../libs/api/client'
 export const Route = createFileRoute('/orders/$id')({
   staticData: { title: '订单详情', showBack: true },
   loader: async ({ params }) => {
-    const res = await api.orders({ id: params.id }).get()
-    if (res.error && res.error.status === 401) {
+    const [orderRes, paymentsRes] = await Promise.all([
+      api.orders({ id: params.id }).get(),
+      api.orders({ id: params.id }).payments.get(),
+    ])
+    if (orderRes.error && orderRes.error.status === 401) {
       throw redirect({ to: '/login', search: { redirectTo: `/orders/${params.id}` } })
     }
-    if (res.error) {
-      throw new Error(res.error.status === 404 ? '订单不存在' : '订单加载失败，请稍后重试')
+    if (orderRes.error) {
+      throw new Error(orderRes.error.status === 404 ? '订单不存在' : '订单加载失败，请稍后重试')
     }
-    return res.data
+    return {
+      order: orderRes.data,
+      payments: paymentsRes.error === null ? paymentsRes.data.items : [],
+    }
   },
   component: OrderDetailPage,
 })
 
 function OrderDetailPage() {
-  const order = Route.useLoaderData()
+  const { order, payments } = Route.useLoaderData()
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -85,6 +91,28 @@ function OrderDetailPage() {
         <p className="text-sm text-gray-600">{order.shippingAddress}</p>
       </section>
 
+      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-base font-semibold text-gray-900">支付记录</h2>
+        {payments.length === 0 ? (
+          <p className="py-4 text-center text-gray-400">暂无支付记录</p>
+        ) : (
+          <div className="flex flex-col divide-y divide-gray-100">
+            {payments.map((p) => (
+              <div key={p.id} className="flex items-center justify-between py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900">
+                    ¥{p.amount}
+                    <span className="ml-2 text-xs font-normal text-gray-400">{p.provider}</span>
+                  </p>
+                  <p className="text-xs text-gray-500">{new Date(p.createdAt).toLocaleString()}</p>
+                </div>
+                <PaymentStatusBadge status={p.status} />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {cancellable && (
@@ -101,5 +129,29 @@ function OrderDetailPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function PaymentStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    pending: 'bg-amber-100 text-amber-700',
+    succeeded: 'bg-green-100 text-green-700',
+    failed: 'bg-red-100 text-red-600',
+    refunded: 'bg-gray-100 text-gray-600',
+    cancelled: 'bg-gray-100 text-gray-600',
+  }
+  const labels: Record<string, string> = {
+    pending: '待支付',
+    succeeded: '已支付',
+    failed: '失败',
+    refunded: '已退款',
+    cancelled: '已取消',
+  }
+  return (
+    <span
+      className={`inline-block shrink-0 rounded-full px-2 py-0.5 text-xs ${styles[status] ?? 'bg-gray-100 text-gray-600'}`}
+    >
+      {labels[status] ?? status}
+    </span>
   )
 }

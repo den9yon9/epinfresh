@@ -442,3 +442,61 @@ describe('admin payments', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('admin categories', () => {
+  async function adminCookie(): Promise<string> {
+    await seedUser('admin@example.com', 'admin')
+    const { cookie } = await login('admin@example.com')
+    return cookie
+  }
+
+  async function seedCategory(name: string, slug: string, parentId?: string) {
+    const [cat] = await db
+      .insert(schema.categories)
+      .values(parentId ? { name, slug, parentId } : { name, slug })
+      .returning()
+    return cat
+  }
+
+  test('updates category name, slug, parent and sortOrder', async () => {
+    const cookie = await adminCookie()
+    const parent = await seedCategory('Food', 'food')
+    const child = await seedCategory('Fruit', 'fruit')
+
+    const res = await api.admin
+      .categories({ id: child.id })
+      .patch(
+        { name: 'Fresh Fruit', slug: 'fresh-fruit', parentId: parent.id, sortOrder: 5 },
+        { fetch: { headers: { cookie } } },
+      )
+    expect(res.status).toBe(200)
+    if (res.error !== null) throw res.error
+    expect(res.data.name).toBe('Fresh Fruit')
+    expect(res.data.slug).toBe('fresh-fruit')
+    expect(res.data.parentId).toBe(parent.id)
+    expect(res.data.sortOrder).toBe(5)
+  })
+
+  test('rejects setting a descendant as parent with 409', async () => {
+    const cookie = await adminCookie()
+    const parent = await seedCategory('Food', 'food')
+    const child = await seedCategory('Fruit', 'fruit', parent.id)
+
+    const res = await api.admin
+      .categories({ id: parent.id })
+      .patch({ parentId: child.id }, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(409)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'CATEGORY_CYCLE' })
+  })
+
+  test('returns 404 for unknown category', async () => {
+    const cookie = await adminCookie()
+    const res = await api.admin
+      .categories({ id: '00000000-0000-4000-8000-000000000000' })
+      .patch({ name: 'Ghost' }, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(404)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'CATEGORY_NOT_FOUND' })
+  })
+})

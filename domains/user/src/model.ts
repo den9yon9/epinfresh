@@ -22,6 +22,12 @@ export const UpdateUserInputSchema = Type.Object({
   isActive: Type.Optional(Type.Boolean()),
 })
 
+export const UpdateProfileInputSchema = Type.Object({
+  name: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+  phone: Type.Optional(Type.String({ maxLength: 50 })),
+  avatar: Type.Optional(Type.String({ maxLength: 5000 })),
+})
+
 export const ForgotPasswordInputSchema = Type.Object({
   email: emailSchema,
 })

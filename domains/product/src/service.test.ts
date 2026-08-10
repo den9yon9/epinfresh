@@ -10,6 +10,7 @@ import {
   reduceProductStock,
   removeCategory,
   restoreProductStock,
+  updateCategory,
   updateProduct,
 } from './service'
 
@@ -242,5 +243,64 @@ describe('removeCategory', () => {
     const category = await createCategory({ name: 'Empty', slug: 'empty' }, db)
     const result = await removeCategory(category.id, db)
     expect(result.isOk()).toBe(true)
+  })
+})
+
+describe('updateCategory', () => {
+  test('updates name, slug, parent and sortOrder', async () => {
+    const parent = await createCategory({ name: 'Food', slug: 'food' }, db)
+    const child = await createCategory({ name: 'Fruit', slug: 'fruit' }, db)
+
+    const updated = await updateCategory(
+      child.id,
+      { name: 'Fresh Fruit', slug: 'fresh-fruit', parentId: parent.id, sortOrder: 3 },
+      db,
+    )
+    expect(updated.isOk()).toBe(true)
+    if (updated.isErr()) throw updated.error
+    expect(updated.value.name).toBe('Fresh Fruit')
+    expect(updated.value.slug).toBe('fresh-fruit')
+    expect(updated.value.parentId).toBe(parent.id)
+    expect(updated.value.sortOrder).toBe(3)
+  })
+
+  test('returns CATEGORY_NOT_FOUND for missing category', async () => {
+    const result = await updateCategory(
+      '00000000-0000-4000-8000-000000000000',
+      { name: 'Ghost' },
+      db,
+    )
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('CATEGORY_NOT_FOUND')
+  })
+
+  test('returns CATEGORY_PARENT_NOT_FOUND for missing parent', async () => {
+    const child = await createCategory({ name: 'Fruit', slug: 'fruit' }, db)
+    const result = await updateCategory(
+      child.id,
+      { parentId: '00000000-0000-4000-8000-000000000000' },
+      db,
+    )
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('CATEGORY_PARENT_NOT_FOUND')
+  })
+
+  test('rejects setting itself as parent', async () => {
+    const cat = await createCategory({ name: 'Fruit', slug: 'fruit' }, db)
+    const result = await updateCategory(cat.id, { parentId: cat.id }, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('CATEGORY_CYCLE')
+  })
+
+  test('rejects setting a descendant as parent', async () => {
+    const parent = await createCategory({ name: 'Food', slug: 'food' }, db)
+    const child = await createCategory({ name: 'Fruit', slug: 'fruit', parentId: parent.id }, db)
+    const grandchild = await createCategory(
+      { name: 'Apple', slug: 'apple', parentId: child.id },
+      db,
+    )
+    const result = await updateCategory(parent.id, { parentId: grandchild.id }, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('CATEGORY_CYCLE')
   })
 })

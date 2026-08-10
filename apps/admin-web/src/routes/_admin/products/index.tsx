@@ -72,6 +72,16 @@ function ProductsPage() {
     router.invalidate()
   }
 
+  async function setProductStatus(id: string, status: 'published' | 'archived') {
+    setError(null)
+    const res = await api.admin.products({ id }).put({ status })
+    if (res.error) {
+      setError(res.error.value.message ?? '操作失败')
+      return
+    }
+    router.invalidate()
+  }
+
   const totalPages = Math.max(1, Math.ceil(products.total / products.pageSize))
 
   return (
@@ -159,6 +169,21 @@ function ProductsPage() {
                       >
                         编辑
                       </Link>
+                      {product.status === 'archived' ? (
+                        <button
+                          onClick={() => setProductStatus(product.id, 'published')}
+                          className="text-brand-600 hover:underline"
+                        >
+                          上架
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setProductStatus(product.id, 'archived')}
+                          className="text-gray-500 hover:underline"
+                        >
+                          归档
+                        </button>
+                      )}
                       <button
                         onClick={() => removeProduct(product.id)}
                         className="text-red-600 hover:underline"

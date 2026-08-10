@@ -3,6 +3,8 @@ import { CreateOrderInputSchema } from '@epinfresh/checkout/model'
 import { getOrderForUser, listOrdersByUser } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { cancelOrder } from '@epinfresh/order-cancel'
+import { listPaymentsByOrder } from '@epinfresh/payment'
+import * as PaymentModel from '@epinfresh/payment/model'
 import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
@@ -124,6 +126,28 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           summary: '取消订单',
           description:
             '取消当前用户的待支付/已支付订单，回滚库存并触发退款。\n\n- 需要登录，且订单必须属于当前用户\n- 订单不存在返回 404\n- 状态不允许取消返回 409',
+        },
+      },
+    )
+    .get(
+      '/orders/:id/payments',
+      async ({ params, session, db }) => {
+        const ownership = await getOrderForUser(session.userId, params.id, db)
+        if (ownership.isErr()) {
+          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+        }
+        const result = await listPaymentsByOrder(params.id, db)
+        return result
+      },
+      {
+        isAuth: true,
+        params: t.Object({ id: t.String({ format: 'uuid' }) }),
+        response: { 200: PaymentModel.PaymentListResponseSchema, 404: ErrorResponse },
+        detail: {
+          tags: ['Orders'],
+          summary: '订单支付记录',
+          description:
+            '获取当前登录用户指定订单的支付记录列表。\n\n- 需要登录，且订单必须属于当前用户\n- 订单不存在或不属于当前用户返回 404',
         },
       },
     )

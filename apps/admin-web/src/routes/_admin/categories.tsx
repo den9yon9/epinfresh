@@ -6,24 +6,32 @@ import { api } from '../../libs/api/client'
 // ponytail: 分类量小, 一页拉完不做分页 UI; 超过 100 个时再加分页
 const PAGE_SIZE = 100
 
+type Category = Awaited<ReturnType<typeof loadCategories>>['items'][number]
+
+async function loadCategories() {
+  const res = await api.admin.categories.get({ query: { page: 1, pageSize: PAGE_SIZE } })
+  if (res.error) throw res.error
+  return res.data
+}
+
 export const Route = createFileRoute('/_admin/categories')({
-  loader: async () => {
-    const res = await api.admin.categories.get({ query: { page: 1, pageSize: PAGE_SIZE } })
-    if (res.error) throw res.error
-    return { categories: res.data }
-  },
+  loader: loadCategories,
   component: CategoriesPage,
 })
 
 function CategoriesPage() {
-  const { categories } = Route.useLoaderData()
+  const categories = Route.useLoaderData()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  const [parentId, setParentId] = useState('')
   const [sortOrder, setSortOrder] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  const rows = buildRows(categories.items)
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
@@ -32,6 +40,7 @@ function CategoriesPage() {
     const res = await api.admin.categories.post({
       name,
       slug,
+      ...(parentId ? { parentId } : {}),
       ...(sortOrder ? { sortOrder: Number(sortOrder) } : {}),
     })
     setSubmitting(false)
@@ -41,6 +50,7 @@ function CategoriesPage() {
     }
     setName('')
     setSlug('')
+    setParentId('')
     setSortOrder('')
     setShowForm(false)
     router.invalidate()
@@ -95,6 +105,20 @@ function CategoriesPage() {
               className={inputCls}
             />
           </Field>
+          <Field label="父级">
+            <select
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">无（顶级）</option>
+              {categories.items.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="排序">
             <input
               type="number"
@@ -122,36 +146,181 @@ function CategoriesPage() {
               <tr className="border-b border-gray-200 text-left text-gray-500">
                 <th className="px-4 py-3 font-medium">名称</th>
                 <th className="px-4 py-3 font-medium">Slug</th>
+                <th className="px-4 py-3 font-medium">父级</th>
                 <th className="px-4 py-3 font-medium">排序</th>
                 <th className="px-4 py-3 font-medium">创建时间</th>
                 <th className="px-4 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
-              {categories.items.map((category) => (
-                <tr key={category.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-4 py-3 font-medium text-gray-900">{category.name}</td>
-                  <td className="px-4 py-3 text-gray-500">{category.slug}</td>
-                  <td className="px-4 py-3">{category.sortOrder}</td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {new Date(category.createdAt).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => remove(category.id)}
-                      className="text-red-600 hover:underline"
-                    >
-                      删除
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {rows.map(({ cat, depth }) =>
+                editingId === cat.id ? (
+                  <CategoryEditRow
+                    key={cat.id}
+                    category={cat}
+                    options={categories.items}
+                    onCancel={() => setEditingId(null)}
+                    onError={setError}
+                    onSaved={() => {
+                      setEditingId(null)
+                      router.invalidate()
+                    }}
+                  />
+                ) : (
+                  <tr key={cat.id} className="border-b border-gray-100 last:border-0">
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      <span style={{ paddingLeft: depth * 20 }} className="inline-block">
+                        {depth > 0 && <span className="mr-2 text-gray-300">└</span>}
+                        {cat.name}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{cat.slug}</td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {parentName(categories.items, cat.parentId)}
+                    </td>
+                    <td className="px-4 py-3">{cat.sortOrder}</td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {new Date(cat.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setEditingId(cat.id)}
+                          className="text-brand-600 hover:underline"
+                        >
+                          编辑
+                        </button>
+                        <button
+                          onClick={() => remove(cat.id)}
+                          className="text-red-600 hover:underline"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ),
+              )}
             </tbody>
           </table>
         </div>
       )}
     </div>
   )
+}
+
+function CategoryEditRow({
+  category,
+  options,
+  onCancel,
+  onError,
+  onSaved,
+}: {
+  category: Category
+  options: Category[]
+  onCancel: () => void
+  onError: (msg: string) => void
+  onSaved: () => void
+}) {
+  const [name, setName] = useState(category.name)
+  const [slug, setSlug] = useState(category.slug)
+  const [parentId, setParentId] = useState(category.parentId ?? '')
+  const [sortOrder, setSortOrder] = useState(String(category.sortOrder))
+  const [saving, setSaving] = useState(false)
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    const res = await api.admin.categories({ id: category.id }).patch({
+      name,
+      slug,
+      ...(parentId ? { parentId } : {}),
+      sortOrder: Number(sortOrder),
+    })
+    setSaving(false)
+    if (res.error) {
+      onError(res.error.value.message ?? '保存失败')
+      return
+    }
+    onSaved()
+  }
+
+  return (
+    <tr className="border-b border-gray-100 bg-brand-50/50 last:border-0">
+      <td className="px-4 py-2">
+        <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+      </td>
+      <td className="px-4 py-2">
+        <input value={slug} onChange={(e) => setSlug(e.target.value)} className={inputCls} />
+      </td>
+      <td className="px-4 py-2">
+        <select value={parentId} onChange={(e) => setParentId(e.target.value)} className={inputCls}>
+          <option value="">无（顶级）</option>
+          {options
+            .filter((c) => c.id !== category.id)
+            .map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+        </select>
+      </td>
+      <td className="px-4 py-2">
+        <input
+          type="number"
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
+          className={`${inputCls} w-20`}
+        />
+      </td>
+      <td className="px-4 py-2 text-gray-500">{new Date(category.createdAt).toLocaleString()}</td>
+      <td className="px-4 py-2">
+        <div className="flex gap-3">
+          <button
+            onClick={save}
+            disabled={saving}
+            className="text-brand-600 hover:underline disabled:opacity-50"
+          >
+            {saving ? '保存中…' : '保存'}
+          </button>
+          <button onClick={onCancel} className="text-gray-500 hover:underline">
+            取消
+          </button>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+function buildRows(categories: Category[]): { cat: Category; depth: number }[] {
+  const byId = new Map(categories.map((c) => [c.id, c]))
+  const children = new Map<string, Category[]>()
+  const roots: Category[] = []
+  for (const c of categories) {
+    if (c.parentId && byId.has(c.parentId)) {
+      const list = children.get(c.parentId) ?? []
+      list.push(c)
+      children.set(c.parentId, list)
+    } else {
+      roots.push(c)
+    }
+  }
+  const orderBySort = (list: Category[]) => [...list].sort((a, b) => a.sortOrder - b.sortOrder)
+  const rows: { cat: Category; depth: number }[] = []
+  const visit = (list: Category[], depth: number) => {
+    for (const c of orderBySort(list)) {
+      rows.push({ cat: c, depth })
+      const kids = children.get(c.id)
+      if (kids) visit(kids, depth + 1)
+    }
+  }
+  visit(orderBySort(roots), 0)
+  return rows
+}
+
+function parentName(categories: Category[], parentId: string | null): string {
+  if (!parentId) return '-'
+  return categories.find((c) => c.id === parentId)?.name ?? '-'
 }
 
 const inputCls =

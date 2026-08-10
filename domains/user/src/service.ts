@@ -8,6 +8,7 @@ import { count, eq } from 'drizzle-orm'
 import type {
   LoginInputSchema,
   RegisterInputSchema,
+  UpdateProfileInputSchema,
   UpdateUserInputSchema,
   UserListQuerySchema,
 } from './model'
@@ -98,6 +99,22 @@ export async function loginUser(input: Static<typeof LoginInputSchema>, client: 
 export async function updateUser(
   id: string,
   input: Static<typeof UpdateUserInputSchema>,
+  client: DbClient,
+): Promise<Result<typeof schema.users.$inferSelect, 'USER_NOT_FOUND'>> {
+  return updateUserById(id, input, client)
+}
+
+export async function updateProfile(
+  id: string,
+  input: Static<typeof UpdateProfileInputSchema>,
+  client: DbClient,
+): Promise<Result<typeof schema.users.$inferSelect, 'USER_NOT_FOUND'>> {
+  return updateUserById(id, input, client)
+}
+
+async function updateUserById(
+  id: string,
+  input: Static<typeof UpdateUserInputSchema> | Static<typeof UpdateProfileInputSchema>,
   client: DbClient,
 ): Promise<Result<typeof schema.users.$inferSelect, 'USER_NOT_FOUND'>> {
   const [updated] = await client

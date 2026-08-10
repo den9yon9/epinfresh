@@ -61,7 +61,12 @@ test('加购 → 建地址 → 结算下单 → 跳转支付页', async ({ page 
   await page.getByRole('button', { name: '确认支付' }).click()
   await expect(page.getByText('支付成功', { exact: true })).toBeVisible()
   await expect(page.getByText(total!, { exact: true }).first()).toBeVisible()
-  await expect(page.getByRole('link', { name: '查看订单' })).toBeVisible()
+
+  // 进入订单详情: 支付记录区显示已支付 (订单徽章与支付徽章同文案, 取第一个)
+  await page.getByRole('link', { name: '查看订单' }).click()
+  await expect(page).toHaveURL(/\/orders\/[0-9a-f-]{36}$/)
+  await expect(page.getByText('支付记录')).toBeVisible()
+  await expect(page.getByText('已支付').first()).toBeVisible()
 
   expect(pageErrors).toEqual([])
   expect(errors).toEqual([])

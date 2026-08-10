@@ -8,6 +8,7 @@ import {
   loginUser,
   registerUser,
   requestPasswordReset,
+  updateProfile,
   updateUser,
 } from './service'
 
@@ -90,6 +91,45 @@ describe('updateUser', () => {
 
   test('returns USER_NOT_FOUND for missing user', async () => {
     const result = await updateUser('00000000-0000-4000-8000-000000000000', { isActive: false }, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('USER_NOT_FOUND')
+  })
+})
+
+describe('updateProfile', () => {
+  test('updates name, phone and avatar', async () => {
+    const user = await registerUser(
+      { name: 'Carol', email: 'carol@example.com', password: 'secret123' },
+      db,
+    )
+    const updated = await updateProfile(
+      user.id,
+      { name: 'Carol 2', phone: '13800000000', avatar: 'https://img.example.com/c.png' },
+      db,
+    )
+    expect(updated.isOk()).toBe(true)
+    expect(updated._unsafeUnwrap().name).toBe('Carol 2')
+    expect(updated._unsafeUnwrap().phone).toBe('13800000000')
+    expect(updated._unsafeUnwrap().avatar).toBe('https://img.example.com/c.png')
+  })
+
+  test('cannot touch role or isActive', async () => {
+    const user = await registerUser(
+      { name: 'Carol', email: 'carol@example.com', password: 'secret123' },
+      db,
+    )
+    const updated = await updateProfile(user.id, { name: 'Carol 2' }, db)
+    if (updated.isErr()) throw updated.error
+    expect(updated.value.role).toBe('customer')
+    expect(updated.value.isActive).toBe(true)
+  })
+
+  test('returns USER_NOT_FOUND for missing user', async () => {
+    const result = await updateProfile(
+      '00000000-0000-4000-8000-000000000000',
+      { name: 'Ghost' },
+      db,
+    )
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('USER_NOT_FOUND')
   })

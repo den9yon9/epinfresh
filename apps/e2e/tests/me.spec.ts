@@ -38,8 +38,17 @@ test('我的页: 用户信息与功能入口', async ({ page }) => {
   await page.getByRole('link', { name: /收货地址/ }).click()
   await expect(page).toHaveURL(/\/addresses$/)
 
-  // 退出登录 → 首页显示登录
+  // 编辑资料 → 保存后回到展示态, 新资料即时生效
   await page.goto('/me')
+  await page.getByRole('button', { name: '编辑资料' }).click()
+  await page.getByLabel('姓名').fill('新昵称')
+  await page.getByLabel('手机号').fill('13800000000')
+  await page.getByRole('button', { name: '保存' }).click()
+  await expect(page.getByRole('button', { name: '编辑资料' })).toBeVisible()
+  await expect(page.getByText('新昵称').first()).toBeVisible()
+  await expect(page.getByText('13800000000')).toBeVisible()
+
+  // 退出登录 → 首页显示登录
   await page.getByRole('button', { name: '退出登录' }).click()
   await expect(page).toHaveURL(/\/\?page=1$/)
   await expect(page.getByRole('link', { name: '登录' })).toBeVisible()

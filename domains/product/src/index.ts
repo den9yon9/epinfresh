@@ -11,5 +11,6 @@ export {
   removeCategory,
   removeProduct,
   restoreProductStock,
+  updateCategory,
   updateProduct,
 } from './service'

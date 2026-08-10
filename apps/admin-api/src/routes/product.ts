@@ -6,6 +6,7 @@ import {
   listCategories,
   removeCategory,
   removeProduct,
+  updateCategory,
   updateProduct,
 } from '@epinfresh/product'
 import * as ProductModel from '@epinfresh/product/model'
@@ -166,6 +167,43 @@ export function createProductRoutes(plugins: AdminPlugins) {
           summary: '删除分类',
           description:
             '删除商品分类。\n\n- 需要 admin 角色\n- 成功返回 204 无返回体\n- 分类不存在返回 404\n- 分类下仍有商品返回 409',
+        },
+      },
+    )
+    .patch(
+      '/categories/:id',
+      async ({ params, body, db }) => {
+        const result = await updateCategory(params.id, body, db)
+        return result.match(
+          (category) => category,
+          (code) => {
+            switch (code) {
+              case 'CATEGORY_NOT_FOUND':
+                return status(404, { error: code, message: 'Category not found' })
+              case 'CATEGORY_PARENT_NOT_FOUND':
+                return status(404, { error: code, message: 'Parent category not found' })
+              case 'CATEGORY_CYCLE':
+                return status(409, { error: code, message: 'Cannot set a descendant as parent' })
+              default:
+                return assertNever(code)
+            }
+          },
+        )
+      },
+      {
+        isAdmin: true,
+        params: t.Object({ id: t.String({ format: 'uuid' }) }),
+        body: ProductModel.UpdateCategoryInputSchema,
+        response: {
+          200: ProductModel.CategoryResponseSchema,
+          404: ErrorResponse,
+          409: ErrorResponse,
+        },
+        detail: {
+          tags: ['Admin/Categories'],
+          summary: '更新分类',
+          description:
+            '更新分类的名称、Slug、父级与排序。\n\n- 需要 admin 角色\n- 分类或父级不存在返回 404\n- 设置自身/子孙为父级返回 409',
         },
       },
     )

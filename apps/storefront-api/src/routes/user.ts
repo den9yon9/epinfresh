@@ -6,6 +6,7 @@ import {
   loginUser,
   registerUser,
   requestPasswordReset,
+  updateProfile,
 } from '@epinfresh/user'
 import { EMAIL_JOB_NAMES } from '@epinfresh/user/jobs'
 import * as UserModel from '@epinfresh/user/model'
@@ -180,6 +181,33 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
           tags: ['Auth'],
           summary: '当前用户信息',
           description: '获取当前登录用户的信息。\n\n- 需要登录\n- 用户不存在返回 404',
+        },
+      },
+    )
+    .patch(
+      '/me',
+      async ({ body, session, db }) => {
+        const result = await updateProfile(session.userId, body, db)
+        return result.match(
+          (user) => user,
+          (code) => {
+            switch (code) {
+              case 'USER_NOT_FOUND':
+                return status(404, { error: code, message: 'User not found' })
+              default:
+                return assertNever(code)
+            }
+          },
+        )
+      },
+      {
+        isAuth: true,
+        body: UserModel.UpdateProfileInputSchema,
+        response: { 200: UserModel.UserResponseSchema, 404: ErrorResponse },
+        detail: {
+          tags: ['Auth'],
+          summary: '更新个人资料',
+          description: '更新当前登录用户的姓名、手机号、头像。\n\n- 需要登录\n- 用户不存在返回 404',
         },
       },
     )

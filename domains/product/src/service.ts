@@ -8,6 +8,7 @@ import type {
   CreateCategoryInputSchema,
   CreateProductInputSchema,
   ProductListQuerySchema,
+  UpdateCategoryInputSchema,
   UpdateProductInputSchema,
 } from './model'
 
@@ -237,6 +238,49 @@ export async function createCategory(
 ) {
   const [cat] = await client.insert(schema.categories).values(input).returning()
   return cat
+}
+
+export async function updateCategory(
+  id: string,
+  input: Static<typeof UpdateCategoryInputSchema>,
+  client: DbClient,
+): Promise<
+  Result<
+    typeof schema.categories.$inferSelect,
+    'CATEGORY_NOT_FOUND' | 'CATEGORY_PARENT_NOT_FOUND' | 'CATEGORY_CYCLE'
+  >
+> {
+  return client.transaction(async (tx) => {
+    const [cat] = await tx.select().from(schema.categories).where(eq(schema.categories.id, id))
+    if (!cat) return err('CATEGORY_NOT_FOUND')
+
+    if (input.parentId !== undefined) {
+      const [parent] = await tx
+        .select()
+        .from(schema.categories)
+        .where(eq(schema.categories.id, input.parentId))
+      if (!parent) return err('CATEGORY_PARENT_NOT_FOUND')
+      // 父级不能是自己或自己的子孙; 沿 parentId 向上回溯遇到 id 即成环
+      let current: string | null = input.parentId
+      const visited = new Set<string>()
+      while (current) {
+        if (current === id || visited.has(current)) return err('CATEGORY_CYCLE')
+        visited.add(current)
+        const [row] = await tx
+          .select()
+          .from(schema.categories)
+          .where(eq(schema.categories.id, current))
+        current = row?.parentId ?? null
+      }
+    }
+
+    const [updated] = await tx
+      .update(schema.categories)
+      .set(input)
+      .where(eq(schema.categories.id, id))
+      .returning()
+    return ok(updated)
+  })
 }
 
 export async function removeCategory(id: string, client: DbClient) {

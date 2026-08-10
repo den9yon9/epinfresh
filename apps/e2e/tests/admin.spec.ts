@@ -124,6 +124,35 @@ test('商品编辑改价 → 列表最低价变化 → 删除商品', async ({ p
   await expect(page.getByText(name)).toHaveCount(0)
 })
 
+test('商品归档与上架切换', async ({ page }) => {
+  await login(page)
+
+  await page.getByRole('navigation').getByText('商品').click()
+  await page.getByRole('link', { name: '新建商品' }).click()
+  const suffix = Date.now()
+  const name = `归档测试-${suffix}`
+  await page.getByLabel('名称').first().fill(name)
+  await page.getByLabel('Slug').fill(`archive-prod-${suffix}`)
+  await page.getByLabel('名称').nth(1).fill('1kg')
+  await page.getByLabel('SKU 编码').fill(`ARCHIVE-${suffix}`)
+  await page.getByLabel('价格（元）').fill('9.9')
+  await page.getByRole('button', { name: '创建商品' }).click()
+
+  const row = await findProductRow(page, name)
+
+  // 一键归档 → 状态徽章变为已归档, 操作列变为上架
+  await row.getByRole('button', { name: '归档' }).click()
+  const archivedRow = await findProductRow(page, name)
+  await expect(archivedRow.getByText('已归档')).toBeVisible()
+  await expect(archivedRow.getByRole('button', { name: '上架' })).toBeVisible()
+
+  // 一键上架 → 状态徽章回到已上架
+  await archivedRow.getByRole('button', { name: '上架' }).click()
+  const publishedRow = await findProductRow(page, name)
+  await expect(publishedRow.getByText('已上架')).toBeVisible()
+  await expect(publishedRow.getByRole('button', { name: '归档' })).toBeVisible()
+})
+
 test('分类: 新建 → 列表可见 → 删除', async ({ page }) => {
   await login(page)
 
@@ -145,6 +174,46 @@ test('分类: 新建 → 列表可见 → 删除', async ({ page }) => {
     .getByRole('button', { name: '删除' })
     .click()
   await expect(page.getByText(name)).toHaveCount(0)
+})
+
+test('分类: 编辑改名并设置父级', async ({ page }) => {
+  await login(page)
+
+  await page.getByRole('navigation').getByText('分类').click()
+  await expect(page).toHaveURL(/\/categories/)
+
+  const suffix = Date.now()
+  const parentName = `父类-${suffix}`
+  const childName = `子类-${suffix}`
+
+  // 新建父分类
+  await page.getByRole('button', { name: '新建分类' }).click()
+  await page.getByLabel('名称').fill(parentName)
+  await page.getByLabel('Slug').fill(`parent-${suffix}`)
+  await page.getByRole('button', { name: '创建', exact: true }).click()
+  await expect(page.getByText(parentName)).toBeVisible()
+
+  // 新建子分类
+  await page.getByRole('button', { name: '新建分类' }).click()
+  await page.getByLabel('名称').fill(childName)
+  await page.getByLabel('Slug').fill(`child-${suffix}`)
+  await page.getByRole('button', { name: '创建', exact: true }).click()
+  await expect(page.getByText(childName)).toBeVisible()
+
+  // 编辑子分类: 改名 + 设置父级 (进入编辑态后名字在 input value 而非文本, 用保存按钮定位编辑行)
+  await page
+    .getByRole('row', { name: new RegExp(childName) })
+    .getByRole('button', { name: '编辑' })
+    .click()
+  const editRow = page.getByRole('row').filter({ has: page.getByRole('button', { name: '保存' }) })
+  await editRow.getByRole('textbox').first().fill('改名子类')
+  await editRow.getByRole('combobox').selectOption({ label: parentName })
+  await editRow.getByRole('button', { name: '保存' }).click()
+
+  // 保存后: 新名可见, 父级列显示父分类, 旧名消失
+  const renamedRow = page.getByRole('row').filter({ hasText: '改名子类' })
+  await expect(renamedRow.getByText(parentName)).toBeVisible()
+  await expect(renamedRow.getByText(childName)).toHaveCount(0)
 })
 
 test('用户列表渲染管理员账号与操作列', async ({ page }) => {

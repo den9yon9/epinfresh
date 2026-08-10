@@ -45,6 +45,13 @@ export const CreateCategoryInputSchema = Type.Omit(table.insert.category, [
   'updatedAt',
 ])
 
+export const UpdateCategoryInputSchema = Type.Object({
+  name: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+  slug: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+  parentId: Type.Optional(Type.String({ format: 'uuid' })),
+  sortOrder: Type.Optional(Type.Integer()),
+})
+
 export { ProductResponseSchema }
 export const ProductListResponseSchema = PaginatedResponse(ProductResponseSchema)
 export const CategoryResponseSchema = table.select.category

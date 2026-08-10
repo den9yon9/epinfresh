@@ -222,6 +222,32 @@ describe('auth', () => {
     const me = await api.auth.me.get({ fetch: { headers: { cookie } } })
     expect(me.status).toBe(401)
   })
+
+  test('patch /me updates profile without touching role', async () => {
+    await seedUser('alice@example.com')
+    const cookie = await loginCookie('alice@example.com')
+
+    const res = await api.auth.me.patch(
+      { name: 'Alice Updated', phone: '13900000000', avatar: 'https://img.example.com/a.png' },
+      { fetch: { headers: { cookie } } },
+    )
+    expect(res.status).toBe(200)
+    if (res.error !== null) throw res.error
+    expect(res.data.name).toBe('Alice Updated')
+    expect(res.data.phone).toBe('13900000000')
+    expect(res.data.avatar).toBe('https://img.example.com/a.png')
+    expect(res.data.role).toBe('customer')
+    expect('passwordHash' in res.data).toBe(false)
+
+    const me = await api.auth.me.get({ fetch: { headers: { cookie } } })
+    if (me.error !== null) throw me.error
+    expect(me.data.name).toBe('Alice Updated')
+  })
+
+  test('patch /me requires authentication', async () => {
+    const res = await api.auth.me.patch({ name: 'Ghost' })
+    expect(res.status).toBe(401)
+  })
 })
 
 describe('addresses', () => {
@@ -722,6 +748,63 @@ describe('payments', () => {
     expect(again.status).toBe(409)
     if (again.error === null) throw new Error('expected error response')
     expect(again.error.value).toMatchObject({ error: 'INVALID_PAYMENT_STATE' })
+  })
+
+  test('lists payment records of own order', async () => {
+    const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const orderRes = await api.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    if (orderRes.error !== null) throw orderRes.error
+    const orderId = orderRes.data.id
+
+    const payRes = await api
+      .orders({ id: orderId })
+      .pay.post({} as never, { fetch: { headers: { cookie } } })
+    if (payRes.error !== null) throw payRes.error
+    const paymentId = payRes.data.id
+    await api
+      .payments({ id: paymentId })
+      .confirm.post({} as never, { fetch: { headers: { cookie } } })
+
+    const res = await api.orders({ id: orderId }).payments.get({ fetch: { headers: { cookie } } })
+    expect(res.status).toBe(200)
+    if (res.error !== null) throw res.error
+    expect(res.data.items).toHaveLength(1)
+    expect(res.data.items[0].id).toBe(paymentId)
+    expect(res.data.items[0].status).toBe('succeeded')
+    expect(res.data.items[0].amount).toBe('5.00')
+  })
+
+  test('payments of another user order returns 404', async () => {
+    const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const orderRes = await api.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    if (orderRes.error !== null) throw orderRes.error
+    const orderId = orderRes.data.id
+
+    const other = await seedUser('bob@example.com')
+    const otherCookie = await loginCookie(other.email)
+    const res = await api
+      .orders({ id: orderId })
+      .payments.get({ fetch: { headers: { cookie: otherCookie } } })
+    expect(res.status).toBe(404)
+  })
+
+  test('payments requires authentication', async () => {
+    const res = await api.orders({ id: '00000000-0000-4000-8000-000000000000' }).payments.get()
+    expect(res.status).toBe(401)
   })
 })
 
