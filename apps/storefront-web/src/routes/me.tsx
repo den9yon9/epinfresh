@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useRouter } from '@tanstack/react-router'
 
 import { getSession, logout, refreshSession, useSession } from '../libs/api/session'
 
@@ -17,6 +17,7 @@ const ENTRIES = [
 ]
 
 function MePage() {
+  const router = useRouter()
   const session = useSession()
 
   if (session === undefined) {
@@ -74,7 +75,7 @@ function MePage() {
       </section>
 
       <button
-        onClick={() => void logout()}
+        onClick={() => void logout().then(() => router.navigate({ to: '/' }))}
         className="rounded-xl border border-gray-200 bg-white py-3 text-sm text-red-600 shadow-sm hover:bg-red-50"
       >
         退出登录

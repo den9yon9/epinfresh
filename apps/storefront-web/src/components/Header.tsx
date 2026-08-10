@@ -56,6 +56,7 @@ export function Header() {
 
 function UserArea() {
   const user = useSession()
+  const router = useRouter()
 
   useEffect(() => {
     void refreshSession()
@@ -75,7 +76,7 @@ function UserArea() {
         {user.name ?? user.email}
       </Link>
       <button
-        onClick={() => void logout()}
+        onClick={() => void logout().then(() => router.navigate({ to: '/' }))}
         className="rounded border border-white/40 px-2 py-0.5 text-xs hover:bg-white/10"
       >
         退出
