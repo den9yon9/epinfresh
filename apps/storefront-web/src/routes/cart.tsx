@@ -4,13 +4,15 @@ import { useState } from 'react'
 import { QuantityStepper } from '../components/QuantityStepper'
 import { Toast } from '../components/Toast'
 import { api } from '../libs/api/client'
+import { clearSessionCache, isUnauthorized } from '../libs/api/session'
 import type { CartItem } from '../libs/api/types'
 
 export const Route = createFileRoute('/cart')({
   staticData: { title: '购物车' },
   loader: async () => {
     const res = await api.cart.get()
-    if (res.error && res.error.status === 401) {
+    if (isUnauthorized(res.error)) {
+      clearSessionCache()
       throw redirect({ to: '/login', search: { redirectTo: '/cart' } })
     }
     if (res.error) {
@@ -41,7 +43,8 @@ function CartPage() {
     const res = await api.cart.items({ skuId: item.sku.id }).put({ quantity })
     setBusySkuId(null)
     if (res.error) {
-      if (res.error.status === 401) {
+      if (isUnauthorized(res.error)) {
+        clearSessionCache()
         void navigate({ to: '/login', search: { redirectTo: '/cart' } })
       } else if (res.error.status === 404) {
         flash('该商品已不在购物车中')
@@ -59,7 +62,8 @@ function CartPage() {
     const res = await api.cart.items({ skuId }).delete()
     setBusySkuId(null)
     if (res.error) {
-      if (res.error.status === 401) {
+      if (isUnauthorized(res.error)) {
+        clearSessionCache()
         void navigate({ to: '/login', search: { redirectTo: '/cart' } })
       } else {
         flash('删除失败，请稍后重试')

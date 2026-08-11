@@ -3,6 +3,7 @@ import * as v from 'valibot'
 
 import { OrderStatusBadge } from '../../components/OrderStatusBadge'
 import { api } from '../../libs/api/client'
+import { clearSessionCache, isUnauthorized } from '../../libs/api/session'
 
 const PAGE_SIZE = 20
 
@@ -35,7 +36,8 @@ export const Route = createFileRoute('/orders/')({
         ...(deps.status ? { status: deps.status } : {}),
       },
     })
-    if (res.error && res.error.status === 401) {
+    if (isUnauthorized(res.error)) {
+      clearSessionCache()
       throw redirect({ to: '/login', search: { redirectTo: '/orders' } })
     }
     if (res.error) {
@@ -57,9 +59,10 @@ function OrdersPage() {
     navigate({ to: '/orders', search: { page: 1, status }, replace: true })
 
   if (orders.items.length === 0) {
+    const statusLabel = STATUS_TABS.find((t) => t.key === search.status)?.label
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-gray-400">
-        <p>还没有订单</p>
+        <p>{statusLabel ? `暂无${statusLabel}订单` : '还没有订单'}</p>
         <Link
           to="/"
           className="rounded-lg bg-brand-600 px-6 py-2 text-sm text-white hover:bg-brand-700"

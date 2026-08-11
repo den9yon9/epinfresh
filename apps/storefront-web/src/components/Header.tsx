@@ -29,10 +29,12 @@ export function Header() {
     return (
       <header className="sticky top-0 z-10 flex h-12 items-center gap-1 border-b border-gray-200 bg-white px-2 md:px-4">
         <button
-          // ponytail: history.length 兜底, 直达详情页时 back 会离开站点; 跨站历史无法感知, 属已知上限
-          onClick={() =>
-            window.history.length > 1 ? router.history.back() : router.navigate({ to: '/' })
-          }
+          // canGoBack 由 TanStack history 的 __TSR_index 判定: 站内导航过才有站内历史可退,
+          // 直达/刷新后 index 归零, 此时回首页而不是离开站点
+          onClick={() => {
+            if (router.history.canGoBack()) router.history.back()
+            else void router.navigate({ to: '/' })
+          }}
           aria-label="返回"
           className="flex h-10 w-10 items-center justify-center text-gray-600"
         >

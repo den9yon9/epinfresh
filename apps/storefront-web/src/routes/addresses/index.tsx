@@ -3,12 +3,14 @@ import { useState } from 'react'
 
 import { Toast } from '../../components/Toast'
 import { api } from '../../libs/api/client'
+import { clearSessionCache, isUnauthorized } from '../../libs/api/session'
 
 export const Route = createFileRoute('/addresses/')({
   staticData: { title: '地址管理', showBack: true },
   loader: async () => {
     const res = await api.addresses.get()
-    if (res.error && res.error.status === 401) {
+    if (isUnauthorized(res.error)) {
+      clearSessionCache()
       throw redirect({ to: '/login', search: { redirectTo: '/addresses' } })
     }
     if (res.error) {

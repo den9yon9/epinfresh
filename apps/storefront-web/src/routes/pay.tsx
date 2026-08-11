@@ -3,6 +3,7 @@ import * as v from 'valibot'
 import { useState } from 'react'
 
 import { api } from '../libs/api/client'
+import { clearSessionCache, isUnauthorized } from '../libs/api/session'
 
 const PaySearchSchema = v.object({
   orderId: v.string(),
@@ -14,7 +15,8 @@ export const Route = createFileRoute('/pay')({
   loaderDeps: ({ search }) => ({ orderId: search.orderId }),
   loader: async ({ deps }) => {
     const res = await api.orders({ id: deps.orderId }).get()
-    if (res.error && res.error.status === 401) {
+    if (isUnauthorized(res.error)) {
+      clearSessionCache()
       throw redirect({ to: '/login', search: { redirectTo: `/pay?orderId=${deps.orderId}` } })
     }
     if (res.error) {

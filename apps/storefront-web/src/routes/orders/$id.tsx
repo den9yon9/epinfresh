@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { OrderStatusBadge } from '../../components/OrderStatusBadge'
 import { api } from '../../libs/api/client'
+import { clearSessionCache, isUnauthorized } from '../../libs/api/session'
 
 export const Route = createFileRoute('/orders/$id')({
   staticData: { title: '订单详情', showBack: true },
@@ -11,7 +12,8 @@ export const Route = createFileRoute('/orders/$id')({
       api.orders({ id: params.id }).get(),
       api.orders({ id: params.id }).payments.get(),
     ])
-    if (orderRes.error && orderRes.error.status === 401) {
+    if (isUnauthorized(orderRes.error) || isUnauthorized(paymentsRes.error)) {
+      clearSessionCache()
       throw redirect({ to: '/login', search: { redirectTo: `/orders/${params.id}` } })
     }
     if (orderRes.error) {
