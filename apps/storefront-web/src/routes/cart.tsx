@@ -2,6 +2,7 @@ import { createFileRoute, Link, redirect, useNavigate, useRouter } from '@tansta
 import { useState } from 'react'
 
 import { QuantityStepper } from '../components/QuantityStepper'
+import { Toast } from '../components/Toast'
 import { api } from '../libs/api/client'
 import type { CartItem } from '../libs/api/types'
 
@@ -31,10 +32,11 @@ function CartPage() {
 
   function flash(msg: string) {
     setNotice(msg)
-    setTimeout(() => setNotice(null), 2500)
   }
 
+  // ponytail: 全局串行锁, 防连点竞态; 并发量上来再改 per-sku 锁
   async function changeQuantity(item: CartItem, quantity: number) {
+    if (busySkuId !== null) return
     setBusySkuId(item.sku.id)
     const res = await api.cart.items({ skuId: item.sku.id }).put({ quantity })
     setBusySkuId(null)
@@ -102,7 +104,7 @@ function CartPage() {
               </button>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-brand-700">¥{item.sku.price}</span>
+              <span className="text-brand-700">¥{Number(item.sku.price).toFixed(2)}</span>
               <QuantityStepper
                 value={item.quantity}
                 min={1}
@@ -114,11 +116,7 @@ function CartPage() {
         </div>
       ))}
 
-      {notice && (
-        <div className="fixed inset-x-0 top-20 z-20 mx-auto w-fit rounded-full bg-gray-900/80 px-4 py-1.5 text-sm text-white">
-          {notice}
-        </div>
-      )}
+      {notice && <Toast message={notice} onDismiss={() => setNotice(null)} />}
 
       <div className="fixed inset-x-0 bottom-14 z-10 border-t border-gray-200 bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">

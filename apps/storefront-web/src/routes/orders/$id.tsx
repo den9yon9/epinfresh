@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { OrderStatusBadge } from '../../components/OrderStatusBadge'
@@ -117,14 +117,25 @@ function OrderDetailPage() {
 
       {cancellable && (
         <div className="fixed inset-x-0 bottom-14 z-10 border-t border-gray-200 bg-white">
-          <div className="mx-auto flex h-16 max-w-6xl items-center justify-end px-4">
-            <button
-              onClick={cancel}
-              disabled={busy}
-              className="rounded-lg border border-red-300 px-8 py-2.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
-            >
-              {busy ? '取消中…' : '取消订单'}
-            </button>
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-end gap-3 px-4">
+            {cancellable && (
+              <button
+                onClick={cancel}
+                disabled={busy}
+                className="rounded-lg border border-red-300 px-8 py-2.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                {busy ? '取消中…' : '取消订单'}
+              </button>
+            )}
+            {order.status === 'pending' && (
+              <Link
+                to="/pay"
+                search={{ orderId: order.id }}
+                className="rounded-lg bg-brand-600 px-8 py-2.5 text-white hover:bg-brand-700"
+              >
+                去支付
+              </Link>
+            )}
           </div>
         </div>
       )}

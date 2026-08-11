@@ -60,7 +60,10 @@ export const CategoryListQuerySchema = PaginationQuery
 
 export const ProductListQuerySchema = Type.Composite([
   PaginationQuery,
-  Type.Object({ categoryId: Type.Optional(Type.String({ format: 'uuid' })) }),
+  Type.Object({
+    categoryId: Type.Optional(Type.String({ format: 'uuid' })),
+    q: Type.Optional(Type.String({ maxLength: 100 })),
+  }),
 ])
 
 export const AdminProductListQuerySchema = Type.Composite([

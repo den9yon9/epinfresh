@@ -11,11 +11,12 @@ const PAGE_SIZE = 10
 const HomeSearchSchema = v.object({
   page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
   categoryId: v.optional(v.string()),
+  q: v.optional(v.string()),
 })
 
 export const Route = createFileRoute('/')({
   validateSearch: HomeSearchSchema,
-  loaderDeps: ({ search }) => ({ page: search.page, categoryId: search.categoryId }),
+  loaderDeps: ({ search }) => ({ page: search.page, categoryId: search.categoryId, q: search.q }),
   loader: async ({ deps }) => {
     const [productsRes, categoriesRes] = await Promise.all([
       api.products.get({
@@ -23,6 +24,7 @@ export const Route = createFileRoute('/')({
           page: deps.page,
           pageSize: PAGE_SIZE,
           ...(deps.categoryId ? { categoryId: deps.categoryId } : {}),
+          ...(deps.q ? { q: deps.q } : {}),
         },
       }),
       api.categories.get({ query: { page: 1, pageSize: 100 } }),
@@ -41,11 +43,11 @@ function HomePage() {
   const page = search.page ?? 1
 
   const selectCategory = (categoryId?: string) =>
-    navigate({ to: '/', search: () => ({ page: 1, categoryId }), replace: true })
+    navigate({ to: '/', search: () => ({ page: 1, categoryId, q: search.q }), replace: true })
   const goPage = (next: number) =>
     navigate({
       to: '/',
-      search: () => ({ page: next, categoryId: search.categoryId }),
+      search: () => ({ page: next, categoryId: search.categoryId, q: search.q }),
       replace: true,
     })
 
@@ -53,13 +55,40 @@ function HomePage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          const q = new FormData(e.currentTarget).get('q') as string
+          navigate({
+            to: '/',
+            search: () => ({ page: 1, q: q.trim() || undefined }),
+            replace: true,
+          })
+        }}
+        className="flex gap-2"
+      >
+        <input
+          name="q"
+          defaultValue={search.q ?? ''}
+          placeholder="搜索商品"
+          className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-brand-500 focus:outline-none"
+        />
+        <button
+          type="submit"
+          className="rounded-lg bg-brand-600 px-6 py-2 text-sm text-white hover:bg-brand-700"
+        >
+          搜索
+        </button>
+      </form>
       <CategoryChips
         categories={categories.items}
         activeId={search.categoryId}
         onSelect={selectCategory}
       />
       {products.items.length === 0 ? (
-        <p className="py-16 text-center text-gray-400">该分类暂无商品</p>
+        <p className="py-16 text-center text-gray-400">
+          {search.q ? `没有找到与「${search.q}」相关的商品` : '该分类暂无商品'}
+        </p>
       ) : (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {products.items.map((p) => (

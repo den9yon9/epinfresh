@@ -1,7 +1,7 @@
 import { type DbClient, schema } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, asc, count, eq, gte, inArray, sql } from 'drizzle-orm'
+import { and, asc, count, eq, gte, ilike, inArray, type SQL, sql } from 'drizzle-orm'
 
 import type {
   AdminProductListQuerySchema,
@@ -13,15 +13,19 @@ import type {
 } from './model'
 
 export async function listAllProducts(
-  query: Static<typeof AdminProductListQuerySchema>,
+  query: Static<typeof AdminProductListQuerySchema> & { q?: string },
   client: DbClient,
 ) {
   const { page, pageSize } = query
   const offset = (page - 1) * pageSize
 
-  const filters: ReturnType<typeof eq>[] = []
+  const filters: SQL[] = []
   if (query.categoryId) filters.push(eq(schema.products.categoryId, query.categoryId))
   if (query.status) filters.push(eq(schema.products.status, query.status))
+  if (query.q) {
+    const pattern = `%${query.q.replace(/[\\%_]/g, '\\$&')}%`
+    filters.push(ilike(schema.products.name, pattern))
+  }
   const where = filters.length > 0 ? and(...filters) : undefined
 
   const items = await client.query.products.findMany({

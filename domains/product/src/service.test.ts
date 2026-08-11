@@ -225,6 +225,22 @@ describe('listPublishedProducts', () => {
     expect(result.total).toBe(1)
     expect(result.items[0].id).toBe(sku.productId)
   })
+
+  test('filters by keyword, ignoring LIKE wildcards in input', async () => {
+    await createProduct(
+      { name: 'Organic Tomato', slug: 'organic-tomato', status: 'published', images: [] },
+      db,
+    )
+    await createProduct(
+      { name: 'Local Cucumber', slug: 'local-cucumber', status: 'published', images: [] },
+      db,
+    )
+    const exact = await listPublishedProducts({ page: 1, pageSize: 20, q: 'tomato' }, db)
+    expect(exact.total).toBe(1)
+    expect(exact.items[0].name).toBe('Organic Tomato')
+    const wildcard = await listPublishedProducts({ page: 1, pageSize: 20, q: '%' }, db)
+    expect(wildcard.total).toBe(0)
+  })
 })
 
 describe('removeCategory', () => {

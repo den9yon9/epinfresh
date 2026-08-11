@@ -1,8 +1,9 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { api } from '../libs/api/client'
 import { QuantityStepper } from '../components/QuantityStepper'
+import { Toast } from '../components/Toast'
 
 export const Route = createFileRoute('/products/$id')({
   staticData: { title: '商品详情', showBack: true },
@@ -26,6 +27,7 @@ function ProductDetailPage() {
 
   const sku = product.skus.find((s) => s.id === selectedSkuId) ?? product.skus[0]
   const image = product.images[0]
+  const added = notice === '已加入购物车'
 
   const addToCart = async () => {
     if (!sku) return
@@ -41,7 +43,6 @@ function ProductDetailPage() {
       return
     }
     setNotice('已加入购物车')
-    setTimeout(() => setNotice(null), 2000)
   }
 
   return (
@@ -97,9 +98,20 @@ function ProductDetailPage() {
       </div>
 
       {notice && (
-        <div className="fixed inset-x-0 top-20 z-20 mx-auto w-fit rounded-full bg-gray-900/80 px-4 py-1.5 text-sm text-white">
-          {notice}
-        </div>
+        <Toast
+          message={notice}
+          onDismiss={() => setNotice(null)}
+          action={
+            added && (
+              <Link
+                to="/cart"
+                className="rounded-full bg-brand-600 px-3 py-0.5 text-xs text-white hover:bg-brand-700"
+              >
+                去结算
+              </Link>
+            )
+          }
+        />
       )}
 
       <div className="fixed inset-x-0 bottom-0 border-t border-gray-200 bg-white p-3">

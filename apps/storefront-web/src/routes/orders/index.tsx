@@ -12,11 +12,15 @@ const STATUS_TABS = [
   { key: 'paid', label: '已支付' },
   { key: 'shipped', label: '已发货' },
   { key: 'completed', label: '已完成' },
+  { key: 'cancelled', label: '已取消' },
+  { key: 'refunded', label: '已退款' },
 ] as const
 
 const OrdersSearchSchema = v.object({
   page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
-  status: v.optional(v.picklist(['pending', 'paid', 'shipped', 'completed'])),
+  status: v.optional(
+    v.picklist(['pending', 'paid', 'shipped', 'completed', 'cancelled', 'refunded']),
+  ),
 })
 
 export const Route = createFileRoute('/orders/')({
@@ -82,23 +86,31 @@ function OrdersPage() {
         ))}
       </div>
       {orders.items.map((order) => (
-        <Link
-          key={order.id}
-          to="/orders/$id"
-          params={{ id: order.id }}
-          className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-        >
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs text-gray-400">
-              {new Date(order.createdAt).toLocaleString()}
-            </span>
-            <OrderStatusBadge status={order.status} />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">{order.recipientName}</span>
-            <span className="font-semibold text-gray-900">¥{order.totalAmount}</span>
-          </div>
-        </Link>
+        <div key={order.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <Link to="/orders/$id" params={{ id: order.id }}>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs text-gray-400">
+                {new Date(order.createdAt).toLocaleString()}
+              </span>
+              <OrderStatusBadge status={order.status} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">{order.recipientName}</span>
+              <span className="font-semibold text-gray-900">¥{order.totalAmount}</span>
+            </div>
+          </Link>
+          {order.status === 'pending' && (
+            <div className="mt-3 flex justify-end border-t border-gray-100 pt-3">
+              <Link
+                to="/pay"
+                search={{ orderId: order.id }}
+                className="rounded-lg bg-brand-600 px-4 py-1.5 text-sm text-white hover:bg-brand-700"
+              >
+                去支付
+              </Link>
+            </div>
+          )}
+        </div>
       ))}
 
       {totalPages > 1 && (

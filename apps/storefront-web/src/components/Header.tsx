@@ -25,7 +25,10 @@ export function Header() {
     return (
       <header className="sticky top-0 z-10 flex h-12 items-center gap-1 border-b border-gray-200 bg-white px-2 md:px-4">
         <button
-          onClick={() => router.history.back()}
+          // ponytail: history.length 兜底, 直达详情页时 back 会离开站点; 跨站历史无法感知, 属已知上限
+          onClick={() =>
+            window.history.length > 1 ? router.history.back() : router.navigate({ to: '/' })
+          }
           aria-label="返回"
           className="flex h-10 w-10 items-center justify-center text-gray-600"
         >

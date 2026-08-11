@@ -1,6 +1,7 @@
 import { createFileRoute, Link, redirect, useNavigate, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 
+import { Toast } from '../../components/Toast'
 import { api } from '../../libs/api/client'
 
 export const Route = createFileRoute('/addresses/')({
@@ -27,7 +28,6 @@ function AddressesPage() {
 
   function flash(msg: string) {
     setNotice(msg)
-    setTimeout(() => setNotice(null), 2500)
   }
 
   async function setDefault(id: string) {
@@ -111,11 +111,7 @@ function AddressesPage() {
         </div>
       ))}
 
-      {notice && (
-        <div className="fixed inset-x-0 top-20 z-20 mx-auto w-fit rounded-full bg-gray-900/80 px-4 py-1.5 text-sm text-white">
-          {notice}
-        </div>
-      )}
+      {notice && <Toast message={notice} onDismiss={() => setNotice(null)} />}
 
       <button
         onClick={() => navigate({ to: '/addresses/new' })}
