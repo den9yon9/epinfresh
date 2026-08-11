@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '../libs/api/client'
 import { QuantityStepper } from '../components/QuantityStepper'
 import { Toast } from '../components/Toast'
+import { clearSessionCache, isUnauthorized } from '../libs/api/session'
 
 export const Route = createFileRoute('/products/$id')({
   staticData: { title: '商品详情', showBack: true },
@@ -35,7 +36,8 @@ function ProductDetailPage() {
     const res = await api.cart.items.post({ skuId: sku.id, quantity })
     setBusy(false)
     if (res.error) {
-      if (res.error.status === 401) {
+      if (isUnauthorized(res.error)) {
+        clearSessionCache()
         void navigate({ to: '/login' })
         return
       }
@@ -116,6 +118,18 @@ function ProductDetailPage() {
 
       <div className="fixed inset-x-0 bottom-0 border-t border-gray-200 bg-white p-3">
         <div className="mx-auto flex max-w-6xl items-center gap-3">
+          <button
+            onClick={() =>
+              void navigate({
+                to: '/checkout',
+                search: { productId: product.id, skuId: sku!.id, qty: quantity },
+              })
+            }
+            disabled={!sku || sku.stock <= 0}
+            className="h-12 w-32 rounded-xl border border-brand-600 bg-white text-base font-semibold text-brand-600 hover:bg-brand-50 disabled:opacity-50"
+          >
+            立即购买
+          </button>
           <button
             onClick={addToCart}
             disabled={busy || !sku || sku.stock <= 0}

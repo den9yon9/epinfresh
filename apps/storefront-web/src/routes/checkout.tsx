@@ -1,20 +1,86 @@
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
+import * as v from 'valibot'
 import { useState } from 'react'
 
 import { api } from '../libs/api/client'
+import { clearSessionCache, isUnauthorized } from '../libs/api/session'
 import type { Address } from '../libs/api/types'
+
+// 直接购买: 从商品详情页带 skuId/qty 直达结算, 不经过购物车
+const BuySearchSchema = v.object({
+  productId: v.optional(v.string()),
+  skuId: v.optional(v.string()),
+  qty: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(9999))),
+})
 
 export const Route = createFileRoute('/checkout')({
   staticData: { title: '结算', showBack: true },
-  loader: async () => {
-    const [cartRes, addressesRes] = await Promise.all([api.cart.get(), api.addresses.get()])
-    if (cartRes.error && cartRes.error.status === 401) {
+  validateSearch: BuySearchSchema,
+  loaderDeps: ({ search }) => ({
+    productId: search.productId,
+    skuId: search.skuId,
+    qty: search.qty,
+  }),
+  loader: async ({ deps }) => {
+    const directBuy = Boolean(deps.productId && deps.skuId && deps.qty)
+    const [addressesRes, directRes] = await Promise.all([
+      api.addresses.get(),
+      directBuy ? api.products({ id: deps.productId! }).get() : Promise.resolve(null),
+    ])
+    if (isUnauthorized(addressesRes.error) || isUnauthorized(directRes?.error)) {
+      clearSessionCache()
       throw redirect({ to: '/login', search: { redirectTo: '/checkout' } })
     }
-    if (cartRes.error || addressesRes.error) {
+    if (addressesRes.error || directRes?.error) {
       throw new Error('结算信息加载失败，请稍后重试')
     }
-    return { cart: cartRes.data, addresses: addressesRes.data.items }
+
+    type CheckoutItem = {
+      skuId: string
+      name: string
+      productName: string
+      price: number
+      quantity: number
+      image?: string
+    }
+    let cart: { items: CheckoutItem[] }
+    if (directBuy) {
+      // 直接购买: 从产品详情里筛出目标 SKU, 构造与购物车同构的条目
+      const sku = directRes?.data.skus.find((s) => s.id === deps.skuId)
+      if (!sku || !directRes) throw new Error('商品不存在，请重新选择')
+      cart = {
+        items: [
+          {
+            skuId: sku.id,
+            name: sku.name,
+            productName: directRes.data.name,
+            price: Number(sku.price),
+            quantity: deps.qty!,
+            image: directRes.data.images[0],
+          },
+        ],
+      }
+    } else {
+      // 购物车结算
+      const cartRes = await api.cart.get()
+      if (isUnauthorized(cartRes.error)) {
+        clearSessionCache()
+        throw redirect({ to: '/login', search: { redirectTo: '/checkout' } })
+      }
+      if (cartRes.error) throw new Error('结算信息加载失败，请稍后重试')
+      cart = {
+        items: cartRes.data.items.map((item) => ({
+          skuId: item.sku.id,
+          name: item.sku.name,
+          productName: item.product.name,
+          price: Number(item.sku.price),
+          quantity: item.quantity,
+          image: item.product.images[0],
+        })),
+      }
+    }
+
+    return { cart, addresses: addressesRes.data.items }
   },
   component: CheckoutPage,
 })
@@ -29,7 +95,7 @@ function CheckoutPage() {
   // 幂等键: 每次进入结算页生成一次, 防双提交/重试产生重复订单
   const [idempotencyKey] = useState(() => crypto.randomUUID())
 
-  const total = cart.items.reduce((sum, item) => sum + Number(item.sku.price) * item.quantity, 0)
+  const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
   if (cart.items.length === 0) {
     return (
@@ -51,7 +117,7 @@ function CheckoutPage() {
     setSubmitting(true)
     const res = await api.orders.post(
       {
-        items: cart.items.map((item) => ({ skuId: item.sku.id, quantity: item.quantity })),
+        items: cart.items.map((item) => ({ skuId: item.skuId, quantity: item.quantity })),
         addressId,
       },
       { headers: { 'idempotency-key': idempotencyKey } },
@@ -59,9 +125,9 @@ function CheckoutPage() {
     setSubmitting(false)
     if (res.error) {
       const messages: Record<string, string> = {
-        SKU_NOT_FOUND: '部分商品不存在，请返回购物车调整',
-        PRODUCT_UNAVAILABLE: '部分商品已下架，请返回购物车调整',
-        INSUFFICIENT_STOCK: '部分商品库存不足，请返回购物车调整',
+        SKU_NOT_FOUND: '部分商品不存在，请返回重新选择',
+        PRODUCT_UNAVAILABLE: '部分商品已下架，请返回重新选择',
+        INSUFFICIENT_STOCK: '部分商品库存不足，请返回调整数量',
         ADDRESS_NOT_FOUND: '收货地址无效，请重新选择',
       }
       const code = 'error' in res.error.value ? res.error.value.error : undefined
@@ -126,24 +192,24 @@ function CheckoutPage() {
         <h2 className="mb-3 text-base font-semibold text-gray-900">商品清单</h2>
         <div className="flex flex-col gap-3">
           {cart.items.map((item) => (
-            <div key={item.sku.id} className="flex items-center gap-3">
-              {item.product.images[0] ? (
+            <div key={item.skuId} className="flex items-center gap-3">
+              {item.image ? (
                 <img
-                  src={item.product.images[0]}
-                  alt={item.product.name}
+                  src={item.image}
+                  alt={item.productName}
                   className="h-14 w-14 shrink-0 rounded-lg object-cover"
                 />
               ) : (
                 <div className="h-14 w-14 shrink-0 rounded-lg bg-gray-100" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-gray-900">{item.product.name}</p>
+                <p className="truncate text-sm font-medium text-gray-900">{item.productName}</p>
                 <p className="text-xs text-gray-500">
-                  {item.sku.name} × {item.quantity}
+                  {item.name} × {item.quantity}
                 </p>
               </div>
               <span className="text-sm text-gray-900">
-                ¥{(Number(item.sku.price) * item.quantity).toFixed(2)}
+                ¥{(item.price * item.quantity).toFixed(2)}
               </span>
             </div>
           ))}
