@@ -115,22 +115,38 @@ function OrdersPage() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 py-2">
-          <GoPageButton to={page - 1} disabled={page <= 1} label="上一页" />
+          <GoPageButton to={page - 1} disabled={page <= 1} label="上一页" status={search.status} />
           <span className="text-sm text-gray-500">
             {page} / {totalPages}
           </span>
-          <GoPageButton to={page + 1} disabled={page >= totalPages} label="下一页" />
+          <GoPageButton
+            to={page + 1}
+            disabled={page >= totalPages}
+            label="下一页"
+            status={search.status}
+          />
         </div>
       )}
     </div>
   )
 }
 
-function GoPageButton({ to, disabled, label }: { to: number; disabled: boolean; label: string }) {
+function GoPageButton({
+  to,
+  disabled,
+  label,
+  status,
+}: {
+  to: number
+  disabled: boolean
+  label: string
+  status?: 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded'
+}) {
   return (
     <Link
       to="/orders"
-      search={{ page: to }}
+      // 保留当前 status 筛选, 翻页不清空 tab; status 在 search 里是可选的, 直接透传
+      search={{ page: to, ...(status ? { status } : {}) }}
       className={`rounded-lg border border-gray-300 px-4 py-1.5 text-sm text-gray-600 ${
         disabled ? 'pointer-events-none opacity-40' : ''
       }`}

@@ -116,7 +116,7 @@ function OrderDetailPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {cancellable && (
-        <div className="fixed inset-x-0 bottom-14 z-10 border-t border-gray-200 bg-white">
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-end gap-3 px-4">
             {cancellable && (
               <button

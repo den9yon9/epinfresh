@@ -115,7 +115,7 @@ function AddressesPage() {
 
       <button
         onClick={() => navigate({ to: '/addresses/new' })}
-        className="fixed inset-x-4 bottom-16 z-10 mx-auto max-w-6xl rounded-lg bg-brand-600 py-2.5 text-white hover:bg-brand-700"
+        className="fixed inset-x-4 bottom-4 z-10 mx-auto max-w-6xl rounded-lg bg-brand-600 py-2.5 text-white hover:bg-brand-700"
       >
         新增地址
       </button>

@@ -41,8 +41,14 @@ function CartPage() {
     const res = await api.cart.items({ skuId: item.sku.id }).put({ quantity })
     setBusySkuId(null)
     if (res.error) {
-      flash(`库存不足，最多 ${item.sku.stock} 件`)
-      router.invalidate()
+      if (res.error.status === 401) {
+        void navigate({ to: '/login', search: { redirectTo: '/cart' } })
+      } else if (res.error.status === 404) {
+        flash('该商品已不在购物车中')
+        router.invalidate()
+      } else {
+        flash('修改数量失败，请稍后重试')
+      }
       return
     }
     router.invalidate()
@@ -53,7 +59,11 @@ function CartPage() {
     const res = await api.cart.items({ skuId }).delete()
     setBusySkuId(null)
     if (res.error) {
-      flash('删除失败，请稍后重试')
+      if (res.error.status === 401) {
+        void navigate({ to: '/login', search: { redirectTo: '/cart' } })
+      } else {
+        flash('删除失败，请稍后重试')
+      }
       return
     }
     router.invalidate()

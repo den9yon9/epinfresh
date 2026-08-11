@@ -21,6 +21,10 @@ export function Header() {
     },
   })
 
+  useEffect(() => {
+    document.title = meta?.title ? `${meta.title} · 一品鲜` : '一品鲜'
+  }, [meta?.title])
+
   if (meta?.showBack) {
     return (
       <header className="sticky top-0 z-10 flex h-12 items-center gap-1 border-b border-gray-200 bg-white px-2 md:px-4">
