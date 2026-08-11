@@ -32,8 +32,9 @@ function LoginPage() {
       setError(error === 'ACCOUNT_DISABLED' ? '该账号已被禁用，请联系管理员' : '邮箱或密码错误')
       return
     }
-    if (redirectTo && redirectTo.startsWith('/')) navigate({ to: redirectTo })
-    else navigate({ to: '/' })
+    // replace: 登录页从历史栈移除, 返回键不会回到登录页
+    if (redirectTo && redirectTo.startsWith('/')) navigate({ to: redirectTo, replace: true })
+    else navigate({ to: '/', replace: true })
   }
 
   return (

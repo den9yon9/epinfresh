@@ -68,7 +68,8 @@ function CheckoutPage() {
       setError((code ? messages[code] : undefined) ?? '下单失败，请稍后重试')
       return
     }
-    navigate({ to: '/pay', search: { orderId: res.data.id } })
+    // replace: 下单后购物车已清空, 从支付页返回不应回到空结算页
+    navigate({ to: '/pay', search: { orderId: res.data.id }, replace: true })
   }
 
   return (
@@ -150,8 +151,13 @@ function CheckoutPage() {
       </section>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+      {!addressId && (
+        <p className="text-sm text-gray-500">
+          {addresses.length === 0 ? '请先添加收货地址' : '请选择收货地址后再提交订单'}
+        </p>
+      )}
 
-      <div className="fixed inset-x-0 bottom-14 z-10 border-t border-gray-200 bg-white">
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <div className="text-sm text-gray-500">
             合计 <span className="text-lg font-bold text-gray-900">¥{total.toFixed(2)}</span>

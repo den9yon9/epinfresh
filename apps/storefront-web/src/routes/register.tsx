@@ -38,11 +38,12 @@ function RegisterPage() {
     const { user } = await login(email, password)
     setSubmitting(false)
     if (!user) {
-      navigate({ to: '/login' })
+      navigate({ to: '/login', replace: true })
       return
     }
-    if (redirectTo && redirectTo.startsWith('/')) navigate({ to: redirectTo })
-    else navigate({ to: '/' })
+    // replace: 注册页从历史栈移除, 返回键不会回到注册页
+    if (redirectTo && redirectTo.startsWith('/')) navigate({ to: redirectTo, replace: true })
+    else navigate({ to: '/', replace: true })
   }
 
   return (

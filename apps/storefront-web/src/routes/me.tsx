@@ -9,7 +9,7 @@ export const Route = createFileRoute('/me')({
   beforeLoad: async () => {
     let user = getSession()
     if (user === undefined) user = await refreshSession()
-    if (user === null) throw redirect({ to: '/login' })
+    if (user === null) throw redirect({ to: '/login', search: { redirectTo: '/me' } })
   },
   component: MePage,
 })
