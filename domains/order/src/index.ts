@@ -6,5 +6,6 @@ export {
   getOrderStatusCounts,
   listOrders,
   listOrdersByUser,
+  markOrderRefunded,
   updateOrderStatus,
 } from './service'

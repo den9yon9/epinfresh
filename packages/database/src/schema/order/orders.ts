@@ -1,7 +1,7 @@
 import { decimal, index, pgEnum, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
 
-import { addresses } from './addresses'
-import { users } from './users'
+import { addresses } from './../address/addresses'
+import { users } from './../user/users'
 
 export const ORDER_STATUS = [
   'pending',

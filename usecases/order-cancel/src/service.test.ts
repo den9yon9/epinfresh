@@ -1,7 +1,8 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { createOrderRecord, updateOrderStatus } from '@epinfresh/order'
-import { confirmPayment, createMockPaymentGateway, initiatePayment } from '@epinfresh/payment'
+import { createMockPaymentGateway, initiatePayment } from '@epinfresh/payment'
+import { confirmOrderPayment } from '@epinfresh/payment-confirm'
 import { reduceProductStock } from '@epinfresh/product'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
@@ -93,7 +94,7 @@ describe('cancelOrder', () => {
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
     )._unsafeUnwrap()
-    await confirmPayment(payment.id, db)
+    await confirmOrderPayment(payment.id, db)
 
     const result = await cancelOrder(order.id, db)
 

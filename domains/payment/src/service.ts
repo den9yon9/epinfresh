@@ -74,7 +74,7 @@ export async function confirmPayment(
   client: DbClient,
 ): Promise<
   Result<
-    { payment: typeof schema.payments.$inferSelect; orderStatus: string },
+    { payment: typeof schema.payments.$inferSelect; orderId: string },
     'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'
   >
 > {
@@ -94,14 +94,7 @@ export async function confirmPayment(
       .returning()
     if (!updated) return err('INVALID_PAYMENT_STATE')
 
-    const [order] = await tx
-      .update(schema.orders)
-      .set({ status: 'paid' })
-      .where(and(eq(schema.orders.id, payment.orderId), eq(schema.orders.status, 'pending')))
-      .returning()
-    if (!order) return err('INVALID_PAYMENT_STATE')
-
-    return ok({ payment: updated, orderStatus: order.status })
+    return ok({ payment: updated, orderId: payment.orderId })
   })
 }
 
@@ -161,8 +154,6 @@ export async function refundOrder(
   return client.transaction(async (tx) => {
     const [order] = await tx.select().from(schema.orders).where(eq(schema.orders.id, orderId))
     if (!order) return err('ORDER_NOT_FOUND')
-    if (!['paid', 'shipped', 'completed'].includes(order.status))
-      return err('INVALID_PAYMENT_STATE')
 
     const [payment] = await tx
       .select()
@@ -178,13 +169,6 @@ export async function refundOrder(
       .where(and(eq(schema.payments.id, payment.id), eq(schema.payments.status, 'succeeded')))
       .returning()
     if (!refunded) return err('INVALID_PAYMENT_STATE')
-
-    const [updatedOrder] = await tx
-      .update(schema.orders)
-      .set({ status: 'refunded' })
-      .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, order.status)))
-      .returning()
-    if (!updatedOrder) return err('INVALID_PAYMENT_STATE')
 
     return ok(refunded)
   })

@@ -1,7 +1,7 @@
 import { decimal, index, integer, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
 
+import { productSkus } from './../product/product-skus'
 import { orders } from './orders'
-import { productSkus } from './product-skus'
 
 export const orderItems = pgTable(
   'order_items',

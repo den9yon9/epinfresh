@@ -1,7 +1,7 @@
 import { index, pgTable, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
 
-import { orders } from './orders'
-import { users } from './users'
+import { orders } from './../order/orders'
+import { users } from './../user/users'
 
 export const checkoutIdempotencyKeys = pgTable(
   'checkout_idempotency_keys',

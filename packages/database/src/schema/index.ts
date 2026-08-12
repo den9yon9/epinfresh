@@ -1,13 +1,23 @@
-export { addresses } from './addresses'
-export { cartItems } from './cart-items'
-export { categories } from './categories'
-export { checkoutIdempotencyKeys } from './checkout-idempotency-keys'
-export { orderItems } from './order-items'
-export { ORDER_STATUS, orders, type OrderStatus, orderStatus } from './orders'
-export { passwordResetTokens } from './password-reset-tokens'
-export { PAYMENT_STATUS, payments, type PaymentStatus, paymentStatus } from './payments'
-export { productSkus } from './product-skus'
-export { products, productStatus } from './products'
+// 表定义按域分目录; 目录名即表归属域(eslint-rules/table-ownership.js 据此推导)。
+// 新增表: 放到对应域目录 + 在此补一行导出即可, 归属自动成立。
+// 顶层导出仍保持扁平命名(所有表聚合在 schema 命名空间), 使用方无感知。
+
+// address 域
+export { addresses } from './address/addresses'
+// cart 域
+export { cartItems } from './cart/cart-items'
+// checkout 编排(usecase 层, 不归某 domain)
+export { checkoutIdempotencyKeys } from './checkout/checkout-idempotency-keys'
+// order 域
+export { orderItems } from './order/order-items'
+export { ORDER_STATUS, orders, type OrderStatus, orderStatus } from './order/orders'
+// payment 域
+export { PAYMENT_STATUS, payments, type PaymentStatus, paymentStatus } from './payment/payments'
+// product 域
+export { categories } from './product/categories'
+export { productSkus } from './product/product-skus'
+export { products, productStatus } from './product/products'
+// user 域
 export {
   addressesRelations,
   cartItemsRelations,
@@ -20,4 +30,5 @@ export {
   productsRelations,
   usersRelations,
 } from './relations'
-export { userRole, users } from './users'
+export { passwordResetTokens } from './user/password-reset-tokens'
+export { userRole, users } from './user/users'

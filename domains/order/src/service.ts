@@ -176,3 +176,27 @@ export async function updateOrderStatus(
     .where(eq(schema.orderItems.orderId, orderId))
   return ok({ order: { ...updated, items }, from: order.status })
 }
+
+// 退款专用: refunded 不进 PATCH 流转表(见 ORDER_TRANSITIONS 注释), 仅由退款编排链路调用。
+// 只有 paid/shipped/completed 的订单可退款, CAS 防并发重复退款。
+export async function markOrderRefunded(
+  orderId: string,
+  client: DbClient,
+): Promise<
+  Result<{ order: OrderDetail; from: OrderStatus }, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'>
+> {
+  const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
+  if (!order) return err('ORDER_NOT_FOUND')
+  if (!['paid', 'shipped', 'completed'].includes(order.status)) return err('INVALID_TRANSITION')
+  const [updated] = await client
+    .update(schema.orders)
+    .set({ status: 'refunded' })
+    .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, order.status)))
+    .returning()
+  if (!updated) return err('INVALID_TRANSITION')
+  const items = await client
+    .select()
+    .from(schema.orderItems)
+    .where(eq(schema.orderItems.orderId, orderId))
+  return ok({ order: { ...updated, items }, from: order.status })
+}

@@ -2,8 +2,9 @@ import { schema } from '@epinfresh/database'
 import { getOrderById, getOrderStatusCounts, listOrders, updateOrderStatus } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { cancelOrder } from '@epinfresh/order-cancel'
-import { listPaymentsByOrder, refundOrder } from '@epinfresh/payment'
+import { listPaymentsByOrder } from '@epinfresh/payment'
 import * as PaymentModel from '@epinfresh/payment/model'
+import { refundOrderWorkflow } from '@epinfresh/payment-refund'
 import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { eq } from 'drizzle-orm'
 import { Elysia, status, t } from 'elysia'
@@ -146,9 +147,9 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     .post(
       '/orders/:id/refund',
       async ({ params, db }) => {
-        const result = await refundOrder(params.id, db)
+        const result = await refundOrderWorkflow(params.id, db)
         return result.match(
-          (payment) => payment,
+          ({ payment }) => payment,
           (code) => {
             switch (code) {
               case 'ORDER_NOT_FOUND':

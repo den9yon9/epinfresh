@@ -4,6 +4,8 @@ import eslintConfigPrettier from 'eslint-config-prettier'
 import boundaries from 'eslint-plugin-boundaries'
 import simpleImportSort from 'eslint-plugin-simple-import-sort'
 
+import tableOwnership from './eslint-rules/table-ownership.js'
+
 export default [
   {
     ignores: [
@@ -114,6 +116,14 @@ export default [
             'Forbidden in production code. Use .match(), or result.error after isErr() narrowing instead.',
         },
       ],
+    },
+  },
+  {
+    plugins: { 'table-ownership': tableOwnership },
+    files: ['domains/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
+    rules: {
+      'table-ownership/no-cross-domain-tables': 'error',
     },
   },
   eslintConfigPrettier,

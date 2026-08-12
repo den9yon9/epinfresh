@@ -20,6 +20,8 @@ COPY domains/payment/package.json ./domains/payment/
 COPY domains/user/package.json ./domains/user/
 COPY usecases/checkout/package.json ./usecases/checkout/
 COPY usecases/order-cancel/package.json ./usecases/order-cancel/
+COPY usecases/payment-confirm/package.json ./usecases/payment-confirm/
+COPY usecases/payment-refund/package.json ./usecases/payment-refund/
 COPY apps/storefront-api/package.json ./apps/storefront-api/
 COPY apps/admin-api/package.json ./apps/admin-api/
 COPY apps/worker/package.json ./apps/worker/

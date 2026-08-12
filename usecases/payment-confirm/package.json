@@ -1,5 +1,5 @@
 {
-  "name": "@epinfresh/order-cancel",
+  "name": "@epinfresh/payment-confirm",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -16,10 +16,9 @@
     "@epinfresh/database": "workspace:*",
     "@epinfresh/order": "workspace:*",
     "@epinfresh/payment": "workspace:*",
-    "@epinfresh/payment-confirm": "workspace:*",
-    "@epinfresh/product": "workspace:*",
-    "@epinfresh/shared": "workspace:*",
-    "@sinclair/typebox": "^0.34.0",
+    "@epinfresh/shared": "workspace:*"
+  },
+  "devDependencies": {
     "drizzle-orm": "^0.40.0"
   }
 }

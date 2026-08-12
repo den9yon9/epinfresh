@@ -1,6 +1,7 @@
 import { getOrderForUser } from '@epinfresh/order'
-import { confirmPayment, getPaymentById, initiatePayment } from '@epinfresh/payment'
+import { getPaymentById, initiatePayment } from '@epinfresh/payment'
 import * as PaymentModel from '@epinfresh/payment/model'
+import { confirmOrderPayment } from '@epinfresh/payment-confirm'
 import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
@@ -60,13 +61,15 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
         if (ownership.isErr()) {
           return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
         }
-        const result = await confirmPayment(params.id, db)
+        const result = await confirmOrderPayment(params.id, db)
         return result.match(
-          ({ payment: confirmed }) => status(200, confirmed),
+          ({ payment }) => status(200, payment),
           (code) => {
             switch (code) {
               case 'PAYMENT_NOT_FOUND':
                 return status(404, { error: code, message: 'Payment not found' })
+              case 'ORDER_NOT_FOUND':
+                return status(404, { error: code, message: 'Order not found' })
               case 'INVALID_PAYMENT_STATE':
                 return status(409, { error: code, message: 'Payment cannot be confirmed' })
               default:

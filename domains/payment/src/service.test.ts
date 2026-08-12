@@ -62,7 +62,7 @@ describe('payment domain', () => {
     expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_PENDING')
   })
 
-  test('confirming payment transitions the order to paid', async () => {
+  test('confirming payment marks the payment succeeded', async () => {
     const order = await seedOrder()
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
@@ -71,9 +71,6 @@ describe('payment domain', () => {
     const result = await confirmPayment(payment.id, db)
     expect(result.isOk()).toBe(true)
     expect(result._unsafeUnwrap().payment.status).toBe('succeeded')
-
-    const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
-    expect(after.status).toBe('paid')
   })
 
   test('confirming twice is rejected', async () => {
@@ -133,7 +130,7 @@ describe('payment domain', () => {
     expect(items).toHaveLength(1)
   })
 
-  test('refundOrder refunds the payment and marks the order refunded', async () => {
+  test('refundOrder refunds the succeeded payment', async () => {
     const order = await seedOrder()
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
@@ -143,9 +140,6 @@ describe('payment domain', () => {
     const result = await refundOrder(order.id, db)
     expect(result.isOk()).toBe(true)
     expect(result._unsafeUnwrap().status).toBe('refunded')
-
-    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
-    expect(afterOrder.status).toBe('refunded')
   })
 
   test('refundOrder returns NO_REFUNDABLE_PAYMENT without a succeeded payment', async () => {
@@ -156,14 +150,6 @@ describe('payment domain', () => {
     const result = await refundOrder(order.id, db)
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('NO_REFUNDABLE_PAYMENT')
-  })
-
-  test('refundOrder rejects orders that are not refundable', async () => {
-    const order = await seedOrder()
-
-    const result = await refundOrder(order.id, db)
-    expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
   })
 
   test('refundOrder returns ORDER_NOT_FOUND for unknown order', async () => {

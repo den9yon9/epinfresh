@@ -1,7 +1,7 @@
 import { index, integer, pgTable, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
-import { productSkus } from './product-skus'
-import { users } from './users'
+import { productSkus } from './../product/product-skus'
+import { users } from './../user/users'
 
 export const cartItems = pgTable(
   'cart_items',

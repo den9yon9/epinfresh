@@ -1,15 +1,15 @@
 import { relations } from 'drizzle-orm'
 
-import { addresses } from './addresses'
-import { cartItems } from './cart-items'
-import { categories } from './categories'
-import { checkoutIdempotencyKeys } from './checkout-idempotency-keys'
-import { orderItems } from './order-items'
-import { orders } from './orders'
-import { payments } from './payments'
-import { productSkus } from './product-skus'
-import { products } from './products'
-import { users } from './users'
+import { addresses } from './address/addresses'
+import { cartItems } from './cart/cart-items'
+import { checkoutIdempotencyKeys } from './checkout/checkout-idempotency-keys'
+import { orderItems } from './order/order-items'
+import { orders } from './order/orders'
+import { payments } from './payment/payments'
+import { categories } from './product/categories'
+import { productSkus } from './product/product-skus'
+import { products } from './product/products'
+import { users } from './user/users'
 
 export const productsRelations = relations(products, ({ many, one }) => ({
   skus: many(productSkus),

@@ -1,6 +1,6 @@
 import { decimal, index, pgEnum, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
 
-import { orders } from './orders'
+import { orders } from './../order/orders'
 
 export const PAYMENT_STATUS = ['pending', 'succeeded', 'failed', 'refunded', 'cancelled'] as const
 export type PaymentStatus = (typeof PAYMENT_STATUS)[number]

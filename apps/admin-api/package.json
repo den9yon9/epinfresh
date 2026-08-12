@@ -22,6 +22,8 @@
     "@epinfresh/order": "workspace:*",
     "@epinfresh/order-cancel": "workspace:*",
     "@epinfresh/payment": "workspace:*",
+    "@epinfresh/payment-confirm": "workspace:*",
+    "@epinfresh/payment-refund": "workspace:*",
     "@epinfresh/product": "workspace:*",
     "@epinfresh/redis": "workspace:*",
     "@epinfresh/session": "workspace:*",

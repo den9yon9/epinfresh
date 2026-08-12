@@ -11,10 +11,10 @@ import * as schema from './schema'
 
 export { schema }
 export { emailSchema, table } from './model'
-export { ORDER_STATUS, type OrderStatus } from './schema/orders'
-export { PAYMENT_STATUS, type PaymentStatus } from './schema/payments'
-export { PRODUCT_STATUS, type ProductStatus } from './schema/products'
-export { USER_ROLE, type UserRole } from './schema/users'
+export { ORDER_STATUS, type OrderStatus } from './schema/order/orders'
+export { PAYMENT_STATUS, type PaymentStatus } from './schema/payment/payments'
+export { PRODUCT_STATUS, type ProductStatus } from './schema/product/products'
+export { USER_ROLE, type UserRole } from './schema/user/users'
 
 type PgDatabase = PostgresJsDatabase<typeof schema> & { $client: Sql }
 
