@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp@latest",
+        "--allowed-hosts",
+        "localhost:5173,localhost:5174,localhost:3000,localhost:3001"
+      ],
+      "enabled": true
+    }
+  }
+}
