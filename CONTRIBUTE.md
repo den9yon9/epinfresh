@@ -158,6 +158,20 @@ expect(res.error.value).toMatchObject({ error: 'SKU_NOT_FOUND' })
 - `ponytail:` 开头的注释 = 已知技术债（含背景与解决方向），新债沿用该标记
 - 编辑器：Zed 配置在 `.zed/settings.json`（Prettier 保存格式化；Biome 已剔除，装 ESLint 扩展获得编辑器内诊断）
 
+## 上游依赖待验证（elysia 2.0 发布后）
+
+elysia 2.0 已进入 beta（2026-08 时点 beta.4），eden 配套 2.x 未发版。
+升级后逐项实测以下已知问题，确认修复后移除对应 workaround：
+
+- **eden treaty PATCH body 坍缩为 never**：`admin-web` 的 `status.patch`/`users.patch` 调用需 `as never`
+  （`apps/admin-web/src/libs/api/types.ts` 的 ponytail、`_admin/orders/$id.tsx`、`_admin/users.tsx`）。
+  根因在 eden 1.4.9 treaty2 的 `CreateParams` 交叉类型对"动态段 `:id` 子路由 + PATCH"推断失败；
+  eden `next` 分支（2.0 配套）已简化 `Sign` 的 body 分支，有修复可能，需实测确认
+- **exact-mirror Union 警告**：`pnpm test` 输出
+  `warn: [exact-mirror] TypeBox's TypeCompiler is required to use Union`
+  （storefront-api ~39 次、admin-api ~33 次，由含 `Type.Union` 的 schema 触发，见 `exact-mirror@1.2.2` handleUnion）。
+  属降级路径警告，不影响正确性；2.0 替换 schema 内核后确认是否消失
+
 ## CI / Docker
 
 - GitHub Actions：ESLint + Prettier → typecheck → build → commitlint → 真实 Postgres 迁移重放 → Docker 镜像构建验证

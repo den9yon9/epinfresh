@@ -14,6 +14,7 @@ export type Payment = EdenApiData<OrderDetailSub['payments']['get']>['items'][nu
 export type ShipOrderBody = EdenApiBody<OrderDetailSub['ship']['post']>
 // ponytail: status.patch 的 body 类型在 eden 视图里坍缩为 never(admin-api 测试同款 workaround),
 // 页面调用时按需 `as never`; 后端仍会按 UpdateOrderStatusSchema 校验
+// 上游: elysia 2.0 发布后验证 eden next 分支是否修复, 见 CONTRIBUTE.md「上游依赖待验证」
 
 export type Product = EdenListItem<typeof api.admin.products.get>
 export type ProductStatus = Product['status']
