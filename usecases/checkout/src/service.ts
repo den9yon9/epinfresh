@@ -8,10 +8,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import type { CreateOrderInputSchema } from './model'
 
 export type CheckoutError =
-  | { code: 'SKU_NOT_FOUND' }
-  | { code: 'INSUFFICIENT_STOCK' }
-  | { code: 'PRODUCT_UNAVAILABLE' }
-  | { code: 'ADDRESS_NOT_FOUND' }
+  'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'PRODUCT_UNAVAILABLE' | 'ADDRESS_NOT_FOUND'
 
 function isUniqueViolation(caught: unknown): boolean {
   return (
@@ -62,14 +59,13 @@ export async function checkout(
           .select()
           .from(schema.addresses)
           .where(and(eq(schema.addresses.id, input.addressId), eq(schema.addresses.userId, userId)))
-        if (!address) return err({ code: 'ADDRESS_NOT_FOUND' } as const)
+        if (!address) return err('ADDRESS_NOT_FOUND')
 
         const validated: { item: (typeof items)[number]; sku: (typeof skus)[number] }[] = []
         for (const item of items) {
           const sku = skuMap.get(item.skuId)
-          if (!sku) return err({ code: 'SKU_NOT_FOUND' } as const)
-          if (sku.product.status !== 'published')
-            return err({ code: 'PRODUCT_UNAVAILABLE' } as const)
+          if (!sku) return err('SKU_NOT_FOUND')
+          if (sku.product.status !== 'published') return err('PRODUCT_UNAVAILABLE')
           validated.push({ item, sku })
         }
 

@@ -122,7 +122,7 @@ describe('order queries', () => {
 
     const stranger = await getOrderForUser(bob.id, order.id, db)
     expect(stranger.isErr()).toBe(true)
-    expect(stranger._unsafeUnwrapErr()).toMatchObject({ code: 'ORDER_NOT_FOUND' })
+    expect(stranger._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
   })
 
   test('listOrdersByUser only returns own orders', async () => {
@@ -186,7 +186,7 @@ describe('updateOrderStatus', () => {
 
     const skipShipped = await updateOrderStatus(order.id, 'completed', db)
     expect(skipShipped.isErr()).toBe(true)
-    expect(skipShipped._unsafeUnwrapErr()).toMatchObject({ code: 'INVALID_TRANSITION' })
+    expect(skipShipped._unsafeUnwrapErr()).toBe('INVALID_TRANSITION')
 
     const toShipped = await updateOrderStatus(order.id, 'shipped', db)
     expect(toShipped.isOk()).toBe(true)
@@ -195,7 +195,7 @@ describe('updateOrderStatus', () => {
 
     const rewind = await updateOrderStatus(order.id, 'pending', db)
     expect(rewind.isErr()).toBe(true)
-    expect(rewind._unsafeUnwrapErr()).toMatchObject({ code: 'INVALID_TRANSITION' })
+    expect(rewind._unsafeUnwrapErr()).toBe('INVALID_TRANSITION')
   })
 
   test('reports the transition origin via from', async () => {
@@ -227,6 +227,6 @@ describe('updateOrderStatus', () => {
   test('returns ORDER_NOT_FOUND for unknown order', async () => {
     const result = await updateOrderStatus('00000000-0000-4000-8000-000000000000', 'paid', db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'ORDER_NOT_FOUND' })
+    expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
   })
 })

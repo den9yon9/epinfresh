@@ -3,8 +3,7 @@ import { type OrderDetail, updateOrderStatus } from '@epinfresh/order'
 import { confirmPayment } from '@epinfresh/payment'
 import { err, ok, type Result } from '@epinfresh/shared'
 
-export type ConfirmPaymentError =
-  { code: 'PAYMENT_NOT_FOUND' } | { code: 'INVALID_PAYMENT_STATE' } | { code: 'ORDER_NOT_FOUND' }
+export type ConfirmPaymentError = 'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE' | 'ORDER_NOT_FOUND'
 
 // 编排: 支付确认跨 payment + order 两域, 事务内保持原子。
 // payment 域只改支付单; 订单 pending→paid 由 order 域状态机推进(CAS 防并发)。
@@ -24,9 +23,7 @@ export async function confirmOrderPayment(
     const orderResult = await updateOrderStatus(orderId, 'paid', tx)
     if (orderResult.isErr()) {
       return err(
-        orderResult.error.code === 'ORDER_NOT_FOUND'
-          ? ({ code: 'ORDER_NOT_FOUND' } as const)
-          : ({ code: 'INVALID_PAYMENT_STATE' } as const),
+        orderResult.error === 'ORDER_NOT_FOUND' ? 'ORDER_NOT_FOUND' : 'INVALID_PAYMENT_STATE',
       )
     }
     return ok({ payment, order: orderResult.value.order })

@@ -29,11 +29,11 @@ export function createAuthRoutes(plugins: AdminPlugins) {
             return user
           },
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'LOGIN_FAILED':
-                return status(401, { error: e.code, message: 'Invalid email or password' })
+                return status(401, { error: e, message: 'Invalid email or password' })
               case 'ACCOUNT_DISABLED':
-                return status(403, { error: e.code, message: 'Account is disabled' })
+                return status(403, { error: e, message: 'Account is disabled' })
               default:
                 return assertNever(e)
             }
@@ -82,11 +82,11 @@ export function createAuthRoutes(plugins: AdminPlugins) {
         return result.match(
           (user) => user,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: e.code, message: 'User not found' })
+                return status(404, { error: e, message: 'User not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )

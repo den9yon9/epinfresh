@@ -89,7 +89,7 @@ describe('addToCart', () => {
     const user = await seedUser()
     const result = await addToCart(user.id, '00000000-0000-4000-8000-000000000000', 1, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'SKU_NOT_FOUND' })
+    expect(result._unsafeUnwrapErr()).toBe('SKU_NOT_FOUND')
   })
 
   test('rejects sku whose product is not published', async () => {
@@ -98,7 +98,7 @@ describe('addToCart', () => {
 
     const result = await addToCart(user.id, sku.id, 1, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'PRODUCT_UNAVAILABLE' })
+    expect(result._unsafeUnwrapErr()).toBe('PRODUCT_UNAVAILABLE')
   })
 
   test('concurrent adds never create duplicate rows', async () => {
@@ -147,7 +147,7 @@ describe('updateCartItem', () => {
 
     const result = await updateCartItem(user.id, sku.id, 3, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'CART_ITEM_NOT_FOUND' })
+    expect(result._unsafeUnwrapErr()).toBe('CART_ITEM_NOT_FOUND')
   })
 })
 
@@ -168,7 +168,7 @@ describe('removeCartItem and clearCart', () => {
 
     const result = await removeCartItem(user.id, sku.id, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'CART_ITEM_NOT_FOUND' })
+    expect(result._unsafeUnwrapErr()).toBe('CART_ITEM_NOT_FOUND')
   })
 
   test('clearCart empties only the user cart', async () => {

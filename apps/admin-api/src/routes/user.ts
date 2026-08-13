@@ -26,11 +26,11 @@ export function createUserRoutes(plugins: AdminPlugins) {
         return result.match(
           (user) => user,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: e.code, message: 'User not found' })
+                return status(404, { error: e, message: 'User not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )
@@ -63,11 +63,11 @@ export function createUserRoutes(plugins: AdminPlugins) {
             return user
           },
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: e.code, message: 'User not found' })
+                return status(404, { error: e, message: 'User not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )

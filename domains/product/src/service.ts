@@ -73,7 +73,7 @@ export async function getProductById(id: string, client: DbClient) {
   const product = await client.query.products.findFirst({
     where: eq(schema.products.id, id),
   })
-  if (!product) return err({ code: 'PRODUCT_NOT_FOUND' } as const)
+  if (!product) return err('PRODUCT_NOT_FOUND')
   const [withSkus] = await attachSkus([product], client)
   return ok(withSkus)
 }
@@ -82,7 +82,7 @@ export async function getProductByIdPublic(id: string, client: DbClient) {
   const product = await client.query.products.findFirst({
     where: and(eq(schema.products.id, id), eq(schema.products.status, 'published')),
   })
-  if (!product) return err({ code: 'PRODUCT_NOT_FOUND' } as const)
+  if (!product) return err('PRODUCT_NOT_FOUND')
   const [withSkus] = await attachSkus([product], client)
   return ok(withSkus)
 }
@@ -99,7 +99,7 @@ export async function reduceProductStock(
   skuId: string,
   quantity: number,
   client: DbClient,
-): Promise<Result<void, { code: 'SKU_NOT_FOUND' } | { code: 'INSUFFICIENT_STOCK' }>> {
+): Promise<Result<void, 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'>> {
   const updated = await client
     .update(schema.productSkus)
     .set({
@@ -113,8 +113,8 @@ export async function reduceProductStock(
     const sku = await client.query.productSkus.findFirst({
       where: eq(schema.productSkus.id, skuId),
     })
-    if (!sku) return err({ code: 'SKU_NOT_FOUND' } as const)
-    return err({ code: 'INSUFFICIENT_STOCK' } as const)
+    if (!sku) return err('SKU_NOT_FOUND')
+    return err('INSUFFICIENT_STOCK')
   }
   return ok()
 }
@@ -123,7 +123,7 @@ export async function restoreProductStock(
   skuId: string,
   quantity: number,
   client: DbClient,
-): Promise<Result<void, { code: 'SKU_NOT_FOUND' }>> {
+): Promise<Result<void, 'SKU_NOT_FOUND'>> {
   const [updated] = await client
     .update(schema.productSkus)
     .set({
@@ -132,7 +132,7 @@ export async function restoreProductStock(
     })
     .where(eq(schema.productSkus.id, skuId))
     .returning()
-  if (!updated) return err({ code: 'SKU_NOT_FOUND' } as const)
+  if (!updated) return err('SKU_NOT_FOUND')
   return ok()
 }
 
@@ -180,7 +180,7 @@ export async function updateProduct(
   return withTransaction(client, async (tx) => {
     const { skus, ...productFields } = input
     const [existing] = await tx.select().from(schema.products).where(eq(schema.products.id, id))
-    if (!existing) return err({ code: 'PRODUCT_NOT_FOUND' } as const)
+    if (!existing) return err('PRODUCT_NOT_FOUND')
     if (Object.keys(productFields).length > 0) {
       await tx.update(schema.products).set(productFields).where(eq(schema.products.id, id))
     }
@@ -218,7 +218,7 @@ export async function updateProduct(
 export async function removeProduct(id: string, client: DbClient) {
   return withTransaction(client, async (tx) => {
     const [product] = await tx.delete(schema.products).where(eq(schema.products.id, id)).returning()
-    if (!product) return err({ code: 'PRODUCT_NOT_FOUND' } as const)
+    if (!product) return err('PRODUCT_NOT_FOUND')
     return ok()
   })
 }
@@ -251,26 +251,24 @@ export async function updateCategory(
 ): Promise<
   Result<
     typeof schema.categories.$inferSelect,
-    | { code: 'CATEGORY_NOT_FOUND' }
-    | { code: 'CATEGORY_PARENT_NOT_FOUND' }
-    | { code: 'CATEGORY_CYCLE' }
+    'CATEGORY_NOT_FOUND' | 'CATEGORY_PARENT_NOT_FOUND' | 'CATEGORY_CYCLE'
   >
 > {
   return withTransaction(client, async (tx) => {
     const [cat] = await tx.select().from(schema.categories).where(eq(schema.categories.id, id))
-    if (!cat) return err({ code: 'CATEGORY_NOT_FOUND' } as const)
+    if (!cat) return err('CATEGORY_NOT_FOUND')
 
     if (input.parentId !== undefined) {
       const [parent] = await tx
         .select()
         .from(schema.categories)
         .where(eq(schema.categories.id, input.parentId))
-      if (!parent) return err({ code: 'CATEGORY_PARENT_NOT_FOUND' } as const)
+      if (!parent) return err('CATEGORY_PARENT_NOT_FOUND')
       // 父级不能是自己或自己的子孙; 沿 parentId 向上回溯遇到 id 即成环
       let current: string | null = input.parentId
       const visited = new Set<string>()
       while (current) {
-        if (current === id || visited.has(current)) return err({ code: 'CATEGORY_CYCLE' } as const)
+        if (current === id || visited.has(current)) return err('CATEGORY_CYCLE')
         visited.add(current)
         const [row] = await tx
           .select()
@@ -292,12 +290,12 @@ export async function updateCategory(
 export async function removeCategory(id: string, client: DbClient) {
   return withTransaction(client, async (tx) => {
     const [cat] = await tx.select().from(schema.categories).where(eq(schema.categories.id, id))
-    if (!cat) return err({ code: 'CATEGORY_NOT_FOUND' } as const)
+    if (!cat) return err('CATEGORY_NOT_FOUND')
     const [ref] = await tx
       .select({ count: count() })
       .from(schema.products)
       .where(eq(schema.products.categoryId, id))
-    if (Number(ref.count) > 0) return err({ code: 'CATEGORY_HAS_PRODUCTS' } as const)
+    if (Number(ref.count) > 0) return err('CATEGORY_HAS_PRODUCTS')
     await tx.delete(schema.categories).where(eq(schema.categories.id, id))
     return ok()
   })

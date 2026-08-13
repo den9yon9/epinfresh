@@ -23,11 +23,11 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (payment) => status(201, payment),
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Order not found' })
+                return status(404, { error: e, message: 'Order not found' })
               case 'ORDER_NOT_PENDING':
-                return status(409, { error: e.code, message: 'Order is not payable' })
+                return status(409, { error: e, message: 'Order is not payable' })
               default:
                 return assertNever(e)
             }
@@ -65,13 +65,13 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
         return result.match(
           ({ payment }) => status(200, payment),
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'PAYMENT_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Payment not found' })
+                return status(404, { error: e, message: 'Payment not found' })
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Order not found' })
+                return status(404, { error: e, message: 'Order not found' })
               case 'INVALID_PAYMENT_STATE':
-                return status(409, { error: e.code, message: 'Payment cannot be confirmed' })
+                return status(409, { error: e, message: 'Payment cannot be confirmed' })
               default:
                 return assertNever(e)
             }

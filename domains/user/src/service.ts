@@ -20,7 +20,7 @@ export function hashResetToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
-export type ResetTokenError = { code: 'RESET_TOKEN_INVALID' } | { code: 'RESET_TOKEN_EXPIRED' }
+export type ResetTokenError = 'RESET_TOKEN_INVALID' | 'RESET_TOKEN_EXPIRED'
 
 export async function requestPasswordReset(
   email: string,
@@ -48,8 +48,8 @@ export async function consumePasswordResetToken(
     .select()
     .from(schema.passwordResetTokens)
     .where(eq(schema.passwordResetTokens.tokenHash, hashResetToken(token)))
-  if (!row || row.usedAt) return err({ code: 'RESET_TOKEN_INVALID' } as const)
-  if (row.expiresAt.getTime() < Date.now()) return err({ code: 'RESET_TOKEN_EXPIRED' } as const)
+  if (!row || row.usedAt) return err('RESET_TOKEN_INVALID')
+  if (row.expiresAt.getTime() < Date.now()) return err('RESET_TOKEN_EXPIRED')
 
   const passwordHash = await hashPassword(newPassword)
   await client.update(schema.users).set({ passwordHash }).where(eq(schema.users.id, row.userId))
@@ -88,11 +88,11 @@ export async function loginUser(input: Static<typeof LoginInputSchema>, client: 
   const [user] = await client.select().from(schema.users).where(eq(schema.users.email, email))
   if (!user) {
     await verifyPassword(input.password, await getDummyHash())
-    return err({ code: 'LOGIN_FAILED' } as const)
+    return err('LOGIN_FAILED')
   }
   const valid = await verifyPassword(input.password, user.passwordHash)
-  if (!valid) return err({ code: 'LOGIN_FAILED' } as const)
-  if (!user.isActive) return err({ code: 'ACCOUNT_DISABLED' } as const)
+  if (!valid) return err('LOGIN_FAILED')
+  if (!user.isActive) return err('ACCOUNT_DISABLED')
   return ok(user)
 }
 
@@ -100,7 +100,7 @@ export async function updateUser(
   id: string,
   input: Static<typeof UpdateUserInputSchema>,
   client: DbClient,
-): Promise<Result<typeof schema.users.$inferSelect, { code: 'USER_NOT_FOUND' }>> {
+): Promise<Result<typeof schema.users.$inferSelect, 'USER_NOT_FOUND'>> {
   return updateUserById(id, input, client)
 }
 
@@ -108,7 +108,7 @@ export async function updateProfile(
   id: string,
   input: Static<typeof UpdateProfileInputSchema>,
   client: DbClient,
-): Promise<Result<typeof schema.users.$inferSelect, { code: 'USER_NOT_FOUND' }>> {
+): Promise<Result<typeof schema.users.$inferSelect, 'USER_NOT_FOUND'>> {
   return updateUserById(id, input, client)
 }
 
@@ -116,19 +116,19 @@ async function updateUserById(
   id: string,
   input: Static<typeof UpdateUserInputSchema> | Static<typeof UpdateProfileInputSchema>,
   client: DbClient,
-): Promise<Result<typeof schema.users.$inferSelect, { code: 'USER_NOT_FOUND' }>> {
+): Promise<Result<typeof schema.users.$inferSelect, 'USER_NOT_FOUND'>> {
   const [updated] = await client
     .update(schema.users)
     .set(input)
     .where(eq(schema.users.id, id))
     .returning()
-  if (!updated) return err({ code: 'USER_NOT_FOUND' } as const)
+  if (!updated) return err('USER_NOT_FOUND')
   return ok(updated)
 }
 
 export async function getUserById(id: string, client: DbClient) {
   const [user] = await client.select().from(schema.users).where(eq(schema.users.id, id))
-  if (!user) return err({ code: 'USER_NOT_FOUND' } as const)
+  if (!user) return err('USER_NOT_FOUND')
   return ok(user)
 }
 

@@ -62,11 +62,11 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
             return user
           },
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'LOGIN_FAILED':
-                return status(401, { error: e.code, message: 'Invalid email or password' })
+                return status(401, { error: e, message: 'Invalid email or password' })
               case 'ACCOUNT_DISABLED':
-                return status(403, { error: e.code, message: 'Account is disabled' })
+                return status(403, { error: e, message: 'Account is disabled' })
               default:
                 return assertNever(e)
             }
@@ -119,11 +119,11 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
         return result.match(
           () => status(204),
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'RESET_TOKEN_INVALID':
-                return status(400, { error: e.code, message: 'Invalid or already used token' })
+                return status(400, { error: e, message: 'Invalid or already used token' })
               case 'RESET_TOKEN_EXPIRED':
-                return status(400, { error: e.code, message: 'Token expired' })
+                return status(400, { error: e, message: 'Token expired' })
               default:
                 return assertNever(e)
             }
@@ -165,11 +165,11 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (user) => user,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: e.code, message: 'User not found' })
+                return status(404, { error: e, message: 'User not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )
@@ -191,11 +191,11 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (user) => user,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: e.code, message: 'User not found' })
+                return status(404, { error: e, message: 'User not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )

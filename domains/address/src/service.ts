@@ -2,7 +2,7 @@ import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import { and, desc, eq } from 'drizzle-orm'
 
-export type AddressError = { code: 'ADDRESS_NOT_FOUND' }
+export type AddressError = 'ADDRESS_NOT_FOUND'
 
 export async function createAddress(
   input: {
@@ -61,7 +61,7 @@ export async function getAddressById(
     .select()
     .from(schema.addresses)
     .where(and(eq(schema.addresses.id, addressId), eq(schema.addresses.userId, userId)))
-  if (!address) return err({ code: 'ADDRESS_NOT_FOUND' } as const)
+  if (!address) return err('ADDRESS_NOT_FOUND')
   return ok(address)
 }
 
@@ -77,7 +77,7 @@ export async function updateAddress(
       .select()
       .from(schema.addresses)
       .where(and(eq(schema.addresses.id, addressId), eq(schema.addresses.userId, userId)))
-    if (!existing) return err({ code: 'ADDRESS_NOT_FOUND' } as const)
+    if (!existing) return err('ADDRESS_NOT_FOUND')
 
     if (isDefault && !existing.isDefault) {
       await tx
@@ -103,6 +103,6 @@ export async function deleteAddress(
     .delete(schema.addresses)
     .where(and(eq(schema.addresses.id, addressId), eq(schema.addresses.userId, userId)))
     .returning()
-  if (!deleted) return err({ code: 'ADDRESS_NOT_FOUND' } as const)
+  if (!deleted) return err('ADDRESS_NOT_FOUND')
   return ok({ deleted: true })
 }

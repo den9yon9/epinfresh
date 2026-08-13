@@ -24,11 +24,11 @@ export function createProductRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (p) => p,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Product not found' })
+                return status(404, { error: e, message: 'Product not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )

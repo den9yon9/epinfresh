@@ -49,11 +49,11 @@ export function createAddressRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (address) => address,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Address not found' })
+                return status(404, { error: e, message: 'Address not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )
@@ -77,11 +77,11 @@ export function createAddressRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (address) => address,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Address not found' })
+                return status(404, { error: e, message: 'Address not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )
@@ -106,11 +106,11 @@ export function createAddressRoutes(plugins: StorefrontPlugins) {
         return result.match(
           () => status(204),
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Address not found' })
+                return status(404, { error: e, message: 'Address not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )

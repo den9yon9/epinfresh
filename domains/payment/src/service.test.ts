@@ -59,7 +59,7 @@ describe('payment domain', () => {
 
     const result = await initiatePayment(order.id, createMockPaymentGateway(), db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'ORDER_NOT_PENDING' })
+    expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_PENDING')
   })
 
   test('confirming payment marks the payment succeeded', async () => {
@@ -82,7 +82,7 @@ describe('payment domain', () => {
 
     const again = await confirmPayment(payment.id, db)
     expect(again.isErr()).toBe(true)
-    expect(again._unsafeUnwrapErr()).toMatchObject({ code: 'INVALID_PAYMENT_STATE' })
+    expect(again._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
   })
 
   test('failed payment does not touch the order', async () => {
@@ -119,7 +119,7 @@ describe('payment domain', () => {
 
     const refunded = await refundPayment(payment.id, db)
     expect(refunded.isErr()).toBe(true)
-    expect(refunded._unsafeUnwrapErr()).toMatchObject({ code: 'INVALID_PAYMENT_STATE' })
+    expect(refunded._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
   })
 
   test('lists payments by order', async () => {
@@ -149,12 +149,12 @@ describe('payment domain', () => {
 
     const result = await refundOrder(order.id, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'NO_REFUNDABLE_PAYMENT' })
+    expect(result._unsafeUnwrapErr()).toBe('NO_REFUNDABLE_PAYMENT')
   })
 
   test('refundOrder returns ORDER_NOT_FOUND for unknown order', async () => {
     const result = await refundOrder('00000000-0000-4000-8000-000000000000', db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'ORDER_NOT_FOUND' })
+    expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
   })
 })

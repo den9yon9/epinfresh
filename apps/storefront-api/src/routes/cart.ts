@@ -26,11 +26,11 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (item) => status(201, item),
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'SKU_NOT_FOUND':
-                return status(404, { error: e.code, message: 'SKU not found' })
+                return status(404, { error: e, message: 'SKU not found' })
               case 'PRODUCT_UNAVAILABLE':
-                return status(409, { error: e.code, message: 'Product not available' })
+                return status(409, { error: e, message: 'Product not available' })
               default:
                 return assertNever(e)
             }
@@ -60,11 +60,11 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (item) => item,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'CART_ITEM_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Cart item not found' })
+                return status(404, { error: e, message: 'Cart item not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )
@@ -88,11 +88,11 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
         return result.match(
           () => status(204),
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'CART_ITEM_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Cart item not found' })
+                return status(404, { error: e, message: 'Cart item not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )

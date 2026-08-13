@@ -46,23 +46,24 @@ pnpm dev                    # 自动迁移 + 全部服务 watch
 
 固定三文件结构，职责严格分离：
 
-| 文件       | 职责                       | 约束                                                                                                             |
-| ---------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| model.ts   | TypeBox schema，从 DB 派生 | 字段约束集中在 packages/database/src/model.ts                                                                    |
-| service.ts | 纯业务函数                 | 不 import Elysia/session/http；依赖以参数注入（client: DbClient）；失败 `err({ code: 'CODE' })`，成功 `ok(data)` |
-| index.ts   | 对外出口，只导出函数与类型 | 不暴露内部实现                                                                                                   |
+| 文件       | 职责                       | 约束                                                                                                   |
+| ---------- | -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| model.ts   | TypeBox schema，从 DB 派生 | 字段约束集中在 packages/database/src/model.ts                                                          |
+| service.ts | 纯业务函数                 | 不 import Elysia/session/http；依赖以参数注入（client: DbClient）；失败 `err('CODE')`，成功 `ok(data)` |
+| index.ts   | 对外出口，只导出函数与类型 | 不暴露内部实现                                                                                         |
 
-**错误码约定**：域层错误为 `{ code: 'CODE' }` 对象（需要附带数据时加字段，
-如 `{ code: 'INSUFFICIENT_STOCK', skuId }`），每个域/用例在 service.ts 顶部定义
-自己的 discriminated union 类型。`code` 字段保持字面量联合（`err({ code: 'X' } as const)`），
-这是控制器 `assertNever` 穷举的前提。控制器必须穷举映射（见 §3），
+**错误码约定**：默认错误就是大写字符串 `err('CODE')`（字符串字面量推断不拓宽，零仪式）。
+只有需要附带数据时，才把该错误码升级为对象 `err({ code: 'CODE', ...payload } as const)`
+（如 `{ code: 'INSUFFICIENT_STOCK', skuId }`），错误类型变为 string | object 的
+混合判别联合（如 `'SKU_NOT_FOUND' | { code: 'INSUFFICIENT_STOCK'; skuId: string }`）。
+每个域/用例在 service.ts 顶部定义自己的错误联合类型。控制器必须穷举映射（见 §3），
 因此**新增错误码 = 编译错误**，强制在任何入口处补映射，杜绝静默漏处理。
 
 ### 2. 新增用例（usecases/*）
 
 跨域编排放这里，与 domain 同样的三文件结构。需要原子性时用
 `withTransaction(client, fn)`（@epinfresh/database）包住多个 domain 调用；
-回调内 `return err({ code: 'X' })` 会自动回滚整个事务（helper 内部转抛 abort 再还原为 err），
+回调内 `return err('CODE')` 会自动回滚整个事务（helper 内部转抛 abort 再还原为 err），
 DB 异常同理。域/用例内禁止直接调用 `.transaction(`（ESLint 强制）。
 幂等需求在事务内写唯一约束表实现（冲突时回滚整个事务，不静默跳过）。
 
@@ -83,13 +84,13 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (order) => status(201, order),
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'SKU_NOT_FOUND':
-                return status(404, { error: e.code, message: 'SKU not found' })
+                return status(404, { error: e, message: 'SKU not found' })
               case 'INSUFFICIENT_STOCK':
-                return status(409, { error: e.code, message: 'Insufficient stock' })
+                return status(409, { error: e, message: 'Insufficient stock' })
               default:
-                return assertNever(e.code) // shared 提供，编译期强制穷举
+                return assertNever(e) // shared 提供，编译期强制穷举
             }
           },
         )
@@ -106,10 +107,10 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
 
 规范：
 
-- 用 `result.match()` 消费 Result；错误分支 switch 穷举 + `default: assertNever(...)`。
-  **注意两形态**（TS 只对多成员判别联合做 switch 窄化）：错误类型 ≥2 个码时 `e` 收窄为
-  `never`，写 `assertNever(e)`；单码对象类型不窄化 `e` 但 `e.code` 收窄为 `never`，
-  写 `assertNever(e.code)`。新增错误码时两种形态都会报编译错误提示补 case
+- 用 `result.match()` 消费 Result；错误分支 switch 穷举 + `default: assertNever(e)`。
+  字符串码直接 `switch (e)`（string 字面量窄化恒成立）。若某错误升级为带 payload 的对象，
+  先 `if (typeof e !== 'string')` 分流：对象侧 `switch (e.code)`，多码时 `e` 收窄为
+  `never`、单码时 `e.code` 收窄为 `never`。新增错误码时两侧都会报编译错误提示补 case
 - 响应 schema 必须显式声明（`response: {...}`）；Elysia normalize 自动剥离未声明字段，
   敏感字段只需在 schema 中 omit，service 层不手工剔除
 - 认证用 `isAuth` / `isAdmin` macro（packages/session 提供）

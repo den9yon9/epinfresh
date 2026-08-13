@@ -36,11 +36,11 @@ export function createProductRoutes(plugins: AdminPlugins) {
         return result.match(
           (p) => p,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Product not found' })
+                return status(404, { error: e, message: 'Product not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )
@@ -73,11 +73,11 @@ export function createProductRoutes(plugins: AdminPlugins) {
         return result.match(
           (p) => p,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Product not found' })
+                return status(404, { error: e, message: 'Product not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )
@@ -101,11 +101,11 @@ export function createProductRoutes(plugins: AdminPlugins) {
         return result.match(
           () => status(204),
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Product not found' })
+                return status(404, { error: e, message: 'Product not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )
@@ -148,11 +148,11 @@ export function createProductRoutes(plugins: AdminPlugins) {
         return result.match(
           () => status(204),
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'CATEGORY_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Category not found' })
+                return status(404, { error: e, message: 'Category not found' })
               case 'CATEGORY_HAS_PRODUCTS':
-                return status(409, { error: e.code, message: 'Category still has products' })
+                return status(409, { error: e, message: 'Category still has products' })
               default:
                 return assertNever(e)
             }
@@ -177,13 +177,13 @@ export function createProductRoutes(plugins: AdminPlugins) {
         return result.match(
           (category) => category,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'CATEGORY_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Category not found' })
+                return status(404, { error: e, message: 'Category not found' })
               case 'CATEGORY_PARENT_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Parent category not found' })
+                return status(404, { error: e, message: 'Parent category not found' })
               case 'CATEGORY_CYCLE':
-                return status(409, { error: e.code, message: 'Cannot set a descendant as parent' })
+                return status(409, { error: e, message: 'Cannot set a descendant as parent' })
               default:
                 return assertNever(e)
             }

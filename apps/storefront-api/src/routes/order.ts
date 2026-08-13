@@ -24,15 +24,15 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         return result.match(
           ({ order, replayed }) => status(replayed ? 200 : 201, order),
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'SKU_NOT_FOUND':
-                return status(404, { error: e.code, message: 'SKU not found' })
+                return status(404, { error: e, message: 'SKU not found' })
               case 'PRODUCT_UNAVAILABLE':
-                return status(409, { error: e.code, message: 'Product not available' })
+                return status(409, { error: e, message: 'Product not available' })
               case 'INSUFFICIENT_STOCK':
-                return status(409, { error: e.code, message: 'Insufficient stock' })
+                return status(409, { error: e, message: 'Insufficient stock' })
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Address not found' })
+                return status(404, { error: e, message: 'Address not found' })
               default:
                 return assertNever(e)
             }
@@ -74,11 +74,11 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (order) => order,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Order not found' })
+                return status(404, { error: e, message: 'Order not found' })
               default:
-                return assertNever(e.code)
+                return assertNever(e)
             }
           },
         )
@@ -106,11 +106,11 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         return result.match(
           (order) => order,
           (e) => {
-            switch (e.code) {
+            switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e.code, message: 'Order not found' })
+                return status(404, { error: e, message: 'Order not found' })
               case 'INVALID_TRANSITION':
-                return status(409, { error: e.code, message: 'Order cannot be cancelled' })
+                return status(409, { error: e, message: 'Order cannot be cancelled' })
               default:
                 return assertNever(e)
             }
