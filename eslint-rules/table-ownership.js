@@ -1,7 +1,8 @@
-// ESLint 本地插件: 强制 domains/* 只写本域归属的表
+// ESLint 本地插件: 强制 domains/* 只写本域归属的表, 且 apps/* 禁止直接写任何表
 //
 // 背景: eslint-plugin-boundaries 只约束包级 import 方向, 管不到 schema.xxx 数据表访问;
-// payment 域可以合法 import '@epinfresh/database' 后 tx.update(schema.orders) 越界写订单表。
+// payment 域可以合法 import '@epinfresh/database' 后 tx.update(schema.orders) 越界写订单表,
+// apps 表现层也可能图省事直接在路由里 db.update(schema.xxx)(曾发生在 admin ship 路由)。
 //
 // 归属推导: schema 表定义按域分目录(见 packages/database/src/schema/), 目录名即归属域。
 // 规则扫描该目录下所有 .ts, 凡 `export const <name> = pgTable(` 的表, 归属 = 所在目录名。
@@ -9,6 +10,7 @@
 //
 // 只检查"写操作目标"(update/insert/delete 的实参表), 读操作(select/join)放行——
 // 跨域读是合法关联(如 cart join product 展示详情), 只有跨域写才是越界。
+// apps/** 无归属域, 任何写表操作都属越界(写必须经 domain/usecase service)。
 'use strict'
 
 import { readdirSync, readFileSync } from 'node:fs'
@@ -45,9 +47,12 @@ function loadTableOwnership() {
   return tableOwnership
 }
 
-function extractDomainFromFilename(filename) {
-  const match = /\/domains\/([^/]+)\//.exec(filename)
-  return match ? match[1] : null
+/** 提取文件作用域: domain(带归属域) / app(无归属域, 禁写一切) / null(其他) */
+function extractScopeFromFilename(filename) {
+  const domain = /\/domains\/([^/]+)\//.exec(filename)?.[1]
+  if (domain) return { kind: 'domain', name: domain }
+  if (/\/apps\//.test(filename)) return { kind: 'app' }
+  return null
 }
 
 /** 写操作的方法名; Drizzle 的 insert/update/delete 首个实参即目标表 */
@@ -71,16 +76,19 @@ const rule = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Forbid domain code from writing tables owned by another domain',
+      description:
+        'Forbid domain code from writing tables owned by another domain; forbid apps from writing any table',
     },
     messages: {
       crossDomain:
         'Writing table "schema.{{table}}" (owned by the "{{owner}}" domain) from the "{{domain}}" domain is forbidden. Cross-domain orchestration belongs in usecases/; keep writes within the owning domain.',
+      appWrite:
+        'Writing table "schema.{{table}}" from apps/ is forbidden. Presentation is a thin shell: route all writes through domain/usecase services.',
     },
   },
   create(context) {
-    const domain = extractDomainFromFilename(context.filename)
-    if (domain === null) return {}
+    const scope = extractScopeFromFilename(context.filename)
+    if (scope === null) return {}
 
     const ownership = loadTableOwnership()
 
@@ -93,12 +101,17 @@ const rule = {
         for (const ref of schemaTableRefs(node.arguments[0])) {
           const tableName = ref.property.name
           const owner = ownership.get(tableName)
-          if (owner === undefined || owner === domain) continue
+          if (owner === undefined) continue
 
+          if (scope.kind === 'app') {
+            context.report({ node: ref, messageId: 'appWrite', data: { table: tableName } })
+            continue
+          }
+          if (owner === scope.name) continue
           context.report({
             node: ref,
             messageId: 'crossDomain',
-            data: { table: tableName, owner, domain },
+            data: { table: tableName, owner, domain: scope.name },
           })
         }
       },

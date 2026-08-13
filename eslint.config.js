@@ -122,7 +122,7 @@ export default [
   },
   {
     plugins: { 'table-ownership': tableOwnership },
-    files: ['domains/**/*.ts'],
+    files: ['domains/**/*.ts', 'apps/**/*.ts'],
     ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
     rules: {
       'table-ownership/no-cross-domain-tables': 'error',
