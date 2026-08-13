@@ -4,6 +4,7 @@ import eslintConfigPrettier from 'eslint-config-prettier'
 import boundaries from 'eslint-plugin-boundaries'
 import simpleImportSort from 'eslint-plugin-simple-import-sort'
 
+import errorCodeRule from './eslint-rules/error-code.js'
 import tableOwnership from './eslint-rules/table-ownership.js'
 import transactionRule from './eslint-rules/transaction.js'
 
@@ -133,6 +134,13 @@ export default [
     ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
     rules: {
       'transaction/use-with-transaction': 'error',
+    },
+  },
+  {
+    plugins: { 'error-code': errorCodeRule },
+    files: ['domains/**/*.ts', 'usecases/**/*.ts'],
+    rules: {
+      'error-code/screaming-snake': 'error',
     },
   },
   eslintConfigPrettier,
