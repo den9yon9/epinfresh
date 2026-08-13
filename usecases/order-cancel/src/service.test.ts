@@ -55,7 +55,6 @@ async function seedOrder(userId: string, skuId: string, quantity = 2) {
     .values({ userId, recipientName: 'Alice', phone: '13800000000', address: 'Shanghai Pudong' })
     .returning()
   const order = await createOrderRecord(
-    db,
     userId,
     [{ skuId, productName: 'Apple', skuName: '1kg', unitPrice: '5.00', quantity }],
     {
@@ -64,6 +63,7 @@ async function seedOrder(userId: string, skuId: string, quantity = 2) {
       phone: address.phone,
       address: address.address,
     },
+    db,
   )
   await reduceProductStock(skuId, quantity, db)
   return order
