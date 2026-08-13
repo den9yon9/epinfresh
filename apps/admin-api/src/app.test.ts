@@ -78,7 +78,6 @@ async function seedOrderWithStock(email: string, quantity = 2, stock = 10) {
     })
     .returning()
   const order = await createOrderRecord(
-    db,
     user.id,
     [{ skuId: sku.id, productName: 'Apple', skuName: '1kg', unitPrice: '5.00', quantity }],
     {
@@ -87,6 +86,7 @@ async function seedOrderWithStock(email: string, quantity = 2, stock = 10) {
       phone: address.phone,
       address: address.address,
     },
+    db,
   )
   await reduceProductStock(sku.id, quantity, db)
   return { user, sku, order }
