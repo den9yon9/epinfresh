@@ -6,14 +6,16 @@ import type { DbClient, DbTransaction } from './index'
 // drizzle 的 client.transaction 只有回调抛异常才回滚，直接 return err() 会被当正常结果提交。
 // withTransaction 把 err 转成内部 abort（抛异常→回滚），在边界再还原为 err()。
 // 非 Result 异常（DB 错误、业务 throw）原样上抛，保持回滚。
-class TransactionAbort<C extends string> extends Error {
+// 错误类型 C 不做约束：域层约定为 { code: string } 对象（见 CONTRIBUTE.md 错误码约定），
+// 但 helper 本身不限制，将来传任意结构化错误都可用。
+class TransactionAbort<C> extends Error {
   constructor(readonly code: C) {
-    super(String(code))
+    super(typeof code === 'string' ? code : JSON.stringify(code))
     this.name = 'TransactionAbort'
   }
 }
 
-function isResult(value: unknown): value is Result<unknown, string> {
+function isResult(value: unknown): value is Result<unknown, unknown> {
   return (
     value !== null &&
     typeof value === 'object' &&
@@ -22,7 +24,7 @@ function isResult(value: unknown): value is Result<unknown, string> {
   )
 }
 
-export async function withTransaction<T, C extends string>(
+export async function withTransaction<T, C>(
   client: DbClient,
   fn: (tx: DbTransaction) => Promise<Result<T, C>>,
 ): Promise<Result<T, C>>
@@ -30,7 +32,7 @@ export async function withTransaction<T>(
   client: DbClient,
   fn: (tx: DbTransaction) => Promise<T>,
 ): Promise<T>
-export async function withTransaction<T, C extends string>(
+export async function withTransaction<T, C>(
   client: DbClient,
   fn: (tx: DbTransaction) => Promise<Result<T, C> | T>,
 ): Promise<Result<T, C> | T> {
@@ -44,7 +46,7 @@ export async function withTransaction<T, C extends string>(
     })
     return value
   } catch (caught) {
-    if (caught instanceof TransactionAbort) return err(caught.code)
+    if (caught instanceof TransactionAbort) return err(caught.code as C)
     throw caught
   }
 }

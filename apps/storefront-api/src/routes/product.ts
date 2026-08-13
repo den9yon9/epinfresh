@@ -23,12 +23,12 @@ export function createProductRoutes(plugins: StorefrontPlugins) {
         const result = await getProductByIdPublic(params.id, db)
         return result.match(
           (p) => p,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: code, message: 'Product not found' })
+                return status(404, { error: e.code, message: 'Product not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )

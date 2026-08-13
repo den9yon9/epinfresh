@@ -5,12 +5,12 @@ import { restoreProductStock } from '@epinfresh/product'
 import { err, ok, type Result } from '@epinfresh/shared'
 import { eq } from 'drizzle-orm'
 
-export type CancelOrderErrorCode = 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'
+export type CancelOrderError = { code: 'ORDER_NOT_FOUND' } | { code: 'INVALID_TRANSITION' }
 
 export async function cancelOrder(
   orderId: string,
   client: DbClient,
-): Promise<Result<OrderDetail, CancelOrderErrorCode>> {
+): Promise<Result<OrderDetail, CancelOrderError>> {
   return withTransaction(client, async (tx) => {
     const result = await updateOrderStatus(orderId, 'cancelled', tx)
     if (result.isErr()) {

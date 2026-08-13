@@ -1,2 +1,2 @@
-export type { ConfirmPaymentErrorCode } from './service'
+export type { ConfirmPaymentError } from './service'
 export { confirmOrderPayment } from './service'

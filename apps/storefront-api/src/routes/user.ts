@@ -61,14 +61,14 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
             setSessionCookie(cookie.session_id, sessionId, isProduction)
             return user
           },
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'LOGIN_FAILED':
-                return status(401, { error: code, message: 'Invalid email or password' })
+                return status(401, { error: e.code, message: 'Invalid email or password' })
               case 'ACCOUNT_DISABLED':
-                return status(403, { error: code, message: 'Account is disabled' })
+                return status(403, { error: e.code, message: 'Account is disabled' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )
@@ -118,14 +118,14 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
         const result = await consumePasswordResetToken(body.token, body.password, db)
         return result.match(
           () => status(204),
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'RESET_TOKEN_INVALID':
-                return status(400, { error: code, message: 'Invalid or already used token' })
+                return status(400, { error: e.code, message: 'Invalid or already used token' })
               case 'RESET_TOKEN_EXPIRED':
-                return status(400, { error: code, message: 'Token expired' })
+                return status(400, { error: e.code, message: 'Token expired' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )
@@ -164,12 +164,12 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
         const result = await getUserById(session.userId, db)
         return result.match(
           (user) => user,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: code, message: 'User not found' })
+                return status(404, { error: e.code, message: 'User not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )
@@ -190,12 +190,12 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
         const result = await updateProfile(session.userId, body, db)
         return result.match(
           (user) => user,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: code, message: 'User not found' })
+                return status(404, { error: e.code, message: 'User not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )

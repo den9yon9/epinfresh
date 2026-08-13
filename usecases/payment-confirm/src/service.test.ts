@@ -65,7 +65,7 @@ describe('confirmOrderPayment', () => {
 
     const result = await confirmOrderPayment(payment.id, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'INVALID_PAYMENT_STATE' })
 
     const [afterPayment] = await db
       .select()
@@ -77,7 +77,7 @@ describe('confirmOrderPayment', () => {
   test('returns PAYMENT_NOT_FOUND for unknown payment', async () => {
     const result = await confirmOrderPayment('00000000-0000-4000-8000-000000000000', db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('PAYMENT_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'PAYMENT_NOT_FOUND' })
   })
 
   test('rejects confirming an already succeeded payment', async () => {
@@ -87,6 +87,6 @@ describe('confirmOrderPayment', () => {
 
     const again = await confirmOrderPayment(payment.id, db)
     expect(again.isErr()).toBe(true)
-    expect(again._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
+    expect(again._unsafeUnwrapErr()).toMatchObject({ code: 'INVALID_PAYMENT_STATE' })
   })
 })

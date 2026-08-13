@@ -96,11 +96,11 @@ export async function getOrderForUser(
   userId: string,
   orderId: string,
   client: DbClient,
-): Promise<Result<OrderDetail, 'ORDER_NOT_FOUND'>> {
+): Promise<Result<OrderDetail, { code: 'ORDER_NOT_FOUND' }>> {
   const order = await client.query.orders.findFirst({
     where: and(eq(schema.orders.id, orderId), eq(schema.orders.userId, userId)),
   })
-  if (!order) return err('ORDER_NOT_FOUND')
+  if (!order) return err({ code: 'ORDER_NOT_FOUND' } as const)
   const items = await client
     .select()
     .from(schema.orderItems)
@@ -112,11 +112,11 @@ export async function getOrderForUser(
 export async function getOrderById(
   orderId: string,
   client: DbClient,
-): Promise<Result<OrderDetail, 'ORDER_NOT_FOUND'>> {
+): Promise<Result<OrderDetail, { code: 'ORDER_NOT_FOUND' }>> {
   const order = await client.query.orders.findFirst({
     where: eq(schema.orders.id, orderId),
   })
-  if (!order) return err('ORDER_NOT_FOUND')
+  if (!order) return err({ code: 'ORDER_NOT_FOUND' } as const)
   const items = await client
     .select()
     .from(schema.orderItems)
@@ -159,17 +159,22 @@ export async function updateOrderStatus(
   status: OrderStatus,
   client: DbClient,
 ): Promise<
-  Result<{ order: OrderDetail; from: OrderStatus }, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'>
+  Result<
+    { order: OrderDetail; from: OrderStatus },
+    { code: 'ORDER_NOT_FOUND' } | { code: 'INVALID_TRANSITION' }
+  >
 > {
   const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
-  if (!order) return err('ORDER_NOT_FOUND')
-  if (!ORDER_TRANSITIONS[order.status].includes(status)) return err('INVALID_TRANSITION')
+  if (!order) return err({ code: 'ORDER_NOT_FOUND' } as const)
+  if (!ORDER_TRANSITIONS[order.status].includes(status)) {
+    return err({ code: 'INVALID_TRANSITION' } as const)
+  }
   const [updated] = await client
     .update(schema.orders)
     .set({ status })
     .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, order.status)))
     .returning()
-  if (!updated) return err('INVALID_TRANSITION')
+  if (!updated) return err({ code: 'INVALID_TRANSITION' } as const)
   const items = await client
     .select()
     .from(schema.orderItems)
@@ -183,17 +188,22 @@ export async function markOrderRefunded(
   orderId: string,
   client: DbClient,
 ): Promise<
-  Result<{ order: OrderDetail; from: OrderStatus }, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'>
+  Result<
+    { order: OrderDetail; from: OrderStatus },
+    { code: 'ORDER_NOT_FOUND' } | { code: 'INVALID_TRANSITION' }
+  >
 > {
   const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
-  if (!order) return err('ORDER_NOT_FOUND')
-  if (!['paid', 'shipped', 'completed'].includes(order.status)) return err('INVALID_TRANSITION')
+  if (!order) return err({ code: 'ORDER_NOT_FOUND' } as const)
+  if (!['paid', 'shipped', 'completed'].includes(order.status)) {
+    return err({ code: 'INVALID_TRANSITION' } as const)
+  }
   const [updated] = await client
     .update(schema.orders)
     .set({ status: 'refunded' })
     .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, order.status)))
     .returning()
-  if (!updated) return err('INVALID_TRANSITION')
+  if (!updated) return err({ code: 'INVALID_TRANSITION' } as const)
   const items = await client
     .select()
     .from(schema.orderItems)

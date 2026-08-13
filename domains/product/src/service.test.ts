@@ -55,14 +55,14 @@ describe('reduceProductStock', () => {
   test('returns SKU_NOT_FOUND for unknown sku', async () => {
     const result = await reduceProductStock('00000000-0000-4000-8000-000000000000', 1, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('SKU_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'SKU_NOT_FOUND' })
   })
 
   test('returns INSUFFICIENT_STOCK when quantity exceeds stock', async () => {
     const { sku } = await seedSku(5)
     const result = await reduceProductStock(sku.id, 6, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'INSUFFICIENT_STOCK' })
     const [after] = await db
       .select()
       .from(schema.productSkus)
@@ -74,7 +74,7 @@ describe('reduceProductStock', () => {
     const { sku } = await seedSku(0)
     const result = await reduceProductStock(sku.id, 1, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'INSUFFICIENT_STOCK' })
   })
 })
 
@@ -93,7 +93,7 @@ describe('restoreProductStock', () => {
   test('returns SKU_NOT_FOUND for unknown sku', async () => {
     const result = await restoreProductStock('00000000-0000-4000-8000-000000000000', 1, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('SKU_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'SKU_NOT_FOUND' })
   })
 })
 
@@ -252,7 +252,7 @@ describe('removeCategory', () => {
     await createProduct({ name: 'Apple', slug: 'apple', categoryId: category.id, images: [] }, db)
     const result = await removeCategory(category.id, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('CATEGORY_HAS_PRODUCTS')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'CATEGORY_HAS_PRODUCTS' })
   })
 
   test('removes empty category', async () => {
@@ -287,7 +287,7 @@ describe('updateCategory', () => {
       db,
     )
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('CATEGORY_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'CATEGORY_NOT_FOUND' })
   })
 
   test('returns CATEGORY_PARENT_NOT_FOUND for missing parent', async () => {
@@ -298,14 +298,14 @@ describe('updateCategory', () => {
       db,
     )
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('CATEGORY_PARENT_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'CATEGORY_PARENT_NOT_FOUND' })
   })
 
   test('rejects setting itself as parent', async () => {
     const cat = await createCategory({ name: 'Fruit', slug: 'fruit' }, db)
     const result = await updateCategory(cat.id, { parentId: cat.id }, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('CATEGORY_CYCLE')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'CATEGORY_CYCLE' })
   })
 
   test('rejects setting a descendant as parent', async () => {
@@ -317,6 +317,6 @@ describe('updateCategory', () => {
     )
     const result = await updateCategory(parent.id, { parentId: grandchild.id }, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('CATEGORY_CYCLE')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'CATEGORY_CYCLE' })
   })
 })

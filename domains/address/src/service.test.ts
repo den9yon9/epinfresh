@@ -94,7 +94,7 @@ describe('address queries', () => {
 
     const result = await getAddressById(user.id, otherAddress.id, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('ADDRESS_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'ADDRESS_NOT_FOUND' })
   })
 })
 
@@ -129,7 +129,7 @@ describe('updateAddress', () => {
 
     const result = await updateAddress(user.id, otherAddress.id, { phone: '99' }, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('ADDRESS_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'ADDRESS_NOT_FOUND' })
   })
 })
 
@@ -156,7 +156,7 @@ describe('deleteAddress', () => {
 
     const result = await deleteAddress(user.id, otherAddress.id, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('ADDRESS_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'ADDRESS_NOT_FOUND' })
     expect(await addressCount()).toBe(1)
   })
 

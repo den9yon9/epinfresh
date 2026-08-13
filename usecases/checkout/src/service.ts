@@ -7,8 +7,11 @@ import { and, eq, inArray } from 'drizzle-orm'
 
 import type { CreateOrderInputSchema } from './model'
 
-export type CheckoutErrorCode =
-  'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'PRODUCT_UNAVAILABLE' | 'ADDRESS_NOT_FOUND'
+export type CheckoutError =
+  | { code: 'SKU_NOT_FOUND' }
+  | { code: 'INSUFFICIENT_STOCK' }
+  | { code: 'PRODUCT_UNAVAILABLE' }
+  | { code: 'ADDRESS_NOT_FOUND' }
 
 function isUniqueViolation(caught: unknown): boolean {
   return (
@@ -22,7 +25,7 @@ function isUniqueViolation(caught: unknown): boolean {
 export async function checkout(
   input: Static<typeof CreateOrderInputSchema> & { userId: string; idempotencyKey?: string },
   client: DbClient,
-): Promise<Result<{ order: OrderDetail; replayed: boolean }, CheckoutErrorCode>> {
+): Promise<Result<{ order: OrderDetail; replayed: boolean }, CheckoutError>> {
   const { userId, idempotencyKey } = input
 
   if (idempotencyKey) {
@@ -44,7 +47,7 @@ export async function checkout(
   try {
     const result = await withTransaction(
       client,
-      async (tx): Promise<Result<OrderDetail, CheckoutErrorCode>> => {
+      async (tx): Promise<Result<OrderDetail, CheckoutError>> => {
         const merged = new Map<string, number>()
         for (const item of input.items) {
           merged.set(item.skuId, (merged.get(item.skuId) ?? 0) + item.quantity)
@@ -59,13 +62,14 @@ export async function checkout(
           .select()
           .from(schema.addresses)
           .where(and(eq(schema.addresses.id, input.addressId), eq(schema.addresses.userId, userId)))
-        if (!address) return err('ADDRESS_NOT_FOUND')
+        if (!address) return err({ code: 'ADDRESS_NOT_FOUND' } as const)
 
         const validated: { item: (typeof items)[number]; sku: (typeof skus)[number] }[] = []
         for (const item of items) {
           const sku = skuMap.get(item.skuId)
-          if (!sku) return err('SKU_NOT_FOUND')
-          if (sku.product.status !== 'published') return err('PRODUCT_UNAVAILABLE')
+          if (!sku) return err({ code: 'SKU_NOT_FOUND' } as const)
+          if (sku.product.status !== 'published')
+            return err({ code: 'PRODUCT_UNAVAILABLE' } as const)
           validated.push({ item, sku })
         }
 

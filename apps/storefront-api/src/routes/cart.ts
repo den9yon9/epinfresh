@@ -25,14 +25,14 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
         const result = await addToCart(session.userId, body.skuId, body.quantity, db)
         return result.match(
           (item) => status(201, item),
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'SKU_NOT_FOUND':
-                return status(404, { error: code, message: 'SKU not found' })
+                return status(404, { error: e.code, message: 'SKU not found' })
               case 'PRODUCT_UNAVAILABLE':
-                return status(409, { error: code, message: 'Product not available' })
+                return status(409, { error: e.code, message: 'Product not available' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )
@@ -59,12 +59,12 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
         const result = await updateCartItem(session.userId, params.skuId, body.quantity, db)
         return result.match(
           (item) => item,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'CART_ITEM_NOT_FOUND':
-                return status(404, { error: code, message: 'Cart item not found' })
+                return status(404, { error: e.code, message: 'Cart item not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )
@@ -87,12 +87,12 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
         const result = await removeCartItem(session.userId, params.skuId, db)
         return result.match(
           () => status(204),
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'CART_ITEM_NOT_FOUND':
-                return status(404, { error: code, message: 'Cart item not found' })
+                return status(404, { error: e.code, message: 'Cart item not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )

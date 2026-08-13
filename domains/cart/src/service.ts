@@ -2,7 +2,8 @@ import { type DbClient, schema } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import { and, eq, sql } from 'drizzle-orm'
 
-export type CartErrorCode = 'SKU_NOT_FOUND' | 'PRODUCT_UNAVAILABLE' | 'CART_ITEM_NOT_FOUND'
+export type CartError =
+  { code: 'SKU_NOT_FOUND' } | { code: 'PRODUCT_UNAVAILABLE' } | { code: 'CART_ITEM_NOT_FOUND' }
 
 export type CartItemDetail = {
   id: string
@@ -89,7 +90,7 @@ export async function addToCart(
   skuId: string,
   quantity: number,
   client: DbClient,
-): Promise<Result<CartItemDetail, 'SKU_NOT_FOUND' | 'PRODUCT_UNAVAILABLE'>> {
+): Promise<Result<CartItemDetail, { code: 'SKU_NOT_FOUND' } | { code: 'PRODUCT_UNAVAILABLE' }>> {
   const [sku] = await client
     .select({
       id: schema.productSkus.id,
@@ -99,8 +100,8 @@ export async function addToCart(
     .from(schema.productSkus)
     .innerJoin(schema.products, eq(schema.productSkus.productId, schema.products.id))
     .where(eq(schema.productSkus.id, skuId))
-  if (!sku) return err('SKU_NOT_FOUND')
-  if (sku.productStatus !== 'published') return err('PRODUCT_UNAVAILABLE')
+  if (!sku) return err({ code: 'SKU_NOT_FOUND' } as const)
+  if (sku.productStatus !== 'published') return err({ code: 'PRODUCT_UNAVAILABLE' } as const)
 
   await client
     .insert(schema.cartItems)
@@ -146,13 +147,13 @@ export async function updateCartItem(
   skuId: string,
   quantity: number,
   client: DbClient,
-): Promise<Result<CartItemDetail, 'CART_ITEM_NOT_FOUND'>> {
+): Promise<Result<CartItemDetail, { code: 'CART_ITEM_NOT_FOUND' }>> {
   const [updated] = await client
     .update(schema.cartItems)
     .set({ quantity })
     .where(and(eq(schema.cartItems.userId, userId), eq(schema.cartItems.skuId, skuId)))
     .returning()
-  if (!updated) return err('CART_ITEM_NOT_FOUND')
+  if (!updated) return err({ code: 'CART_ITEM_NOT_FOUND' } as const)
   return ok(await getCartItem(userId, skuId, client))
 }
 
@@ -160,12 +161,12 @@ export async function removeCartItem(
   userId: string,
   skuId: string,
   client: DbClient,
-): Promise<Result<{ removed: true }, 'CART_ITEM_NOT_FOUND'>> {
+): Promise<Result<{ removed: true }, { code: 'CART_ITEM_NOT_FOUND' }>> {
   const [removed] = await client
     .delete(schema.cartItems)
     .where(and(eq(schema.cartItems.userId, userId), eq(schema.cartItems.skuId, skuId)))
     .returning()
-  if (!removed) return err('CART_ITEM_NOT_FOUND')
+  if (!removed) return err({ code: 'CART_ITEM_NOT_FOUND' } as const)
   return ok({ removed: true })
 }
 

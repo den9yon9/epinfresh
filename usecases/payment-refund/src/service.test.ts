@@ -64,7 +64,7 @@ describe('refundOrderWorkflow', () => {
 
     const result = await refundOrderWorkflow(order.id, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'INVALID_PAYMENT_STATE' })
   })
 
   test('rejects refunding a cancelled order', async () => {
@@ -73,7 +73,7 @@ describe('refundOrderWorkflow', () => {
 
     const result = await refundOrderWorkflow(order.id, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'INVALID_PAYMENT_STATE' })
   })
 
   test('returns NO_REFUNDABLE_PAYMENT when no succeeded payment exists', async () => {
@@ -81,12 +81,12 @@ describe('refundOrderWorkflow', () => {
 
     const result = await refundOrderWorkflow(order.id, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('NO_REFUNDABLE_PAYMENT')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'NO_REFUNDABLE_PAYMENT' })
   })
 
   test('returns ORDER_NOT_FOUND for unknown order', async () => {
     const result = await refundOrderWorkflow('00000000-0000-4000-8000-000000000000', db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'ORDER_NOT_FOUND' })
   })
 })

@@ -23,18 +23,18 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         )
         return result.match(
           ({ order, replayed }) => status(replayed ? 200 : 201, order),
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'SKU_NOT_FOUND':
-                return status(404, { error: code, message: 'SKU not found' })
+                return status(404, { error: e.code, message: 'SKU not found' })
               case 'PRODUCT_UNAVAILABLE':
-                return status(409, { error: code, message: 'Product not available' })
+                return status(409, { error: e.code, message: 'Product not available' })
               case 'INSUFFICIENT_STOCK':
-                return status(409, { error: code, message: 'Insufficient stock' })
+                return status(409, { error: e.code, message: 'Insufficient stock' })
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: code, message: 'Address not found' })
+                return status(404, { error: e.code, message: 'Address not found' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )
@@ -73,12 +73,12 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         const result = await getOrderForUser(session.userId, params.id, db)
         return result.match(
           (order) => order,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: code, message: 'Order not found' })
+                return status(404, { error: e.code, message: 'Order not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )
@@ -105,14 +105,14 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         const result = await cancelOrder(params.id, db)
         return result.match(
           (order) => order,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: code, message: 'Order not found' })
+                return status(404, { error: e.code, message: 'Order not found' })
               case 'INVALID_TRANSITION':
-                return status(409, { error: code, message: 'Order cannot be cancelled' })
+                return status(409, { error: e.code, message: 'Order cannot be cancelled' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )

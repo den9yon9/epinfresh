@@ -25,12 +25,12 @@ export function createUserRoutes(plugins: AdminPlugins) {
         const result = await getUserById(params.id, db)
         return result.match(
           (user) => user,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: code, message: 'User not found' })
+                return status(404, { error: e.code, message: 'User not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )
@@ -62,12 +62,12 @@ export function createUserRoutes(plugins: AdminPlugins) {
             }
             return user
           },
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: code, message: 'User not found' })
+                return status(404, { error: e.code, message: 'User not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )

@@ -48,12 +48,12 @@ export function createAddressRoutes(plugins: StorefrontPlugins) {
         const result = await getAddressById(session.userId, params.id, db)
         return result.match(
           (address) => address,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: code, message: 'Address not found' })
+                return status(404, { error: e.code, message: 'Address not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )
@@ -76,12 +76,12 @@ export function createAddressRoutes(plugins: StorefrontPlugins) {
         const result = await updateAddress(session.userId, params.id, body, db)
         return result.match(
           (address) => address,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: code, message: 'Address not found' })
+                return status(404, { error: e.code, message: 'Address not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )
@@ -105,12 +105,12 @@ export function createAddressRoutes(plugins: StorefrontPlugins) {
         const result = await deleteAddress(session.userId, params.id, db)
         return result.match(
           () => status(204),
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: code, message: 'Address not found' })
+                return status(404, { error: e.code, message: 'Address not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )

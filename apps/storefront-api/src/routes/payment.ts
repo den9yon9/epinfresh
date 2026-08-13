@@ -22,14 +22,14 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
         const result = await initiatePayment(params.id, paymentGateway, db)
         return result.match(
           (payment) => status(201, payment),
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: code, message: 'Order not found' })
+                return status(404, { error: e.code, message: 'Order not found' })
               case 'ORDER_NOT_PENDING':
-                return status(409, { error: code, message: 'Order is not payable' })
+                return status(409, { error: e.code, message: 'Order is not payable' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )
@@ -64,16 +64,16 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
         const result = await confirmOrderPayment(params.id, db)
         return result.match(
           ({ payment }) => status(200, payment),
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'PAYMENT_NOT_FOUND':
-                return status(404, { error: code, message: 'Payment not found' })
+                return status(404, { error: e.code, message: 'Payment not found' })
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: code, message: 'Order not found' })
+                return status(404, { error: e.code, message: 'Order not found' })
               case 'INVALID_PAYMENT_STATE':
-                return status(409, { error: code, message: 'Payment cannot be confirmed' })
+                return status(409, { error: e.code, message: 'Payment cannot be confirmed' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )

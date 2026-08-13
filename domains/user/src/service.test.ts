@@ -56,13 +56,13 @@ describe('loginUser', () => {
     await registerUser({ name: 'Alice', email: 'a@example.com', password: 'secret123' }, db)
     const result = await loginUser({ email: 'a@example.com', password: 'wrong-pass' }, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('LOGIN_FAILED')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'LOGIN_FAILED' })
   })
 
   test('returns LOGIN_FAILED for unknown email', async () => {
     const result = await loginUser({ email: 'nobody@example.com', password: 'secret123' }, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('LOGIN_FAILED')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'LOGIN_FAILED' })
   })
 
   test('returns ACCOUNT_DISABLED for disabled user', async () => {
@@ -73,7 +73,7 @@ describe('loginUser', () => {
     await updateUser(user.id, { isActive: false }, db)
     const result = await loginUser({ email: 'bob@example.com', password: 'secret123' }, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('ACCOUNT_DISABLED')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'ACCOUNT_DISABLED' })
   })
 })
 
@@ -92,7 +92,7 @@ describe('updateUser', () => {
   test('returns USER_NOT_FOUND for missing user', async () => {
     const result = await updateUser('00000000-0000-4000-8000-000000000000', { isActive: false }, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('USER_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'USER_NOT_FOUND' })
   })
 })
 
@@ -131,7 +131,7 @@ describe('updateProfile', () => {
       db,
     )
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('USER_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'USER_NOT_FOUND' })
   })
 })
 
@@ -139,7 +139,7 @@ describe('getUserById', () => {
   test('returns USER_NOT_FOUND for missing user', async () => {
     const result = await getUserById('00000000-0000-4000-8000-000000000000', db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('USER_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'USER_NOT_FOUND' })
   })
 
   test('finds registered user', async () => {
@@ -177,7 +177,7 @@ describe('requestPasswordReset / consumePasswordResetToken', () => {
 
     const replay = await consumePasswordResetToken(token, 'another-password-3', db)
     expect(replay.isErr()).toBe(true)
-    expect(replay._unsafeUnwrapErr()).toBe('RESET_TOKEN_INVALID')
+    expect(replay._unsafeUnwrapErr()).toMatchObject({ code: 'RESET_TOKEN_INVALID' })
   })
 
   test('returns ok for unknown email without creating a token', async () => {
@@ -190,7 +190,7 @@ describe('requestPasswordReset / consumePasswordResetToken', () => {
   test('rejects unknown token', async () => {
     const result = await consumePasswordResetToken('f'.repeat(64), 'whatever-1', db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('RESET_TOKEN_INVALID')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'RESET_TOKEN_INVALID' })
   })
 
   test('rejects expired token', async () => {
@@ -198,6 +198,6 @@ describe('requestPasswordReset / consumePasswordResetToken', () => {
     await db.update(schema.passwordResetTokens).set({ expiresAt: new Date(Date.now() - 1000) })
     const result = await consumePasswordResetToken(token, 'whatever-1', db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('RESET_TOKEN_EXPIRED')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'RESET_TOKEN_EXPIRED' })
   })
 })

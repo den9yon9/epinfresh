@@ -35,12 +35,12 @@ export function createProductRoutes(plugins: AdminPlugins) {
         const result = await getProductById(params.id, db)
         return result.match(
           (p) => p,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: code, message: 'Product not found' })
+                return status(404, { error: e.code, message: 'Product not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )
@@ -72,12 +72,12 @@ export function createProductRoutes(plugins: AdminPlugins) {
         const result = await updateProduct(params.id, body, db)
         return result.match(
           (p) => p,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: code, message: 'Product not found' })
+                return status(404, { error: e.code, message: 'Product not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )
@@ -100,12 +100,12 @@ export function createProductRoutes(plugins: AdminPlugins) {
         const result = await removeProduct(params.id, db)
         return result.match(
           () => status(204),
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: code, message: 'Product not found' })
+                return status(404, { error: e.code, message: 'Product not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )
@@ -147,14 +147,14 @@ export function createProductRoutes(plugins: AdminPlugins) {
         const result = await removeCategory(params.id, db)
         return result.match(
           () => status(204),
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'CATEGORY_NOT_FOUND':
-                return status(404, { error: code, message: 'Category not found' })
+                return status(404, { error: e.code, message: 'Category not found' })
               case 'CATEGORY_HAS_PRODUCTS':
-                return status(409, { error: code, message: 'Category still has products' })
+                return status(409, { error: e.code, message: 'Category still has products' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )
@@ -176,16 +176,16 @@ export function createProductRoutes(plugins: AdminPlugins) {
         const result = await updateCategory(params.id, body, db)
         return result.match(
           (category) => category,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'CATEGORY_NOT_FOUND':
-                return status(404, { error: code, message: 'Category not found' })
+                return status(404, { error: e.code, message: 'Category not found' })
               case 'CATEGORY_PARENT_NOT_FOUND':
-                return status(404, { error: code, message: 'Parent category not found' })
+                return status(404, { error: e.code, message: 'Parent category not found' })
               case 'CATEGORY_CYCLE':
-                return status(409, { error: code, message: 'Cannot set a descendant as parent' })
+                return status(409, { error: e.code, message: 'Cannot set a descendant as parent' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )

@@ -119,7 +119,7 @@ describe('cancelOrder', () => {
     const result = await cancelOrder(order.id, db)
 
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INVALID_TRANSITION')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'INVALID_TRANSITION' })
     expect(await skuStock(sku.id)).toBe(8)
   })
 
@@ -138,6 +138,6 @@ describe('cancelOrder', () => {
   test('returns ORDER_NOT_FOUND for unknown order', async () => {
     const result = await cancelOrder('00000000-0000-4000-8000-000000000000', db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'ORDER_NOT_FOUND' })
   })
 })

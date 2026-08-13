@@ -40,12 +40,12 @@ export function createOrderRoutes(plugins: AdminPlugins) {
         const result = await getOrderById(params.id, db)
         return result.match(
           (order) => order,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: code, message: 'Order not found' })
+                return status(404, { error: e.code, message: 'Order not found' })
               default:
-                return assertNever(code)
+                return assertNever(e.code)
             }
           },
         )
@@ -71,14 +71,14 @@ export function createOrderRoutes(plugins: AdminPlugins) {
             : (await updateOrderStatus(params.id, body.status, db)).map(({ order }) => order)
         return result.match(
           (order) => order,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: code, message: 'Order not found' })
+                return status(404, { error: e.code, message: 'Order not found' })
               case 'INVALID_TRANSITION':
-                return status(409, { error: code, message: 'Invalid status transition' })
+                return status(409, { error: e.code, message: 'Invalid status transition' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )
@@ -150,16 +150,16 @@ export function createOrderRoutes(plugins: AdminPlugins) {
         const result = await refundOrderWorkflow(params.id, db)
         return result.match(
           ({ payment }) => payment,
-          (code) => {
-            switch (code) {
+          (e) => {
+            switch (e.code) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: code, message: 'Order not found' })
+                return status(404, { error: e.code, message: 'Order not found' })
               case 'NO_REFUNDABLE_PAYMENT':
-                return status(404, { error: code, message: 'No refundable payment' })
+                return status(404, { error: e.code, message: 'No refundable payment' })
               case 'INVALID_PAYMENT_STATE':
-                return status(409, { error: code, message: 'Order cannot be refunded' })
+                return status(409, { error: e.code, message: 'Order cannot be refunded' })
               default:
-                return assertNever(code)
+                return assertNever(e)
             }
           },
         )

@@ -154,7 +154,7 @@ describe('checkout', () => {
       db,
     )
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('SKU_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'SKU_NOT_FOUND' })
     expect(await orderCount()).toBe(0)
   })
 
@@ -169,7 +169,7 @@ describe('checkout', () => {
     )
 
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('PRODUCT_UNAVAILABLE')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'PRODUCT_UNAVAILABLE' })
     expect(await orderCount()).toBe(0)
     const [after] = await db
       .select()
@@ -226,7 +226,7 @@ describe('checkout', () => {
     )
 
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'INSUFFICIENT_STOCK' })
     expect(await orderCount()).toBe(0)
     const [afterApple] = await db
       .select()
@@ -253,7 +253,7 @@ describe('checkout', () => {
 
     expect(results.filter((r) => r.isOk())).toHaveLength(1)
     expect(
-      results.filter((r) => r.isErr() && r._unsafeUnwrapErr() === 'INSUFFICIENT_STOCK'),
+      results.filter((r) => r.isErr() && r._unsafeUnwrapErr().code === 'INSUFFICIENT_STOCK'),
     ).toHaveLength(1)
     const [after] = await db
       .select()
@@ -385,7 +385,7 @@ describe('checkout', () => {
       db,
     )
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('ADDRESS_NOT_FOUND')
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'ADDRESS_NOT_FOUND' })
     expect(await orderCount()).toBe(0)
     const [after] = await db
       .select()
@@ -409,7 +409,7 @@ describe('checkout', () => {
       db,
     )
     expect(failed.isErr()).toBe(true)
-    expect(failed._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
+    expect(failed._unsafeUnwrapErr()).toMatchObject({ code: 'INSUFFICIENT_STOCK' })
 
     const retry = await checkout(
       {
