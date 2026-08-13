@@ -53,9 +53,11 @@ pnpm dev                    # 自动迁移 + 全部服务 watch
 | index.ts   | 对外出口，只导出函数与类型 | 不暴露内部实现                                                                                         |
 
 **错误码约定**：默认错误就是大写字符串 `err('CODE')`（字符串字面量推断不拓宽，零仪式）。
-只有需要附带数据时，才把该错误码升级为对象 `err({ code: 'CODE', ...payload } as const)`
-（如 `{ code: 'INSUFFICIENT_STOCK', skuId }`），错误类型变为 string | object 的
-混合判别联合（如 `'SKU_NOT_FOUND' | { code: 'INSUFFICIENT_STOCK'; skuId: string }`）。
+只有需要附带数据时，才把该错误码升级为对象 `err({ code: 'CODE', ...payload })`
+（如 `{ code: 'INSUFFICIENT_STOCK', skuId, available }`，当前唯一 payload 错误），
+错误类型变为 string | object 的混合判别联合
+（如 `'SKU_NOT_FOUND' | { code: 'INSUFFICIENT_STOCK'; skuId: string; available: number }`）。
+payload 对象**无需 `as const`**：函数有返回类型注解时 contextual inference 会保留字面量。
 每个域/用例在 service.ts 顶部定义自己的错误联合类型。控制器必须穷举映射（见 §3），
 因此**新增错误码 = 编译错误**，强制在任何入口处补映射，杜绝静默漏处理。
 
@@ -110,7 +112,11 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
 - 用 `result.match()` 消费 Result；错误分支 switch 穷举 + `default: assertNever(e)`。
   字符串码直接 `switch (e)`（string 字面量窄化恒成立）。若某错误升级为带 payload 的对象，
   先 `if (typeof e !== 'string')` 分流：对象侧 `switch (e.code)`，多码时 `e` 收窄为
-  `never`、单码时 `e.code` 收窄为 `never`。新增错误码时两侧都会报编译错误提示补 case
+  `never`、单码时 `e.code` 收窄为 `never`。新增错误码时两侧都会报编译错误提示补 case。
+  参考实现：`apps/storefront-api/src/routes/order.ts` 的 checkout POST（409 响应用
+  `Type.Union([ErrorResponse, CheckoutConflictResponseSchema])` 承载混合形态）
+- 错误码格式为 SCREAMING_SNAKE（`^[A-Z][A-Z0-9_]*$`），ESLint 强制
+  （`error-code/screaming-snake`，作用于 domains/usecases）
 - 响应 schema 必须显式声明（`response: {...}`）；Elysia normalize 自动剥离未声明字段，
   敏感字段只需在 schema 中 omit，service 层不手工剔除
 - 认证用 `isAuth` / `isAdmin` macro（packages/session 提供）
