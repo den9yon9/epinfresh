@@ -174,7 +174,7 @@ describe('updateProduct', () => {
     expect(updated._unsafeUnwrap().skus.map((s) => s.skuCode)).toContain('ORANGE-5KG')
   })
 
-  test('silently skips sku id belonging to another product', async () => {
+  test('rejects sku id belonging to another product with SKU_NOT_FOUND', async () => {
     const productA = await seedProduct()
     const productB = await createProduct(
       {
@@ -191,7 +191,8 @@ describe('updateProduct', () => {
       { skus: [{ id: otherSku.id, name: 'hacked', skuCode: 'BANANA-1KG', price: 99 }] },
       db,
     )
-    expect(updated._unsafeUnwrap().skus).toHaveLength(1)
+    expect(updated.isErr()).toBe(true)
+    expect(updated._unsafeUnwrapErr()).toBe('SKU_NOT_FOUND')
     const [check] = await db
       .select({ name: schema.productSkus.name })
       .from(schema.productSkus)

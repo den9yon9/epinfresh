@@ -178,7 +178,12 @@ export async function updateProduct(
   id: string,
   input: Static<typeof UpdateProductInputSchema>,
   client: DbClient,
-) {
+): Promise<
+  Result<
+    typeof schema.products.$inferSelect & { skus: (typeof schema.productSkus.$inferSelect)[] },
+    'PRODUCT_NOT_FOUND' | 'SKU_NOT_FOUND'
+  >
+> {
   return withTransaction(client, async (tx) => {
     const { skus, ...productFields } = input
     const [existing] = await tx.select().from(schema.products).where(eq(schema.products.id, id))
@@ -189,23 +194,52 @@ export async function updateProduct(
     const [product] = await tx.select().from(schema.products).where(eq(schema.products.id, id))
 
     if (skus && skus.length > 0) {
-      for (const sku of skus) {
-        const values = {
-          name: sku.name,
-          skuCode: sku.skuCode,
-          price: String(sku.price),
-          stock: sku.stock ?? 0,
-          attributes: sku.attributes ?? {},
+      const toUpdate = skus.filter((s) => s.id !== undefined)
+      const toInsert = skus.filter((s) => s.id === undefined)
+
+      if (toUpdate.length > 0) {
+        const owned = await tx
+          .select({ id: schema.productSkus.id })
+          .from(schema.productSkus)
+          .where(
+            and(
+              eq(schema.productSkus.productId, id),
+              inArray(
+                schema.productSkus.id,
+                toUpdate.map((s) => s.id!),
+              ),
+            ),
+          )
+        const ownedIds = new Set(owned.map((row) => row.id))
+        for (const sku of toUpdate) {
+          // 不属于本商品的 sku id 显式报错, 不静默跳过
+          if (!ownedIds.has(sku.id!)) return err('SKU_NOT_FOUND')
         }
-        if (sku.id) {
-          // 仅更新属于该商品的行; 跨商品 id 静默跳过
+        for (const sku of toUpdate) {
           await tx
             .update(schema.productSkus)
-            .set(values)
-            .where(and(eq(schema.productSkus.id, sku.id), eq(schema.productSkus.productId, id)))
-        } else {
-          await tx.insert(schema.productSkus).values({ productId: id, ...values })
+            .set({
+              name: sku.name,
+              skuCode: sku.skuCode,
+              price: String(sku.price),
+              stock: sku.stock ?? 0,
+              attributes: sku.attributes ?? {},
+            })
+            .where(eq(schema.productSkus.id, sku.id!))
         }
+      }
+
+      if (toInsert.length > 0) {
+        await tx.insert(schema.productSkus).values(
+          toInsert.map((sku) => ({
+            productId: id,
+            name: sku.name,
+            skuCode: sku.skuCode,
+            price: String(sku.price),
+            stock: sku.stock ?? 0,
+            attributes: sku.attributes ?? {},
+          })),
+        )
       }
     }
 

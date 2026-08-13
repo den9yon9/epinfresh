@@ -76,6 +76,8 @@ export function createProductRoutes(plugins: AdminPlugins) {
             switch (e) {
               case 'PRODUCT_NOT_FOUND':
                 return status(404, { error: e, message: 'Product not found' })
+              case 'SKU_NOT_FOUND':
+                return status(404, { error: e, message: 'SKU not found' })
               default:
                 return assertNever(e)
             }
@@ -90,7 +92,7 @@ export function createProductRoutes(plugins: AdminPlugins) {
         detail: {
           tags: ['Admin/Products'],
           summary: '更新商品',
-          description: '更新商品信息及 SKU。\n\n- 需要 admin 角色\n- 商品不存在返回 404',
+          description: '更新商品信息及 SKU。\n\n- 需要 admin 角色\n- 商品或 SKU 不存在返回 404',
         },
       },
     )
