@@ -13,7 +13,9 @@
     "migrate": {
       "cache": false
     },
-    "typecheck": {},
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
     "test": {
       "cache": false,
       "env": ["TESTING_DATABASE_URL", "TESTING_REDIS_URL", "TESTING_SESSION_SECRET"]
