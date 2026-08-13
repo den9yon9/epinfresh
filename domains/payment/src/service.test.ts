@@ -6,7 +6,6 @@ import { eq } from 'drizzle-orm'
 import {
   confirmPayment,
   createMockPaymentGateway,
-  failPayment,
   initiatePayment,
   listPaymentsByOrder,
   refundOrder,
@@ -83,20 +82,6 @@ describe('payment domain', () => {
     const again = await confirmPayment(payment.id, db)
     expect(again.isErr()).toBe(true)
     expect(again._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
-  })
-
-  test('failed payment does not touch the order', async () => {
-    const order = await seedOrder()
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap()
-
-    const failed = await failPayment(payment.id, db)
-    expect(failed.isOk()).toBe(true)
-    expect(failed._unsafeUnwrap().status).toBe('failed')
-
-    const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
-    expect(after.status).toBe('pending')
   })
 
   test('refunds a succeeded payment', async () => {

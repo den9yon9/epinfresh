@@ -1,4 +1,4 @@
-import { type DbClient, type PaymentStatus, schema, withTransaction } from '@epinfresh/database'
+import { type DbClient, type PaymentStatus, schema } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import { and, eq } from 'drizzle-orm'
 
@@ -69,6 +69,8 @@ export async function getPaymentById(
   return ok(payment)
 }
 
+// 事务原语: 不自己开事务, 在传入的 client 上执行(事务边界归 usecase 持有);
+// 单条 CAS update 自带原子性, 跨域原子性由 payment-confirm/refund 用例编排。
 export async function confirmPayment(
   paymentId: string,
   client: DbClient,
@@ -78,46 +80,22 @@ export async function confirmPayment(
     'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'
   >
 > {
-  return withTransaction(client, async (tx) => {
-    const [payment] = await tx
-      .select()
-      .from(schema.payments)
-      .where(eq(schema.payments.id, paymentId))
-    if (!payment) return err('PAYMENT_NOT_FOUND')
-    if (!PAYMENT_TRANSITIONS[payment.status].includes('succeeded'))
-      return err('INVALID_PAYMENT_STATE')
-
-    const [updated] = await tx
-      .update(schema.payments)
-      .set({ status: 'succeeded' })
-      .where(and(eq(schema.payments.id, paymentId), eq(schema.payments.status, payment.status)))
-      .returning()
-    if (!updated) return err('INVALID_PAYMENT_STATE')
-
-    return ok({ payment: updated, orderId: payment.orderId })
-  })
-}
-
-export async function failPayment(
-  paymentId: string,
-  client: DbClient,
-): Promise<
-  Result<typeof schema.payments.$inferSelect, 'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'>
-> {
   const [payment] = await client
-    .update(schema.payments)
-    .set({ status: 'failed' })
-    .where(and(eq(schema.payments.id, paymentId), eq(schema.payments.status, 'pending')))
-    .returning()
-  if (!payment) {
-    const existing = await client
-      .select()
-      .from(schema.payments)
-      .where(eq(schema.payments.id, paymentId))
-    if (!existing[0]) return err('PAYMENT_NOT_FOUND')
+    .select()
+    .from(schema.payments)
+    .where(eq(schema.payments.id, paymentId))
+  if (!payment) return err('PAYMENT_NOT_FOUND')
+  if (!PAYMENT_TRANSITIONS[payment.status].includes('succeeded'))
     return err('INVALID_PAYMENT_STATE')
-  }
-  return ok(payment)
+
+  const [updated] = await client
+    .update(schema.payments)
+    .set({ status: 'succeeded' })
+    .where(and(eq(schema.payments.id, paymentId), eq(schema.payments.status, payment.status)))
+    .returning()
+  if (!updated) return err('INVALID_PAYMENT_STATE')
+
+  return ok({ payment: updated, orderId: payment.orderId })
 }
 
 export async function refundPayment(
@@ -151,27 +129,25 @@ export async function refundOrder(
     'ORDER_NOT_FOUND' | 'NO_REFUNDABLE_PAYMENT' | 'INVALID_PAYMENT_STATE'
   >
 > {
-  return withTransaction(client, async (tx) => {
-    const [order] = await tx.select().from(schema.orders).where(eq(schema.orders.id, orderId))
-    if (!order) return err('ORDER_NOT_FOUND')
+  const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
+  if (!order) return err('ORDER_NOT_FOUND')
 
-    const [payment] = await tx
-      .select()
-      .from(schema.payments)
-      .where(and(eq(schema.payments.orderId, orderId), eq(schema.payments.status, 'succeeded')))
-      .orderBy(schema.payments.createdAt)
-      .limit(1)
-    if (!payment) return err('NO_REFUNDABLE_PAYMENT')
+  const [payment] = await client
+    .select()
+    .from(schema.payments)
+    .where(and(eq(schema.payments.orderId, orderId), eq(schema.payments.status, 'succeeded')))
+    .orderBy(schema.payments.createdAt)
+    .limit(1)
+  if (!payment) return err('NO_REFUNDABLE_PAYMENT')
 
-    const [refunded] = await tx
-      .update(schema.payments)
-      .set({ status: 'refunded' })
-      .where(and(eq(schema.payments.id, payment.id), eq(schema.payments.status, 'succeeded')))
-      .returning()
-    if (!refunded) return err('INVALID_PAYMENT_STATE')
+  const [refunded] = await client
+    .update(schema.payments)
+    .set({ status: 'refunded' })
+    .where(and(eq(schema.payments.id, payment.id), eq(schema.payments.status, 'succeeded')))
+    .returning()
+  if (!refunded) return err('INVALID_PAYMENT_STATE')
 
-    return ok(refunded)
-  })
+  return ok(refunded)
 }
 
 export async function listPaymentsByOrder(orderId: string, client: DbClient) {
