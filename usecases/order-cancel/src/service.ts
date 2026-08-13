@@ -1,4 +1,4 @@
-import { type DbClient, schema } from '@epinfresh/database'
+import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { type OrderDetail, updateOrderStatus } from '@epinfresh/order'
 import { refundPayment } from '@epinfresh/payment'
 import { restoreProductStock } from '@epinfresh/product'
@@ -11,7 +11,7 @@ export async function cancelOrder(
   orderId: string,
   client: DbClient,
 ): Promise<Result<OrderDetail, CancelOrderErrorCode>> {
-  return client.transaction(async (tx) => {
+  return withTransaction(client, async (tx) => {
     const result = await updateOrderStatus(orderId, 'cancelled', tx)
     if (result.isErr()) {
       return err(result.error)

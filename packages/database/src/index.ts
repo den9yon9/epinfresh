@@ -15,6 +15,7 @@ export { ORDER_STATUS, type OrderStatus } from './schema/order/orders'
 export { PAYMENT_STATUS, type PaymentStatus } from './schema/payment/payments'
 export { PRODUCT_STATUS, type ProductStatus } from './schema/product/products'
 export { USER_ROLE, type UserRole } from './schema/user/users'
+export { withTransaction } from './transaction'
 
 type PgDatabase = PostgresJsDatabase<typeof schema> & { $client: Sql }
 

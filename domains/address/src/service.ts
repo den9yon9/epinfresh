@@ -1,4 +1,4 @@
-import { type DbClient, schema } from '@epinfresh/database'
+import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import { and, desc, eq } from 'drizzle-orm'
 
@@ -15,7 +15,7 @@ export async function createAddress(
   client: DbClient,
 ) {
   const isDefault = input.isDefault ?? false
-  return client.transaction(async (tx) => {
+  return withTransaction(client, async (tx) => {
     // ponytail: 默认唯一性靠事务内先清后设；地址量级小，不需要部分唯一索引
     const [first] = await tx
       .select()
@@ -72,7 +72,7 @@ export async function updateAddress(
   client: DbClient,
 ): Promise<Result<typeof schema.addresses.$inferSelect, 'ADDRESS_NOT_FOUND'>> {
   const { isDefault, ...rest } = input
-  return client.transaction(async (tx) => {
+  return withTransaction(client, async (tx) => {
     const [existing] = await tx
       .select()
       .from(schema.addresses)

@@ -1,4 +1,4 @@
-import { type DbClient, schema } from '@epinfresh/database'
+import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { createOrderRecord, getOrderById, type OrderDetail } from '@epinfresh/order'
 import { getSkusByIds, reduceProductStock } from '@epinfresh/product'
 import { err, ok, type Result } from '@epinfresh/shared'
@@ -9,12 +9,6 @@ import type { CreateOrderInputSchema } from './model'
 
 export type CheckoutErrorCode =
   'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'PRODUCT_UNAVAILABLE' | 'ADDRESS_NOT_FOUND'
-
-class CheckoutError extends Error {
-  constructor(readonly code: CheckoutErrorCode) {
-    super(code)
-  }
-}
 
 function isUniqueViolation(caught: unknown): boolean {
   return (
@@ -48,65 +42,69 @@ export async function checkout(
   }
 
   try {
-    const order = await client.transaction(async (tx) => {
-      const merged = new Map<string, number>()
-      for (const item of input.items) {
-        merged.set(item.skuId, (merged.get(item.skuId) ?? 0) + item.quantity)
-      }
-      const items = [...merged.entries()].map(([skuId, quantity]) => ({ skuId, quantity }))
+    const result = await withTransaction(
+      client,
+      async (tx): Promise<Result<OrderDetail, CheckoutErrorCode>> => {
+        const merged = new Map<string, number>()
+        for (const item of input.items) {
+          merged.set(item.skuId, (merged.get(item.skuId) ?? 0) + item.quantity)
+        }
+        const items = [...merged.entries()].map(([skuId, quantity]) => ({ skuId, quantity }))
 
-      const skuIds = items.map((i) => i.skuId)
-      const skus = await getSkusByIds(skuIds, tx)
-      const skuMap = new Map(skus.map((s) => [s.id, s]))
+        const skuIds = items.map((i) => i.skuId)
+        const skus = await getSkusByIds(skuIds, tx)
+        const skuMap = new Map(skus.map((s) => [s.id, s]))
 
-      const [address] = await tx
-        .select()
-        .from(schema.addresses)
-        .where(and(eq(schema.addresses.id, input.addressId), eq(schema.addresses.userId, userId)))
-      if (!address) throw new CheckoutError('ADDRESS_NOT_FOUND')
+        const [address] = await tx
+          .select()
+          .from(schema.addresses)
+          .where(and(eq(schema.addresses.id, input.addressId), eq(schema.addresses.userId, userId)))
+        if (!address) return err('ADDRESS_NOT_FOUND')
 
-      const validated = items.map((item) => {
-        const sku = skuMap.get(item.skuId)
-        if (!sku) throw new CheckoutError('SKU_NOT_FOUND')
-        if (sku.product.status !== 'published') throw new CheckoutError('PRODUCT_UNAVAILABLE')
-        return { item, sku }
-      })
+        const validated: { item: (typeof items)[number]; sku: (typeof skus)[number] }[] = []
+        for (const item of items) {
+          const sku = skuMap.get(item.skuId)
+          if (!sku) return err('SKU_NOT_FOUND')
+          if (sku.product.status !== 'published') return err('PRODUCT_UNAVAILABLE')
+          validated.push({ item, sku })
+        }
 
-      for (const { item } of validated) {
-        const result = await reduceProductStock(item.skuId, item.quantity, tx)
-        if (result.isErr()) throw new CheckoutError(result.error)
-      }
+        for (const { item } of validated) {
+          const result = await reduceProductStock(item.skuId, item.quantity, tx)
+          if (result.isErr()) return err(result.error)
+        }
 
-      const lines = validated.map(({ item, sku }) => ({
-        skuId: sku.id,
-        productName: sku.product.name,
-        skuName: sku.name,
-        unitPrice: sku.price,
-        quantity: item.quantity,
-      }))
+        const lines = validated.map(({ item, sku }) => ({
+          skuId: sku.id,
+          productName: sku.product.name,
+          skuName: sku.name,
+          unitPrice: sku.price,
+          quantity: item.quantity,
+        }))
 
-      const order = await createOrderRecord(tx, userId, lines, {
-        addressId: address.id,
-        recipientName: address.recipientName,
-        phone: address.phone,
-        address: address.address,
-      })
-      // 只清结算涉及的 SKU: 契约允许按 SKU 直接结算, 整车清空会误删未结算商品
-      await tx
-        .delete(schema.cartItems)
-        .where(and(eq(schema.cartItems.userId, userId), inArray(schema.cartItems.skuId, skuIds)))
-      if (idempotencyKey) {
-        // 故意不用 onConflictDoNothing：冲突必须抛 23505 让本事务回滚（含扣库存），
-        // 否则并发同 key 会静默跳过并各自提交重复订单
+        const order = await createOrderRecord(tx, userId, lines, {
+          addressId: address.id,
+          recipientName: address.recipientName,
+          phone: address.phone,
+          address: address.address,
+        })
+        // 只清结算涉及的 SKU: 契约允许按 SKU 直接结算, 整车清空会误删未结算商品
         await tx
-          .insert(schema.checkoutIdempotencyKeys)
-          .values({ userId, key: idempotencyKey, orderId: order.id })
-      }
-      return order
-    })
-    return ok({ order, replayed: false })
+          .delete(schema.cartItems)
+          .where(and(eq(schema.cartItems.userId, userId), inArray(schema.cartItems.skuId, skuIds)))
+        if (idempotencyKey) {
+          // 故意不用 onConflictDoNothing：冲突必须抛 23505 让本事务回滚（含扣库存），
+          // 否则并发同 key 会静默跳过并各自提交重复订单
+          await tx
+            .insert(schema.checkoutIdempotencyKeys)
+            .values({ userId, key: idempotencyKey, orderId: order.id })
+        }
+        return ok(order)
+      },
+    )
+    if (result.isErr()) return err(result.error)
+    return ok({ order: result.value, replayed: false })
   } catch (caught) {
-    if (caught instanceof CheckoutError) return err(caught.code)
     // 并发同 key：唯一约束使后到事务回滚，重查已建订单返回
     if (isUniqueViolation(caught) && idempotencyKey) {
       const [row] = await client

@@ -1,4 +1,4 @@
-import { type DbClient, type PaymentStatus, schema } from '@epinfresh/database'
+import { type DbClient, type PaymentStatus, schema, withTransaction } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import { and, eq } from 'drizzle-orm'
 
@@ -78,7 +78,7 @@ export async function confirmPayment(
     'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'
   >
 > {
-  return client.transaction(async (tx) => {
+  return withTransaction(client, async (tx) => {
     const [payment] = await tx
       .select()
       .from(schema.payments)
@@ -151,7 +151,7 @@ export async function refundOrder(
     'ORDER_NOT_FOUND' | 'NO_REFUNDABLE_PAYMENT' | 'INVALID_PAYMENT_STATE'
   >
 > {
-  return client.transaction(async (tx) => {
+  return withTransaction(client, async (tx) => {
     const [order] = await tx.select().from(schema.orders).where(eq(schema.orders.id, orderId))
     if (!order) return err('ORDER_NOT_FOUND')
 

@@ -1,4 +1,4 @@
-import { type DbClient, schema } from '@epinfresh/database'
+import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
 import { and, asc, count, eq, gte, ilike, inArray, type SQL, sql } from 'drizzle-orm'
@@ -140,7 +140,7 @@ export async function createProduct(
   input: Static<typeof CreateProductInputSchema>,
   client: DbClient,
 ) {
-  return client.transaction(async (tx) => {
+  return withTransaction(client, async (tx) => {
     const [product] = await tx
       .insert(schema.products)
       .values({
@@ -177,7 +177,7 @@ export async function updateProduct(
   input: Static<typeof UpdateProductInputSchema>,
   client: DbClient,
 ) {
-  return client.transaction(async (tx) => {
+  return withTransaction(client, async (tx) => {
     const { skus, ...productFields } = input
     const [existing] = await tx.select().from(schema.products).where(eq(schema.products.id, id))
     if (!existing) return err('PRODUCT_NOT_FOUND')
@@ -216,7 +216,7 @@ export async function updateProduct(
 }
 
 export async function removeProduct(id: string, client: DbClient) {
-  return client.transaction(async (tx) => {
+  return withTransaction(client, async (tx) => {
     const [product] = await tx.delete(schema.products).where(eq(schema.products.id, id)).returning()
     if (!product) return err('PRODUCT_NOT_FOUND')
     return ok()
@@ -254,7 +254,7 @@ export async function updateCategory(
     'CATEGORY_NOT_FOUND' | 'CATEGORY_PARENT_NOT_FOUND' | 'CATEGORY_CYCLE'
   >
 > {
-  return client.transaction(async (tx) => {
+  return withTransaction(client, async (tx) => {
     const [cat] = await tx.select().from(schema.categories).where(eq(schema.categories.id, id))
     if (!cat) return err('CATEGORY_NOT_FOUND')
 
@@ -288,7 +288,7 @@ export async function updateCategory(
 }
 
 export async function removeCategory(id: string, client: DbClient) {
-  return client.transaction(async (tx) => {
+  return withTransaction(client, async (tx) => {
     const [cat] = await tx.select().from(schema.categories).where(eq(schema.categories.id, id))
     if (!cat) return err('CATEGORY_NOT_FOUND')
     const [ref] = await tx

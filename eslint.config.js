@@ -5,6 +5,7 @@ import boundaries from 'eslint-plugin-boundaries'
 import simpleImportSort from 'eslint-plugin-simple-import-sort'
 
 import tableOwnership from './eslint-rules/table-ownership.js'
+import transactionRule from './eslint-rules/transaction.js'
 
 export default [
   {
@@ -124,6 +125,14 @@ export default [
     ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
     rules: {
       'table-ownership/no-cross-domain-tables': 'error',
+    },
+  },
+  {
+    plugins: { transaction: transactionRule },
+    files: ['domains/**/*.ts', 'usecases/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
+    rules: {
+      'transaction/use-with-transaction': 'error',
     },
   },
   eslintConfigPrettier,

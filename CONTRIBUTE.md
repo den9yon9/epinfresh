@@ -58,8 +58,10 @@ pnpm dev                    # 自动迁移 + 全部服务 watch
 ### 2. 新增用例（usecases/*）
 
 跨域编排放这里，与 domain 同样的三文件结构。需要原子性时用
-`client.transaction` 包住多个 domain 调用；幂等需求在事务内写唯一约束表实现
-（冲突时回滚整个事务，不静默跳过）。
+`withTransaction(client, fn)`（@epinfresh/database）包住多个 domain 调用；
+回调内 `return err(code)` 会自动回滚整个事务（helper 内部转抛 abort 再还原为 err），
+DB 异常同理。域/用例内禁止直接调用 `.transaction(`（ESLint 强制）。
+幂等需求在事务内写唯一约束表实现（冲突时回滚整个事务，不静默跳过）。
 
 ### 3. 新增路由（apps/*/src/routes/）
 
