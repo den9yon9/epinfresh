@@ -38,10 +38,10 @@ const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 }
 
 export async function createOrderRecord(
-  client: DbClient,
   userId: string,
   lines: OrderLineInput[],
   shipping: OrderShippingInput,
+  client: DbClient,
 ): Promise<OrderDetail> {
   let totalCents = 0n
   const rows = lines.map((line) => {

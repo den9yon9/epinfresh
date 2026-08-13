@@ -65,7 +65,6 @@ async function seedAddress(userId: string) {
 async function seedOrder(userId: string, skuId: string, quantity = 1, unitPrice = '5.00') {
   const address = await seedAddress(userId)
   return createOrderRecord(
-    db,
     userId,
     [{ skuId, productName: 'Apple', skuName: '1kg', unitPrice, quantity }],
     {
@@ -74,6 +73,7 @@ async function seedOrder(userId: string, skuId: string, quantity = 1, unitPrice 
       phone: address.phone,
       address: address.address,
     },
+    db,
   )
 }
 
@@ -84,7 +84,6 @@ describe('createOrderRecord', () => {
     const address = await seedAddress(user.id)
 
     const order = await createOrderRecord(
-      db,
       user.id,
       [
         { skuId: sku.id, productName: 'Apple', skuName: '1kg', unitPrice: '5.00', quantity: 2 },
@@ -96,6 +95,7 @@ describe('createOrderRecord', () => {
         phone: address.phone,
         address: address.address,
       },
+      db,
     )
 
     expect(order.userId).toBe(user.id)

@@ -82,7 +82,7 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
           tags: ['Auth'],
           summary: '登录',
           description:
-            '邮箱密码登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 账号被禁用返回 403\n- 限流：60 秒内最多 10 次尝试',
+            '邮箱密码登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 账号被禁用返回 403\n- 限流：60 秒内最多 20 次尝试',
         },
       },
     )

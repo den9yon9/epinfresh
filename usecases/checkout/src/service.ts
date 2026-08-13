@@ -85,12 +85,17 @@ export async function checkout(
           quantity: item.quantity,
         }))
 
-        const order = await createOrderRecord(tx, userId, lines, {
-          addressId: address.id,
-          recipientName: address.recipientName,
-          phone: address.phone,
-          address: address.address,
-        })
+        const order = await createOrderRecord(
+          userId,
+          lines,
+          {
+            addressId: address.id,
+            recipientName: address.recipientName,
+            phone: address.phone,
+            address: address.address,
+          },
+          tx,
+        )
         // 只清结算涉及的 SKU: 契约允许按 SKU 直接结算, 整车清空会误删未结算商品
         await tx
           .delete(schema.cartItems)
