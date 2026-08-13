@@ -1,4 +1,10 @@
-import { type DbClient, ORDER_STATUS, type OrderStatus, schema } from '@epinfresh/database'
+import {
+  type DbClient,
+  ORDER_STATUS,
+  type OrderStatus,
+  schema,
+  withTransaction,
+} from '@epinfresh/database'
 import { err, fromCents, ok, type Result, toCents } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
 import { and, count, eq } from 'drizzle-orm'
@@ -203,4 +209,35 @@ export async function markOrderRefunded(
     .from(schema.orderItems)
     .where(eq(schema.orderItems.orderId, orderId))
   return ok({ order: { ...updated, items }, from: order.status })
+}
+
+// 发货: 只有 paid 可发货; 已 shipped 时重复调用仅补/更运单号(幂等)。CAS 防并发双发货,
+// 状态流转 + 运单号 + shippedAt 在同一事务内原子提交, 不会出现"已发货但无运单号"的半态。
+export async function shipOrder(
+  orderId: string,
+  trackingNumber: string | undefined,
+  client: DbClient,
+): Promise<Result<OrderDetail, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'>> {
+  return withTransaction(client, async (tx) => {
+    const [order] = await tx.select().from(schema.orders).where(eq(schema.orders.id, orderId))
+    if (!order) return err('ORDER_NOT_FOUND')
+    if (order.status !== 'paid' && order.status !== 'shipped') {
+      return err('INVALID_TRANSITION')
+    }
+    const [updated] = await tx
+      .update(schema.orders)
+      .set({
+        status: 'shipped',
+        trackingNumber: trackingNumber ?? order.trackingNumber,
+        shippedAt: order.shippedAt ?? new Date(),
+      })
+      .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, order.status)))
+      .returning()
+    if (!updated) return err('INVALID_TRANSITION')
+    const items = await tx
+      .select()
+      .from(schema.orderItems)
+      .where(eq(schema.orderItems.orderId, orderId))
+    return ok({ ...updated, items })
+  })
 }

@@ -7,5 +7,6 @@ export {
   listOrders,
   listOrdersByUser,
   markOrderRefunded,
+  shipOrder,
   updateOrderStatus,
 } from './service'

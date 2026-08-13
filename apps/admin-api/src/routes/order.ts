@@ -1,12 +1,16 @@
-import { schema } from '@epinfresh/database'
-import { getOrderById, getOrderStatusCounts, listOrders, updateOrderStatus } from '@epinfresh/order'
+import {
+  getOrderById,
+  getOrderStatusCounts,
+  listOrders,
+  shipOrder,
+  updateOrderStatus,
+} from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { cancelOrder } from '@epinfresh/order-cancel'
 import { listPaymentsByOrder } from '@epinfresh/payment'
 import * as PaymentModel from '@epinfresh/payment/model'
 import { refundOrderWorkflow } from '@epinfresh/payment-refund'
 import { assertNever, ErrorResponse } from '@epinfresh/shared'
-import { eq } from 'drizzle-orm'
 import { Elysia, status, t } from 'elysia'
 
 import { type AdminPlugins } from '../plugins'
@@ -103,29 +107,20 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     .post(
       '/orders/:id/ship',
       async ({ params, body, db }) => {
-        const [order] = await db.select().from(schema.orders).where(eq(schema.orders.id, params.id))
-        if (!order) return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
-
-        if (order.status !== 'shipped') {
-          const result = await updateOrderStatus(params.id, 'shipped', db)
-          if (result.isErr()) {
-            return status(409, { error: 'INVALID_TRANSITION', message: 'Order cannot be shipped' })
-          }
-        }
-        // 已 shipped 时重复调用仅补/更运单号（幂等）
-        const [updated] = await db
-          .update(schema.orders)
-          .set({
-            trackingNumber: body.trackingNumber ?? order.trackingNumber,
-            shippedAt: order.shippedAt ?? new Date(),
-          })
-          .where(eq(schema.orders.id, params.id))
-          .returning()
-        const items = await db
-          .select()
-          .from(schema.orderItems)
-          .where(eq(schema.orderItems.orderId, params.id))
-        return { ...updated, items }
+        const result = await shipOrder(params.id, body.trackingNumber, db)
+        return result.match(
+          (order) => order,
+          (e) => {
+            switch (e) {
+              case 'ORDER_NOT_FOUND':
+                return status(404, { error: e, message: 'Order not found' })
+              case 'INVALID_TRANSITION':
+                return status(409, { error: e, message: 'Order cannot be shipped' })
+              default:
+                return assertNever(e)
+            }
+          },
+        )
       },
       {
         isAdmin: true,

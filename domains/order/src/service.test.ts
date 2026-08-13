@@ -10,6 +10,7 @@ import {
   getOrderStatusCounts,
   listOrders,
   listOrdersByUser,
+  shipOrder,
   updateOrderStatus,
 } from './service'
 
@@ -226,6 +227,54 @@ describe('updateOrderStatus', () => {
 
   test('returns ORDER_NOT_FOUND for unknown order', async () => {
     const result = await updateOrderStatus('00000000-0000-4000-8000-000000000000', 'paid', db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
+  })
+})
+
+describe('shipOrder', () => {
+  test('ships a paid order with trackingNumber and shippedAt', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(order.id, 'paid', db)
+
+    const result = await shipOrder(order.id, 'SF123', db)
+    expect(result.isOk()).toBe(true)
+    const shipped = result._unsafeUnwrap()
+    expect(shipped.status).toBe('shipped')
+    expect(shipped.trackingNumber).toBe('SF123')
+    expect(shipped.shippedAt).not.toBeNull()
+    expect(shipped.items).toHaveLength(1)
+  })
+
+  test('re-shipping is idempotent and only updates the tracking number', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(order.id, 'paid', db)
+
+    await shipOrder(order.id, 'SF123', db)
+    const reShip = await shipOrder(order.id, 'SF456', db)
+    expect(reShip.isOk()).toBe(true)
+    const shipped = reShip._unsafeUnwrap()
+    expect(shipped.status).toBe('shipped')
+    expect(shipped.trackingNumber).toBe('SF456')
+    expect(shipped.shippedAt).not.toBeNull()
+  })
+
+  test('rejects shipping a pending order with INVALID_TRANSITION', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+
+    const result = await shipOrder(order.id, 'SF123', db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('INVALID_TRANSITION')
+  })
+
+  test('returns ORDER_NOT_FOUND for unknown order', async () => {
+    const result = await shipOrder('00000000-0000-4000-8000-000000000000', 'SF123', db)
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
   })
