@@ -124,13 +124,20 @@ function CheckoutPage() {
     )
     setSubmitting(false)
     if (res.error) {
+      const value = res.error.value
+      if ('skuId' in value) {
+        const item = cart.items.find((i) => i.skuId === value.skuId)
+        setError(
+          `${item ? `「${item.productName}」` : '部分商品'}库存不足，仅剩 ${value.available} 件，请调整数量`,
+        )
+        return
+      }
       const messages: Record<string, string> = {
         SKU_NOT_FOUND: '部分商品不存在，请返回重新选择',
         PRODUCT_UNAVAILABLE: '部分商品已下架，请返回重新选择',
-        INSUFFICIENT_STOCK: '部分商品库存不足，请返回调整数量',
         ADDRESS_NOT_FOUND: '收货地址无效，请重新选择',
       }
-      const code = 'error' in res.error.value ? res.error.value.error : undefined
+      const code = 'error' in value ? value.error : undefined
       setError((code ? messages[code] : undefined) ?? '下单失败，请稍后重试')
       return
     }

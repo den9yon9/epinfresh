@@ -62,7 +62,11 @@ describe('reduceProductStock', () => {
     const { sku } = await seedSku(5)
     const result = await reduceProductStock(sku.id, 6, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'INSUFFICIENT_STOCK',
+      skuId: sku.id,
+      available: 5,
+    })
     const [after] = await db
       .select()
       .from(schema.productSkus)
@@ -74,7 +78,11 @@ describe('reduceProductStock', () => {
     const { sku } = await seedSku(0)
     const result = await reduceProductStock(sku.id, 1, db)
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'INSUFFICIENT_STOCK',
+      skuId: sku.id,
+      available: 0,
+    })
   })
 })
 

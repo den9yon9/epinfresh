@@ -226,7 +226,11 @@ describe('checkout', () => {
     )
 
     expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'INSUFFICIENT_STOCK',
+      skuId: banana.id,
+      available: 1,
+    })
     expect(await orderCount()).toBe(0)
     const [afterApple] = await db
       .select()
@@ -252,9 +256,9 @@ describe('checkout', () => {
     ])
 
     expect(results.filter((r) => r.isOk())).toHaveLength(1)
-    expect(
-      results.filter((r) => r.isErr() && r._unsafeUnwrapErr() === 'INSUFFICIENT_STOCK'),
-    ).toHaveLength(1)
+    const failed = results.filter((r) => r.isErr())
+    expect(failed).toHaveLength(1)
+    expect(failed[0]!._unsafeUnwrapErr()).toMatchObject({ code: 'INSUFFICIENT_STOCK' })
     const [after] = await db
       .select()
       .from(schema.productSkus)
@@ -409,7 +413,11 @@ describe('checkout', () => {
       db,
     )
     expect(failed.isErr()).toBe(true)
-    expect(failed._unsafeUnwrapErr()).toBe('INSUFFICIENT_STOCK')
+    expect(failed._unsafeUnwrapErr()).toMatchObject({
+      code: 'INSUFFICIENT_STOCK',
+      skuId: sku.id,
+      available: 10,
+    })
 
     const retry = await checkout(
       {

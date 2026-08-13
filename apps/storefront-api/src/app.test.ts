@@ -517,7 +517,11 @@ describe('orders', () => {
     )
     expect(res.status).toBe(409)
     if (res.error === null) throw new Error('expected error response')
-    expect(res.error.value).toMatchObject({ error: 'INSUFFICIENT_STOCK' })
+    expect(res.error.value).toMatchObject({
+      error: 'INSUFFICIENT_STOCK',
+      skuId: sku.id,
+      available: 2,
+    })
   })
 
   test('returns 409 PRODUCT_UNAVAILABLE for a draft product sku', async () => {

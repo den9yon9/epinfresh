@@ -8,7 +8,10 @@ import { and, eq, inArray } from 'drizzle-orm'
 import type { CreateOrderInputSchema } from './model'
 
 export type CheckoutError =
-  'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'PRODUCT_UNAVAILABLE' | 'ADDRESS_NOT_FOUND'
+  | 'SKU_NOT_FOUND'
+  | 'PRODUCT_UNAVAILABLE'
+  | 'ADDRESS_NOT_FOUND'
+  | { code: 'INSUFFICIENT_STOCK'; skuId: string; available: number }
 
 function isUniqueViolation(caught: unknown): boolean {
   return (

@@ -99,7 +99,9 @@ export async function reduceProductStock(
   skuId: string,
   quantity: number,
   client: DbClient,
-): Promise<Result<void, 'SKU_NOT_FOUND' | 'INSUFFICIENT_STOCK'>> {
+): Promise<
+  Result<void, 'SKU_NOT_FOUND' | { code: 'INSUFFICIENT_STOCK'; skuId: string; available: number }>
+> {
   const updated = await client
     .update(schema.productSkus)
     .set({
@@ -114,7 +116,7 @@ export async function reduceProductStock(
       where: eq(schema.productSkus.id, skuId),
     })
     if (!sku) return err('SKU_NOT_FOUND')
-    return err('INSUFFICIENT_STOCK')
+    return err({ code: 'INSUFFICIENT_STOCK', skuId: sku.id, available: Number(sku.stock) })
   }
   return ok()
 }

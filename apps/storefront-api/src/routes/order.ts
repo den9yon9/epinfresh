@@ -1,5 +1,5 @@
 import { checkout } from '@epinfresh/checkout'
-import { CreateOrderInputSchema } from '@epinfresh/checkout/model'
+import { CheckoutErrorResponseSchema, CreateOrderInputSchema } from '@epinfresh/checkout/model'
 import { getOrderForUser, listOrdersByUser } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { cancelOrder } from '@epinfresh/order-cancel'
@@ -24,13 +24,24 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         return result.match(
           ({ order, replayed }) => status(replayed ? 200 : 201, order),
           (e) => {
+            if (typeof e !== 'string') {
+              switch (e.code) {
+                case 'INSUFFICIENT_STOCK':
+                  return status(409, {
+                    error: e.code,
+                    message: 'Insufficient stock',
+                    skuId: e.skuId,
+                    available: e.available,
+                  })
+                default:
+                  return assertNever(e.code)
+              }
+            }
             switch (e) {
               case 'SKU_NOT_FOUND':
                 return status(404, { error: e, message: 'SKU not found' })
               case 'PRODUCT_UNAVAILABLE':
                 return status(409, { error: e, message: 'Product not available' })
-              case 'INSUFFICIENT_STOCK':
-                return status(409, { error: e, message: 'Insufficient stock' })
               case 'ADDRESS_NOT_FOUND':
                 return status(404, { error: e, message: 'Address not found' })
               default:
@@ -47,7 +58,7 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           200: OrderModel.OrderResponseSchema,
           201: OrderModel.OrderResponseSchema,
           404: ErrorResponse,
-          409: ErrorResponse,
+          409: CheckoutErrorResponseSchema,
         },
         detail: {
           tags: ['Orders'],
