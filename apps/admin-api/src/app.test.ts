@@ -121,6 +121,7 @@ async function forgeSessionCookie(userId: string, role: 'customer' | 'admin'): P
   const client = createRedisClient(env.TESTING_REDIS_URL)
   const sessionId = crypto.randomUUID()
   try {
+    await client.connect()
     await client.set(`session:${sessionId}`, JSON.stringify({ userId, role }), 'EX', 86400)
   } finally {
     await client.quit()

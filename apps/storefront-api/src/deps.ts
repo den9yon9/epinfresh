@@ -20,10 +20,13 @@ export interface StorefrontAppOptions {
 }
 
 export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
+  // 单条 Redis 连接全进程共享: session/rateLimit 直接用, BullMQ(生产者)复用同一实例
+  // (bullmq v5 传实例即自动共享, close() 不会释放, 由 redisPlugin.onStop 统一 quit)
+  const redis = createRedisClient(env.REDIS_URL)
   return {
     db: createDb(env.DATABASE_URL),
-    redis: createRedisClient(env.REDIS_URL),
-    emailQueue: createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl: env.REDIS_URL }),
+    redis,
+    emailQueue: createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { connection: redis }),
     paymentGateway: createMockPaymentGateway(),
     sessionSecret: env.SESSION_SECRET,
     corsOrigin: env.CORS_ORIGIN,

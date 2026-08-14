@@ -14,3 +14,4 @@ playwright-report/
 test-results/
 .playwright-mcp/
 repomix-output.xml
+AUDIT.md

@@ -41,7 +41,7 @@ function createTestDeps(deps: {
 beforeAll(async () => {
   db = await prepareTestDb()
   redis = createRedisClient(env.TESTING_REDIS_URL)
-  emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl: env.TESTING_REDIS_URL })
+  emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { connection: redis })
   app = buildApp(createTestDeps({ db, redis, emailQueue }))
   api = treaty<typeof app>(app)
 })

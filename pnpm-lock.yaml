@@ -430,6 +430,9 @@ importers:
 
   packages/queue:
     dependencies:
+      '@epinfresh/redis':
+        specifier: workspace:*
+        version: link:../redis
       '@epinfresh/shared':
         specifier: workspace:*
         version: link:../shared

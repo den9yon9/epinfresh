@@ -1,3 +1,4 @@
+import { type Redis } from '@epinfresh/redis'
 import type { Logger } from '@epinfresh/shared'
 import { runWithRequestId } from '@epinfresh/shared'
 import {
@@ -9,20 +10,25 @@ import {
   type WorkerOptions,
 } from 'bullmq'
 
-type QueueConnectionOpts = { redisUrl: string }
+// bullmq v5 传 ioredis 实例即自动识别为共享连接(close() 不释放, 见 queue-base.js
+// `shared: isRedisInstance(opts.connection)`); v4 时代的 useSharedConnection 选项已移除。
+// 共享时调用方持有连接实例并负责关闭; worker 的阻塞连接不受影响(bullmq 内部始终 duplicate)。
+// 传 redisUrl 时 bullmq 自建连接并自行管理生命周期。
+export type QueueConnection =
+  { connection: Redis; redisUrl?: never } | { connection?: never; redisUrl: string }
 
-function resolveRedisConnection(opts: QueueConnectionOpts): ConnectionOptions {
-  return { url: opts.redisUrl } as unknown as ConnectionOptions
+function resolveConnection(opts: QueueConnection): ConnectionOptions {
+  if (opts.connection !== undefined) return opts.connection
+  return { url: opts.redisUrl }
 }
 
 export function createQueue<T = unknown>(
   name: string,
-  opts: Partial<QueueOptions> & QueueConnectionOpts,
+  opts: QueueConnection & Partial<QueueOptions>,
 ) {
-  const { redisUrl, ...queueOpts } = opts
-  const connection = resolveRedisConnection({ redisUrl })
+  const { connection, redisUrl, ...queueOpts } = opts
   return new Queue<T>(name, {
-    connection,
+    connection: resolveConnection(opts),
     defaultJobOptions: {
       attempts: 3,
       backoff: {
@@ -55,12 +61,11 @@ export function createDispatcher<T = unknown>(
 export function createWorker<T = unknown>(
   name: string,
   processor: Processor<T>,
-  opts: Partial<WorkerOptions> & QueueConnectionOpts & { logger: Logger },
+  opts: QueueConnection & Partial<WorkerOptions> & { logger: Logger },
 ) {
-  const { redisUrl, logger, ...workerOpts } = opts
-  const connection = resolveRedisConnection({ redisUrl })
+  const { connection, redisUrl, logger, ...workerOpts } = opts
   const worker = new Worker<T>(name, processor, {
-    connection,
+    connection: resolveConnection(opts),
     concurrency: 5,
     ...workerOpts,
   })
