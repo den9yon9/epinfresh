@@ -1,9 +1,8 @@
-import { type DbClient, schema, withTransaction } from '@epinfresh/database'
+import { type DbClient, withTransaction } from '@epinfresh/database'
 import { type OrderDetail, updateOrderStatus } from '@epinfresh/order'
-import { refundPayment } from '@epinfresh/payment'
+import { listPaymentsByOrder, refundPayment } from '@epinfresh/payment'
 import { restoreProductStock } from '@epinfresh/product'
 import { err, ok, type Result } from '@epinfresh/shared'
-import { eq } from 'drizzle-orm'
 
 export type CancelOrderError = 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'
 
@@ -25,10 +24,7 @@ export async function cancelOrder(
         }
       }
     } else if (from === 'paid') {
-      const payments = await tx
-        .select()
-        .from(schema.payments)
-        .where(eq(schema.payments.orderId, orderId))
+      const { items: payments } = await listPaymentsByOrder(orderId, tx)
       for (const payment of payments) {
         if (payment.status === 'succeeded') {
           const refunded = await refundPayment(payment.id, tx)

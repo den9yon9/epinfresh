@@ -486,6 +486,12 @@ importers:
 
   usecases/checkout:
     dependencies:
+      '@epinfresh/address':
+        specifier: workspace:*
+        version: link:../../domains/address
+      '@epinfresh/cart':
+        specifier: workspace:*
+        version: link:../../domains/cart
       '@epinfresh/database':
         specifier: workspace:*
         version: link:../../packages/database

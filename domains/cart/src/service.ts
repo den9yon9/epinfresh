@@ -1,6 +1,6 @@
 import { type DbClient, schema } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 
 export type CartError = 'SKU_NOT_FOUND' | 'PRODUCT_UNAVAILABLE' | 'CART_ITEM_NOT_FOUND'
 
@@ -172,4 +172,17 @@ export async function removeCartItem(
 export async function clearCart(userId: string, client: DbClient): Promise<{ cleared: true }> {
   await client.delete(schema.cartItems).where(eq(schema.cartItems.userId, userId))
   return { cleared: true }
+}
+
+// 批量移除指定 SKU 的购物车项(结算后清理用); 语义同 clearCart: 不关心行是否存在, 无错误分支。
+// 调用方只需传入结算涉及的 skuIds, 未在购物车中的 SKU 静默忽略。
+export async function removeCartItems(
+  userId: string,
+  skuIds: string[],
+  client: DbClient,
+): Promise<{ removed: true }> {
+  await client
+    .delete(schema.cartItems)
+    .where(and(eq(schema.cartItems.userId, userId), inArray(schema.cartItems.skuId, skuIds)))
+  return { removed: true }
 }

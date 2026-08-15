@@ -1,9 +1,11 @@
+import { getAddressById } from '@epinfresh/address'
+import { removeCartItems } from '@epinfresh/cart'
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { createOrderRecord, getOrderById, type OrderDetail } from '@epinfresh/order'
 import { getSkusByIds, reduceProductStock } from '@epinfresh/product'
 import { err, ok, type Result } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 import type { CreateOrderInputSchema } from './model'
 
@@ -28,6 +30,8 @@ export async function checkout(
 ): Promise<Result<{ order: OrderDetail; replayed: boolean }, CheckoutError>> {
   const { userId, idempotencyKey } = input
 
+  // 幂等键表(checkout_idempotency_keys)归属 checkout 用例自身: 目录 schema/checkout/ 无对应
+  // domain, 该表是"编排状态"而非业务实体, 读写保留在本用例内(table-ownership 规则不约束 usecases)。
   if (idempotencyKey) {
     const [existing] = await client
       .select()
@@ -58,11 +62,9 @@ export async function checkout(
         const skus = await getSkusByIds(skuIds, tx)
         const skuMap = new Map(skus.map((s) => [s.id, s]))
 
-        const [address] = await tx
-          .select()
-          .from(schema.addresses)
-          .where(and(eq(schema.addresses.id, input.addressId), eq(schema.addresses.userId, userId)))
-        if (!address) return err('ADDRESS_NOT_FOUND')
+        const addressResult = await getAddressById(userId, input.addressId, tx)
+        if (addressResult.isErr()) return err(addressResult.error)
+        const address = addressResult.value
 
         const validated: { item: (typeof items)[number]; sku: (typeof skus)[number] }[] = []
         for (const item of items) {
@@ -97,9 +99,7 @@ export async function checkout(
           tx,
         )
         // 只清结算涉及的 SKU: 契约允许按 SKU 直接结算, 整车清空会误删未结算商品
-        await tx
-          .delete(schema.cartItems)
-          .where(and(eq(schema.cartItems.userId, userId), inArray(schema.cartItems.skuId, skuIds)))
+        await removeCartItems(userId, skuIds, tx)
         if (idempotencyKey) {
           // 故意不用 onConflictDoNothing：冲突必须抛 23505 让本事务回滚（含扣库存），
           // 否则并发同 key 会静默跳过并各自提交重复订单

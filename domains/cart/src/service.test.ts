@@ -3,7 +3,14 @@ import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
-import { addToCart, clearCart, listCart, removeCartItem, updateCartItem } from './service'
+import {
+  addToCart,
+  clearCart,
+  listCart,
+  removeCartItem,
+  removeCartItems,
+  updateCartItem,
+} from './service'
 
 let db: Db
 
@@ -181,5 +188,50 @@ describe('removeCartItem and clearCart', () => {
     await clearCart(user.id, db)
     expect(await cartRows(user.id)).toHaveLength(0)
     expect(await cartRows(other.id)).toHaveLength(1)
+  })
+})
+
+describe('removeCartItems', () => {
+  test('removes only the matching skus and keeps others', async () => {
+    const user = await seedUser()
+    const { sku: apple } = await seedSku('Apple', 'apple')
+    const { sku: banana } = await seedSku('Banana', 'banana')
+    await addToCart(user.id, apple.id, 2, db)
+    await addToCart(user.id, banana.id, 1, db)
+
+    const result = await removeCartItems(user.id, [apple.id], db)
+
+    expect(result).toEqual({ removed: true })
+    const rows = await cartRows(user.id)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].skuId).toBe(banana.id)
+  })
+
+  test('ignores skuIds that are not in the cart', async () => {
+    const user = await seedUser()
+    const { sku: apple } = await seedSku('Apple', 'apple')
+    const { sku: banana } = await seedSku('Banana', 'banana')
+    await addToCart(user.id, banana.id, 1, db)
+
+    await removeCartItems(user.id, [apple.id, '00000000-0000-4000-8000-000000000000'], db)
+
+    const rows = await cartRows(user.id)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].skuId).toBe(banana.id)
+  })
+
+  test('does not remove items belonging to another user', async () => {
+    const user = await seedUser()
+    const other = await seedUser('bob@example.com')
+    const { sku } = await seedSku('Apple', 'apple')
+    await addToCart(user.id, sku.id, 2, db)
+    await addToCart(other.id, sku.id, 5, db)
+
+    await removeCartItems(user.id, [sku.id], db)
+
+    expect(await cartRows(user.id)).toHaveLength(0)
+    const otherRows = await cartRows(other.id)
+    expect(otherRows).toHaveLength(1)
+    expect(otherRows[0].quantity).toBe(5)
   })
 })
