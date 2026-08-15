@@ -5,7 +5,7 @@ import { createOrderRecord, getOrderById, type OrderDetail } from '@epinfresh/or
 import { getSkusByIds, reduceProductStock } from '@epinfresh/product'
 import { err, ok, type Result } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, lt } from 'drizzle-orm'
 
 import type { CreateOrderInputSchema } from './model'
 
@@ -131,4 +131,17 @@ export async function checkout(
     }
     throw caught
   }
+}
+
+// 幂等键只增不删, 定期清理过期行(worker repeatable job 调用)。
+// 返回删除行数; 无错误分支, 与 clearCart/removeCartItems 的简单语义一致。
+export async function pruneIdempotencyKeys(
+  client: DbClient,
+  olderThan: Date,
+): Promise<{ pruned: number }> {
+  const rows = await client
+    .delete(schema.checkoutIdempotencyKeys)
+    .where(lt(schema.checkoutIdempotencyKeys.createdAt, olderThan))
+    .returning({ id: schema.checkoutIdempotencyKeys.id })
+  return { pruned: rows.length }
 }

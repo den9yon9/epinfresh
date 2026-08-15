@@ -276,6 +276,12 @@ importers:
 
   apps/worker:
     dependencies:
+      '@epinfresh/checkout':
+        specifier: workspace:*
+        version: link:../../usecases/checkout
+      '@epinfresh/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@epinfresh/queue':
         specifier: workspace:*
         version: link:../../packages/queue

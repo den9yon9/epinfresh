@@ -3,7 +3,7 @@ import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { count, eq } from 'drizzle-orm'
 
-import { checkout } from './service'
+import { checkout, pruneIdempotencyKeys } from './service'
 
 let db: Db
 
@@ -431,5 +431,53 @@ describe('checkout', () => {
     expect(retry.isOk()).toBe(true)
     expect(retry._unsafeUnwrap().replayed).toBe(false)
     expect(await orderCount()).toBe(1)
+  })
+
+  test('pruneIdempotencyKeys removes only rows older than the cutoff', async () => {
+    const user = await seedUser()
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+
+    const oldOrder = await checkout(
+      {
+        userId: user.id,
+        idempotencyKey: 'old-key',
+        addressId: address.id,
+        items: [{ skuId: sku.id, quantity: 1 }],
+      },
+      db,
+    )
+    expect(oldOrder.isOk()).toBe(true)
+
+    await db
+      .update(schema.checkoutIdempotencyKeys)
+      .set({ createdAt: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000) })
+      .where(eq(schema.checkoutIdempotencyKeys.key, 'old-key'))
+
+    const freshOrder = await checkout(
+      {
+        userId: user.id,
+        idempotencyKey: 'fresh-key',
+        addressId: address.id,
+        items: [{ skuId: sku.id, quantity: 1 }],
+      },
+      db,
+    )
+    expect(freshOrder.isOk()).toBe(true)
+
+    const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+    const { pruned } = await pruneIdempotencyKeys(db, cutoff)
+    expect(pruned).toBe(1)
+
+    const [oldRow] = await db
+      .select()
+      .from(schema.checkoutIdempotencyKeys)
+      .where(eq(schema.checkoutIdempotencyKeys.key, 'old-key'))
+    const [freshRow] = await db
+      .select()
+      .from(schema.checkoutIdempotencyKeys)
+      .where(eq(schema.checkoutIdempotencyKeys.key, 'fresh-key'))
+    expect(oldRow).toBeUndefined()
+    expect(freshRow).toBeDefined()
   })
 })

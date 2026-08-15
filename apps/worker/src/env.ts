@@ -17,6 +17,7 @@ export const workerEnvSchema = Type.Object({
     { default: 'info' },
   ),
   REDIS_URL: Type.String({ format: 'uri' }),
+  DATABASE_URL: Type.String({ format: 'uri' }),
 })
 
 export type WorkerEnv = StaticDecode<typeof workerEnvSchema>
