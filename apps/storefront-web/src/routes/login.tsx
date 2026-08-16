@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import * as v from 'valibot'
 import { useState } from 'react'
 
+import { parseRedirect } from '../libs/api/redirect'
 import { login } from '../libs/api/session'
 
 const LoginSearchSchema = v.object({
@@ -33,8 +34,9 @@ function LoginPage() {
       return
     }
     // replace: 登录页从历史栈移除, 返回键不会回到登录页
-    if (redirectTo && redirectTo.startsWith('/')) navigate({ to: redirectTo, replace: true })
-    else navigate({ to: '/', replace: true })
+    if (redirectTo && redirectTo.startsWith('/')) {
+      navigate({ ...parseRedirect(redirectTo), replace: true })
+    } else navigate({ to: '/', replace: true })
   }
 
   return (

@@ -91,7 +91,7 @@ function MePage() {
       </section>
 
       <button
-        onClick={() => void logout().then(() => router.navigate({ to: '/' }))}
+        onClick={() => void logout().then(() => router.navigate({ to: '/', replace: true }))}
         className="rounded-xl border border-gray-200 bg-white py-3 text-sm text-red-600 shadow-sm hover:bg-red-50"
       >
         退出登录

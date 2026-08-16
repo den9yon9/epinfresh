@@ -36,9 +36,9 @@ function CartPage() {
     setNotice(msg)
   }
 
-  // ponytail: 全局串行锁, 防连点竞态; 并发量上来再改 per-sku 锁
+  // ponytail: 串行锁防连点竞态; 锁粒度到 sku, 不同商品可并发改数量
   async function changeQuantity(item: CartItem, quantity: number) {
-    if (busySkuId !== null) return
+    if (busySkuId === item.sku.id) return
     setBusySkuId(item.sku.id)
     const res = await api.cart.items({ skuId: item.sku.id }).put({ quantity })
     setBusySkuId(null)

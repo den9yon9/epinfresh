@@ -38,7 +38,7 @@ function ProductDetailPage() {
     if (res.error) {
       if (isUnauthorized(res.error)) {
         clearSessionCache()
-        void navigate({ to: '/login' })
+        void navigate({ to: '/login', search: { redirectTo: `/products/${product.id}` } })
         return
       }
       setNotice('加入购物车失败，请稍后重试')
@@ -106,7 +106,7 @@ function ProductDetailPage() {
           action={
             added && (
               <Link
-                to="/cart"
+                to="/checkout"
                 className="rounded-full bg-brand-600 px-3 py-0.5 text-xs text-white hover:bg-brand-700"
               >
                 去结算

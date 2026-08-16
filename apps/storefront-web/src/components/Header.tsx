@@ -85,7 +85,7 @@ function UserArea() {
         {user.name ?? user.email}
       </Link>
       <button
-        onClick={() => void logout().then(() => router.navigate({ to: '/' }))}
+        onClick={() => void logout().then(() => router.navigate({ to: '/', replace: true }))}
         className="rounded border border-white/40 px-2 py-0.5 text-xs hover:bg-white/10"
       >
         退出

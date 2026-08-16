@@ -11,6 +11,7 @@ const BuySearchSchema = v.object({
   productId: v.optional(v.string()),
   skuId: v.optional(v.string()),
   qty: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(9999))),
+  addressId: v.optional(v.string()),
 })
 
 export const Route = createFileRoute('/checkout')({
@@ -87,13 +88,31 @@ export const Route = createFileRoute('/checkout')({
 
 function CheckoutPage() {
   const { cart, addresses } = Route.useLoaderData()
+  const search = Route.useSearch()
   const navigate = useNavigate()
   const defaultAddr = addresses.find((a) => a.isDefault)
-  const [addressId, setAddressId] = useState<string | undefined>(defaultAddr?.id)
+  // addressId 写入 search: 去管理地址再返回时保留选择; search 里的地址已被删则回退默认
+  const [addressId, setAddressId] = useState<string | undefined>(
+    search.addressId && addresses.some((a) => a.id === search.addressId)
+      ? search.addressId
+      : defaultAddr?.id,
+  )
   const [error, setError] = useState<string | null>(null)
+  const [stockError, setStockError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   // 幂等键: 每次进入结算页生成一次, 防双提交/重试产生重复订单
   const [idempotencyKey] = useState(() => crypto.randomUUID())
+
+  const directBuy = Boolean(search.productId && search.skuId && search.qty)
+
+  function selectAddress(id: string) {
+    setAddressId(id)
+    void navigate({
+      to: '/checkout',
+      search: (prev) => ({ ...prev, addressId: id }),
+      replace: true,
+    })
+  }
 
   const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
@@ -114,6 +133,7 @@ function CheckoutPage() {
   async function submit() {
     if (!addressId) return
     setError(null)
+    setStockError(false)
     setSubmitting(true)
     const res = await api.orders.post(
       {
@@ -127,8 +147,9 @@ function CheckoutPage() {
       const value = res.error.value
       if ('skuId' in value) {
         const item = cart.items.find((i) => i.skuId === value.skuId)
+        setStockError(true)
         setError(
-          `${item ? `「${item.productName}」` : '部分商品'}库存不足，仅剩 ${value.available} 件，请调整数量`,
+          `${item ? `「${item.productName}」` : '部分商品'}库存不足，仅剩 ${value.available} 件，请返回调整数量`,
         )
         return
       }
@@ -150,13 +171,18 @@ function CheckoutPage() {
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-gray-900">收货地址</h2>
-          <Link to="/addresses" className="text-sm text-brand-600 hover:underline">
+          <Link
+            to="/addresses"
+            search={{ from: 'checkout' }}
+            className="text-sm text-brand-600 hover:underline"
+          >
             管理地址
           </Link>
         </div>
         {addresses.length === 0 ? (
           <Link
             to="/addresses/new"
+            search={{ from: 'checkout' }}
             className="block rounded-lg border border-dashed border-gray-300 py-4 text-center text-sm text-gray-400 hover:border-brand-500"
           >
             + 新增收货地址
@@ -174,7 +200,7 @@ function CheckoutPage() {
                   type="radio"
                   name="address"
                   checked={addressId === addr.id}
-                  onChange={() => setAddressId(addr.id)}
+                  onChange={() => selectAddress(addr.id)}
                   className="mt-1 accent-brand-600"
                 />
                 <span className="min-w-0">
@@ -223,7 +249,20 @@ function CheckoutPage() {
         </div>
       </section>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-red-600">{error}</p>
+          {stockError && (
+            <Link
+              to={directBuy ? '/products/$id' : '/cart'}
+              params={directBuy ? { id: search.productId! } : undefined}
+              className="rounded-lg border border-brand-600 px-4 py-2 text-center text-sm text-brand-600 hover:bg-brand-50"
+            >
+              {directBuy ? '返回商品页调整' : '返回购物车调整'}
+            </Link>
+          )}
+        </div>
+      )}
       {!addressId && (
         <p className="text-sm text-gray-500">
           {addresses.length === 0 ? '请先添加收货地址' : '请选择收货地址后再提交订单'}

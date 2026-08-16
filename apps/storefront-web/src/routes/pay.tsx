@@ -69,6 +69,7 @@ function PayPage() {
         <Link
           to="/orders/$id"
           params={{ id: order.id }}
+          replace
           className="rounded-lg bg-brand-600 px-6 py-2 text-sm text-white hover:bg-brand-700"
         >
           查看订单
@@ -93,6 +94,7 @@ function PayPage() {
         <Link
           to="/orders/$id"
           params={{ id: order.id }}
+          replace
           className="rounded-lg bg-brand-600 px-6 py-2 text-sm text-white hover:bg-brand-700"
         >
           查看订单
