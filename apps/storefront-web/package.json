@@ -10,6 +10,7 @@
   "dependencies": {
     "@elysiajs/eden": "^1.4.9",
     "@tanstack/react-router": "^1.0.0",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "valibot": "^1.4.2"
@@ -19,6 +20,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-cli": "^1.167.25",
     "@tanstack/router-plugin": "^1.0.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",

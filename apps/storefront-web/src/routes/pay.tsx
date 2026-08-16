@@ -2,6 +2,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import * as v from 'valibot'
 import { useState } from 'react'
 
+import { PaymentQrCode } from '../components/PaymentQrCode'
 import { api } from '../libs/api/client'
 import { clearSessionCache, isUnauthorized } from '../libs/api/session'
 
@@ -29,12 +30,23 @@ export const Route = createFileRoute('/pay')({
 
 const PAID_STATUSES = new Set(['paid', 'shipped', 'completed'])
 
+// 与网关契约的 PaymentPayload 保持一致; 前端按 type 分支渲染
+type PayPayload =
+  | { type: 'qr'; codeUrl: string }
+  | { type: 'redirect'; url: string }
+  | { type: 'params'; params: Record<string, string> }
+
 function PayPage() {
   const order = Route.useLoaderData()
   const { orderId } = Route.useSearch()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [paid, setPaid] = useState(PAID_STATUSES.has(order.status))
+  const [pending, setPending] = useState<{
+    paymentId: string
+    provider: string
+    payload: PayPayload
+  } | null>(null)
 
   async function pay() {
     setError(null)
@@ -51,8 +63,21 @@ function PayPage() {
       )
       return
     }
-    // mock 网关: 发起后立即确认回调
-    const confirmed = await api.payments({ id: initiated.data.payment.id }).confirm.post()
+    const { payment, payload } = initiated.data
+    // redirect: 直接跳转渠道支付页 (真实 H5; mock 不返回该类型)
+    if (payload.type === 'redirect') {
+      window.location.assign(payload.url)
+      return
+    }
+    setPending({ paymentId: payment.id, provider: payment.provider, payload })
+    setBusy(false)
+  }
+
+  async function confirmMock() {
+    if (!pending) return
+    setError(null)
+    setBusy(true)
+    const confirmed = await api.payments({ id: pending.paymentId }).confirm.post()
     setBusy(false)
     if (confirmed.error) {
       setError('支付确认失败，请刷新后重试')
@@ -108,43 +133,73 @@ function PayPage() {
     )
   }
 
-  const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0)
-
   return (
     <div className="flex flex-col gap-4 pb-24">
-      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-base font-semibold text-gray-900">订单信息</h2>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">订单号</span>
-          <span className="text-gray-900">{order.id.slice(0, 8)}…</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">商品数</span>
-          <span className="text-gray-900">{totalItems} 件</span>
-        </div>
-        <div className="mt-2 flex justify-between text-base">
-          <span className="text-gray-900">应付金额</span>
-          <span className="font-bold text-gray-900">¥{order.totalAmount}</span>
-        </div>
-      </section>
+      <OrderInfo order={order} />
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <div className="text-sm text-gray-500">
-            合计 <span className="text-lg font-bold text-gray-900">¥{order.totalAmount}</span>
+      {pending === null ? (
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white">
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+            <div className="text-sm text-gray-500">
+              合计 <span className="text-lg font-bold text-gray-900">¥{order.totalAmount}</span>
+            </div>
+            <button
+              onClick={pay}
+              disabled={busy}
+              className="rounded-lg bg-brand-600 px-8 py-2.5 text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {busy ? '支付中…' : '确认支付'}
+            </button>
           </div>
-          <button
-            onClick={pay}
-            disabled={busy}
-            className="rounded-lg bg-brand-600 px-8 py-2.5 text-white hover:bg-brand-700 disabled:opacity-50"
-          >
-            {busy ? '支付中…' : '确认支付'}
-          </button>
         </div>
-      </div>
-      <p className="text-center text-xs text-gray-400">mock 支付环境，点击即支付成功</p>
+      ) : pending.payload.type === 'qr' ? (
+        <section className="flex flex-col items-center gap-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-gray-900">扫码支付</h2>
+          <PaymentQrCode codeUrl={pending.payload.codeUrl} />
+          <p className="text-sm text-gray-500">请使用微信或支付宝扫码完成支付</p>
+          {pending.provider === 'mock' && (
+            <button
+              onClick={confirmMock}
+              disabled={busy}
+              className="rounded-lg bg-brand-600 px-8 py-2.5 text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {busy ? '处理中…' : '模拟支付完成'}
+            </button>
+          )}
+        </section>
+      ) : (
+        <section className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-gray-900">请在微信内完成支付</h2>
+          <p className="text-sm text-gray-500">支付请求已发出，请在微信中确认</p>
+        </section>
+      )}
     </div>
+  )
+}
+
+function OrderInfo({
+  order,
+}: {
+  order: { id: string; totalAmount: string; items: Array<{ quantity: number }> }
+}) {
+  const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0)
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <h2 className="mb-3 text-base font-semibold text-gray-900">订单信息</h2>
+      <div className="flex justify-between text-sm">
+        <span className="text-gray-500">订单号</span>
+        <span className="text-gray-900">{order.id.slice(0, 8)}…</span>
+      </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-gray-500">商品数</span>
+        <span className="text-gray-900">{totalItems} 件</span>
+      </div>
+      <div className="mt-2 flex justify-between text-base">
+        <span className="text-gray-900">应付金额</span>
+        <span className="font-bold text-gray-900">¥{order.totalAmount}</span>
+      </div>
+    </section>
   )
 }

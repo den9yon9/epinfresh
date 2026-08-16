@@ -53,12 +53,14 @@ test('加购 → 建地址 → 结算下单 → 跳转支付页', async ({ page 
   await expect(page).toHaveURL(/\/pay\?orderId=[0-9a-f-]{36}$/)
   await expect(page.getByRole('button', { name: '确认支付' })).toBeVisible()
 
-  // mock 支付: 点击即成功, 成功页金额与应付一致
+  // 发起支付 → 展示二维码 → mock 模拟扫码完成, 成功页金额与应付一致
   const total = await page
     .getByText(/^¥\d+\.\d{2}$/)
     .last()
     .textContent()
   await page.getByRole('button', { name: '确认支付' }).click()
+  await expect(page.getByAltText('支付二维码')).toBeVisible()
+  await page.getByRole('button', { name: '模拟支付完成' }).click()
   await expect(page.getByText('支付成功', { exact: true })).toBeVisible()
   await expect(page.getByText(total!, { exact: true }).first()).toBeVisible()
 
