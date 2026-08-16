@@ -4,7 +4,7 @@ import { createMockPaymentGateway, initiatePayment } from '@epinfresh/payment'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
-import { confirmOrderPayment } from './service'
+import { confirmByWebhookEvent, confirmOrderPayment } from './service'
 
 let db: Db
 
@@ -34,7 +34,7 @@ async function seedPendingOrder(amount = '25.00') {
 
 async function seedPayment(orderId: string) {
   const payment = (await initiatePayment(orderId, createMockPaymentGateway(), db))._unsafeUnwrap()
-  return payment
+  return payment.payment
 }
 
 describe('confirmOrderPayment', () => {
@@ -88,5 +88,114 @@ describe('confirmOrderPayment', () => {
     const again = await confirmOrderPayment(payment.id, db)
     expect(again.isErr()).toBe(true)
     expect(again._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
+  })
+})
+
+describe('confirmByWebhookEvent', () => {
+  async function seedWebhookPayment(amount = '25.00') {
+    const order = await seedPendingOrder(amount)
+    const payment = await seedPayment(order.id)
+    return { order, payment }
+  }
+
+  function succeededEvent(payment: typeof schema.payments.$inferSelect) {
+    return {
+      channel: 'mock' as const,
+      eventId: crypto.randomUUID(),
+      outTradeNo: payment.outTradeNo,
+      providerTransactionId: payment.providerRef as string,
+      amount: payment.amount,
+      status: 'succeeded' as const,
+    }
+  }
+
+  test('confirms payment by provider transaction id and marks the order paid', async () => {
+    const { order, payment } = await seedWebhookPayment()
+
+    const result = await confirmByWebhookEvent(succeededEvent(payment), db)
+    expect(result.isOk()).toBe(true)
+
+    const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(after.status).toBe('paid')
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('succeeded')
+    expect(afterPayment.providerTransactionId).toBe(payment.providerRef)
+  })
+
+  test('locates the payment by out trade no when provider transaction id is missing', async () => {
+    const { order, payment } = await seedWebhookPayment()
+    const event = succeededEvent(payment)
+    const { providerTransactionId: _ignored, ...eventWithoutTxId } = event
+
+    const result = await confirmByWebhookEvent(eventWithoutTxId, db)
+    expect(result.isOk()).toBe(true)
+
+    const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(after.status).toBe('paid')
+  })
+
+  test('is idempotent on duplicate callbacks', async () => {
+    const { order, payment } = await seedWebhookPayment()
+    const event = succeededEvent(payment)
+
+    await confirmByWebhookEvent(event, db)
+    const again = await confirmByWebhookEvent(event, db)
+    expect(again.isOk()).toBe(true)
+
+    const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(after.status).toBe('paid')
+  })
+
+  test('rejects a webhook event with mismatched amount', async () => {
+    const { order, payment } = await seedWebhookPayment()
+    const event = { ...succeededEvent(payment), amount: '999.99' }
+
+    const result = await confirmByWebhookEvent(event, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('AMOUNT_MISMATCH')
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('pending')
+    const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(after.status).toBe('pending')
+  })
+
+  test('returns PAYMENT_NOT_FOUND for unknown payment', async () => {
+    const result = await confirmByWebhookEvent(
+      {
+        channel: 'mock',
+        eventId: crypto.randomUUID(),
+        outTradeNo: 'unknown-out-trade-no',
+        providerTransactionId: 'unknown-transaction-id',
+        amount: '25.00',
+        status: 'succeeded',
+      },
+      db,
+    )
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('PAYMENT_NOT_FOUND')
+  })
+
+  test('acknowledges non-succeeded events without changing state', async () => {
+    const { order, payment } = await seedWebhookPayment()
+    const event = { ...succeededEvent(payment), status: 'refunded' as const }
+
+    const result = await confirmByWebhookEvent(event, db)
+    expect(result.isOk()).toBe(true)
+    expect(result._unsafeUnwrap()).toBeNull()
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('pending')
+    const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(after.status).toBe('pending')
   })
 })

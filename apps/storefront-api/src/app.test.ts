@@ -1,7 +1,7 @@
 import { treaty } from '@elysiajs/eden'
 import { closeDb, type Db, type ProductStatus, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
-import { createMockPaymentGateway } from '@epinfresh/payment'
+import { createPaymentGateways } from '@epinfresh/payment'
 import { createQueue, type Queue } from '@epinfresh/queue'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { flushTestRedis } from '@epinfresh/redis/testing'
@@ -29,7 +29,7 @@ function createTestDeps(deps: {
 }): StorefrontAppOptions {
   return {
     ...deps,
-    paymentGateway: createMockPaymentGateway(),
+    paymentGateways: createPaymentGateways([{ channel: 'mock' }]),
     sessionSecret: env.TESTING_SESSION_SECRET,
     corsOrigin: true,
     trustProxy: false,
@@ -660,11 +660,11 @@ describe('payments', () => {
 
     const payRes = await api
       .orders({ id: orderId })
-      .pay.post({} as never, { fetch: { headers: { cookie } } })
+      .pay.post({ channel: 'mock' }, { fetch: { headers: { cookie } } })
     expect(payRes.status).toBe(201)
     if (payRes.error !== null) throw payRes.error
-    expect(payRes.data.status).toBe('pending')
-    const paymentId = payRes.data.id
+    expect(payRes.data.payment.status).toBe('pending')
+    const paymentId = payRes.data.payment.id
 
     const confirmRes = await api
       .payments({ id: paymentId })
@@ -695,7 +695,7 @@ describe('payments', () => {
     const otherCookie = await loginCookie(other.email)
     const res = await api
       .orders({ id: orderId })
-      .pay.post({} as never, { fetch: { headers: { cookie: otherCookie } } })
+      .pay.post({ channel: 'mock' }, { fetch: { headers: { cookie: otherCookie } } })
     expect(res.status).toBe(404)
   })
 
@@ -715,13 +715,13 @@ describe('payments', () => {
 
     const res = await api
       .orders({ id: orderId })
-      .pay.post({} as never, { fetch: { headers: { cookie } } })
+      .pay.post({ channel: 'mock' }, { fetch: { headers: { cookie } } })
     expect(res.status).toBe(409)
     if (res.error === null) throw new Error('expected error response')
     expect(res.error.value).toMatchObject({ error: 'ORDER_NOT_PENDING' })
   })
 
-  test('confirming an already confirmed payment is rejected', async () => {
+  test('confirming an already confirmed payment is idempotent', async () => {
     const user = await seedUser('alice@example.com')
     const address = await seedAddress(user.id)
     const { sku } = await seedSku('apple', '5.00', 10)
@@ -736,9 +736,9 @@ describe('payments', () => {
 
     const payRes = await api
       .orders({ id: orderId })
-      .pay.post({} as never, { fetch: { headers: { cookie } } })
+      .pay.post({ channel: 'mock' }, { fetch: { headers: { cookie } } })
     if (payRes.error !== null) throw payRes.error
-    const paymentId = payRes.data.id
+    const paymentId = payRes.data.payment.id
 
     const confirmRes = await api
       .payments({ id: paymentId })
@@ -749,9 +749,9 @@ describe('payments', () => {
     const again = await api
       .payments({ id: paymentId })
       .confirm.post({} as never, { fetch: { headers: { cookie } } })
-    expect(again.status).toBe(409)
-    if (again.error === null) throw new Error('expected error response')
-    expect(again.error.value).toMatchObject({ error: 'INVALID_PAYMENT_STATE' })
+    expect(again.status).toBe(200)
+    if (again.error !== null) throw again.error
+    expect(again.data.status).toBe('succeeded')
   })
 
   test('lists payment records of own order', async () => {
@@ -769,9 +769,9 @@ describe('payments', () => {
 
     const payRes = await api
       .orders({ id: orderId })
-      .pay.post({} as never, { fetch: { headers: { cookie } } })
+      .pay.post({ channel: 'mock' }, { fetch: { headers: { cookie } } })
     if (payRes.error !== null) throw payRes.error
-    const paymentId = payRes.data.id
+    const paymentId = payRes.data.payment.id
     await api
       .payments({ id: paymentId })
       .confirm.post({} as never, { fetch: { headers: { cookie } } })
@@ -809,6 +809,45 @@ describe('payments', () => {
   test('payments requires authentication', async () => {
     const res = await api.orders({ id: '00000000-0000-4000-8000-000000000000' }).payments.get()
     expect(res.status).toBe(401)
+  })
+
+  test('paying with an unconfigured channel is rejected', async () => {
+    const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const orderRes = await api.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    if (orderRes.error !== null) throw orderRes.error
+    const orderId = orderRes.data.id
+
+    const res = await api
+      .orders({ id: orderId })
+      .pay.post({ channel: 'wechat' }, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(400)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'PAYMENT_CHANNEL_NOT_CONFIGURED' })
+  })
+
+  test('notify rejects an unsupported channel with FAIL', async () => {
+    const res = await api.payments.notify({ channel: 'mock' }).post('{}', {
+      headers: { 'content-type': 'text/plain' },
+    })
+    expect(res.status).toBe(400)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toBe('FAIL')
+  })
+
+  test('notify returns FAIL for an unknown channel', async () => {
+    const res = await api.payments.notify({ channel: 'wechat' }).post('{}', {
+      headers: { 'content-type': 'text/plain' },
+    })
+    expect(res.status).toBe(400)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toBe('FAIL')
   })
 })
 

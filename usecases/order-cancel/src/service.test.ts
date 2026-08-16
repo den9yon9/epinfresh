@@ -93,7 +93,7 @@ describe('cancelOrder', () => {
     const order = await seedOrder(user.id, sku.id, 2)
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap()
+    )._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
 
     const result = await cancelOrder(order.id, db)

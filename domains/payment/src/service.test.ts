@@ -3,9 +3,9 @@ import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
+import { createMockPaymentGateway } from './gateways/mock'
 import {
   confirmPayment,
-  createMockPaymentGateway,
   initiatePayment,
   listPaymentsByOrder,
   refundOrder,
@@ -44,7 +44,7 @@ describe('payment domain', () => {
     const result = await initiatePayment(order.id, createMockPaymentGateway(), db)
 
     expect(result.isOk()).toBe(true)
-    const payment = result._unsafeUnwrap()
+    const payment = result._unsafeUnwrap().payment
     expect(payment.orderId).toBe(order.id)
     expect(payment.status).toBe('pending')
     expect(payment.amount).toBe('25.00')
@@ -65,7 +65,7 @@ describe('payment domain', () => {
     const order = await seedOrder()
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap()
+    )._unsafeUnwrap().payment
 
     const result = await confirmPayment(payment.id, db)
     expect(result.isOk()).toBe(true)
@@ -76,7 +76,7 @@ describe('payment domain', () => {
     const order = await seedOrder()
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap()
+    )._unsafeUnwrap().payment
     await confirmPayment(payment.id, db)
 
     const again = await confirmPayment(payment.id, db)
@@ -88,7 +88,7 @@ describe('payment domain', () => {
     const order = await seedOrder()
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap()
+    )._unsafeUnwrap().payment
     await confirmPayment(payment.id, db)
 
     const refunded = await refundPayment(payment.id, db)
@@ -100,7 +100,7 @@ describe('payment domain', () => {
     const order = await seedOrder()
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap()
+    )._unsafeUnwrap().payment
 
     const refunded = await refundPayment(payment.id, db)
     expect(refunded.isErr()).toBe(true)
@@ -119,7 +119,7 @@ describe('payment domain', () => {
     const order = await seedOrder()
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap()
+    )._unsafeUnwrap().payment
     await confirmPayment(payment.id, db)
 
     const result = await refundOrder(order.id, db)

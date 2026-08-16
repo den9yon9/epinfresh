@@ -39,15 +39,20 @@ function PayPage() {
   async function pay() {
     setError(null)
     setBusy(true)
-    const initiated = await api.orders({ id: orderId }).pay.post()
+    // mock 渠道: M1 前端写死 mock; 接入真实渠道后在支付页提供渠道选择
+    const initiated = await api.orders({ id: orderId }).pay.post({ channel: 'mock' })
     if (initiated.error) {
       setBusy(false)
       const code = 'error' in initiated.error.value ? initiated.error.value.error : undefined
-      setError(code === 'ORDER_NOT_PENDING' ? '订单已支付或状态已变化' : '支付失败，请稍后重试')
+      setError(
+        code === 'ORDER_NOT_PENDING' || code === 'PAYMENT_CHANNEL_NOT_CONFIGURED'
+          ? '订单已支付或状态已变化'
+          : '支付失败，请稍后重试',
+      )
       return
     }
     // mock 网关: 发起后立即确认回调
-    const confirmed = await api.payments({ id: initiated.data.id }).confirm.post()
+    const confirmed = await api.payments({ id: initiated.data.payment.id }).confirm.post()
     setBusy(false)
     if (confirmed.error) {
       setError('支付确认失败，请刷新后重试')

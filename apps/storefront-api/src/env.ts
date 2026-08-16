@@ -42,6 +42,10 @@ export const storefrontEnvSchema = Type.Object({
   CORS_ORIGIN: corsOrigin,
   TRUST_PROXY: trustProxy,
   STOREFRONT_PORT: Type.String({ pattern: '^\\d+$' }),
+  // 支付渠道注册表开关: 当前仅 mock 已实现; wechat/alipay 在后续里程碑接入
+  PAYMENT_GATEWAY: Type.Union([Type.Literal('mock'), Type.Literal('wechat')], {
+    default: 'mock',
+  }),
 })
 
 export type StorefrontEnv = StaticDecode<typeof storefrontEnvSchema>

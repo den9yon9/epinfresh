@@ -38,6 +38,7 @@ async function seedPaidOrderWithPayment() {
   // 订单须从 pending 发起支付, 再经支付确认联动为 paid
   const order = await seedOrder('pending')
   const payment = (await initiatePayment(order.id, createMockPaymentGateway(), db))._unsafeUnwrap()
+    .payment
   const confirmed = await confirmOrderPayment(payment.id, db)
   if (confirmed.isErr()) throw new Error('seed confirm failed')
   return { order, payment }

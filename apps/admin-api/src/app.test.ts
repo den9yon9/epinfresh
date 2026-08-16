@@ -368,7 +368,7 @@ describe('admin refunds', () => {
     const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap()
+    )._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
 
     const res = await api.admin
@@ -424,7 +424,7 @@ describe('admin payments', () => {
     const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap()
+    )._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
 
     const res = await api.admin

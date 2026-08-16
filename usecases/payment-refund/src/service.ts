@@ -1,6 +1,6 @@
-import { type DbClient, schema, withTransaction } from '@epinfresh/database'
+import { type DbClient, withTransaction } from '@epinfresh/database'
 import { markOrderRefunded, type OrderDetail } from '@epinfresh/order'
-import { refundOrder } from '@epinfresh/payment'
+import { type PaymentRecord, refundOrder } from '@epinfresh/payment'
 import { err, ok, type Result } from '@epinfresh/shared'
 
 export type RefundOrderError = 'ORDER_NOT_FOUND' | 'NO_REFUNDABLE_PAYMENT' | 'INVALID_PAYMENT_STATE'
@@ -11,9 +11,7 @@ export type RefundOrderError = 'ORDER_NOT_FOUND' | 'NO_REFUNDABLE_PAYMENT' | 'IN
 export async function refundOrderWorkflow(
   orderId: string,
   client: DbClient,
-): Promise<
-  Result<{ payment: typeof schema.payments.$inferSelect; order: OrderDetail }, RefundOrderError>
-> {
+): Promise<Result<{ payment: PaymentRecord; order: OrderDetail }, RefundOrderError>> {
   return withTransaction(client, async (tx) => {
     const orderResult = await markOrderRefunded(orderId, tx)
     if (orderResult.isErr()) {

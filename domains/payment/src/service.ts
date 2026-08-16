@@ -2,22 +2,15 @@ import { type DbClient, type PaymentStatus, schema } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import { and, eq } from 'drizzle-orm'
 
-// TODO(payment): 暂无商户账号, 暂用 mock; 申请到微信/支付宝商户号后接入真实网关 —
-// 实现 PaymentGateway 契约(charge/回调), confirm 逻辑挪到 webhook handler,
-// 域内 service 函数保持不变; mock 当前同步成功
-export interface PaymentGateway {
-  charge(input: { orderId: string; amount: string; currency: string }): Promise<{
-    providerRef: string
-  }>
+import { type PaymentGateway, type PaymentPayload } from './gateway'
+
+// 域边界统一返回 payload 已类型化的支付单; jsonb 列的原始类型是 unknown
+export type PaymentRecord = Omit<typeof schema.payments.$inferSelect, 'payload'> & {
+  payload: PaymentPayload | null
 }
 
-export function createMockPaymentGateway(): PaymentGateway {
-  return {
-    // ponytail: mock 忽略入参直接成功；真实网关在此调用第三方 API
-    async charge() {
-      return { providerRef: `mock-${crypto.randomUUID()}` }
-    },
-  }
+export function toPaymentRecord(payment: typeof schema.payments.$inferSelect): PaymentRecord {
+  return { ...payment, payload: payment.payload as PaymentPayload | null }
 }
 
 const PAYMENT_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
@@ -32,41 +25,81 @@ export async function initiatePayment(
   orderId: string,
   gateway: PaymentGateway,
   client: DbClient,
-): Promise<Result<typeof schema.payments.$inferSelect, 'ORDER_NOT_FOUND' | 'ORDER_NOT_PENDING'>> {
+  channelContext?: Record<string, unknown>,
+): Promise<
+  Result<
+    { payment: PaymentRecord; payload: PaymentPayload },
+    'ORDER_NOT_FOUND' | 'ORDER_NOT_PENDING' | 'GATEWAY_ERROR'
+  >
+> {
   const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
   if (!order) return err('ORDER_NOT_FOUND')
   if (order.status !== 'pending') return err('ORDER_NOT_PENDING')
 
-  const { providerRef } = await gateway.charge({
-    orderId,
-    amount: order.totalAmount,
-    currency: order.currency,
-  })
+  // 幂等复用: 已存在且已拿到渠道参数的 pending 支付单直接返回
+  const [existing] = await client
+    .select()
+    .from(schema.payments)
+    .where(and(eq(schema.payments.orderId, orderId), eq(schema.payments.status, 'pending')))
+    .orderBy(schema.payments.createdAt)
+    .limit(1)
+  if (existing?.payload)
+    return ok({ payment: toPaymentRecord(existing), payload: existing.payload as PaymentPayload })
+  if (existing) {
+    // 上次下单在拿到渠道参数前失败, 作废旧单再新建
+    await client
+      .update(schema.payments)
+      .set({ status: 'failed' })
+      .where(and(eq(schema.payments.id, existing.id), eq(schema.payments.status, 'pending')))
+  }
 
-  const [payment] = await client
+  const outTradeNo = crypto.randomUUID().replace(/-/g, '')
+  const [created] = await client
     .insert(schema.payments)
     .values({
       orderId,
       amount: order.totalAmount,
       currency: order.currency,
       status: 'pending',
-      provider: 'mock',
-      providerRef,
+      provider: gateway.channel,
+      outTradeNo,
     })
     .returning()
-  return ok(payment)
+
+  const initiated = await gateway.createPayment({
+    outTradeNo,
+    orderId,
+    amount: order.totalAmount,
+    currency: order.currency,
+    description: `一品鲜订单 ${order.id.slice(0, 8)}`,
+    channelContext,
+  })
+  if (initiated.isErr()) {
+    await client
+      .update(schema.payments)
+      .set({ status: 'failed' })
+      .where(and(eq(schema.payments.id, created.id), eq(schema.payments.status, 'pending')))
+    return err('GATEWAY_ERROR')
+  }
+  const { providerRef, payload } = initiated.value
+  const [payment] = await client
+    .update(schema.payments)
+    .set({ providerRef, payload })
+    .where(and(eq(schema.payments.id, created.id), eq(schema.payments.status, 'pending')))
+    .returning()
+  return ok({ payment: toPaymentRecord(payment), payload })
 }
 
 export async function getPaymentById(
   paymentId: string,
   client: DbClient,
-): Promise<Result<typeof schema.payments.$inferSelect, 'PAYMENT_NOT_FOUND'>> {
+): Promise<Result<PaymentRecord, 'PAYMENT_NOT_FOUND'>> {
   const [payment] = await client
     .select()
     .from(schema.payments)
     .where(eq(schema.payments.id, paymentId))
   if (!payment) return err('PAYMENT_NOT_FOUND')
-  return ok(payment)
+  return ok(toPaymentRecord(payment))
 }
 
 // 事务原语: 不自己开事务, 在传入的 client 上执行(事务边界归 usecase 持有);
@@ -75,10 +108,7 @@ export async function confirmPayment(
   paymentId: string,
   client: DbClient,
 ): Promise<
-  Result<
-    { payment: typeof schema.payments.$inferSelect; orderId: string },
-    'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'
-  >
+  Result<{ payment: PaymentRecord; orderId: string }, 'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'>
 > {
   const [payment] = await client
     .select()
@@ -95,15 +125,13 @@ export async function confirmPayment(
     .returning()
   if (!updated) return err('INVALID_PAYMENT_STATE')
 
-  return ok({ payment: updated, orderId: payment.orderId })
+  return ok({ payment: toPaymentRecord(updated), orderId: payment.orderId })
 }
 
 export async function refundPayment(
   paymentId: string,
   client: DbClient,
-): Promise<
-  Result<typeof schema.payments.$inferSelect, 'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'>
-> {
+): Promise<Result<PaymentRecord, 'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'>> {
   const [payment] = await client
     .update(schema.payments)
     .set({ status: 'refunded' })
@@ -117,17 +145,14 @@ export async function refundPayment(
     if (!existing[0]) return err('PAYMENT_NOT_FOUND')
     return err('INVALID_PAYMENT_STATE')
   }
-  return ok(payment)
+  return ok(toPaymentRecord(payment))
 }
 
 export async function refundOrder(
   orderId: string,
   client: DbClient,
 ): Promise<
-  Result<
-    typeof schema.payments.$inferSelect,
-    'ORDER_NOT_FOUND' | 'NO_REFUNDABLE_PAYMENT' | 'INVALID_PAYMENT_STATE'
-  >
+  Result<PaymentRecord, 'ORDER_NOT_FOUND' | 'NO_REFUNDABLE_PAYMENT' | 'INVALID_PAYMENT_STATE'>
 > {
   const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
   if (!order) return err('ORDER_NOT_FOUND')
@@ -147,7 +172,7 @@ export async function refundOrder(
     .returning()
   if (!refunded) return err('INVALID_PAYMENT_STATE')
 
-  return ok(refunded)
+  return ok(toPaymentRecord(refunded))
 }
 
 export async function listPaymentsByOrder(orderId: string, client: DbClient) {
@@ -156,5 +181,5 @@ export async function listPaymentsByOrder(orderId: string, client: DbClient) {
     .from(schema.payments)
     .where(eq(schema.payments.orderId, orderId))
     .orderBy(schema.payments.createdAt)
-  return { items }
+  return { items: items.map(toPaymentRecord) }
 }

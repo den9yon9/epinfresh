@@ -1,5 +1,5 @@
 import { dbPlugin, redisPlugin } from '@epinfresh/http'
-import { type PaymentGateway } from '@epinfresh/payment'
+import { type PaymentChannel, type PaymentGateway } from '@epinfresh/payment'
 import { type Queue } from '@epinfresh/queue'
 import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
 import { type Logger } from '@epinfresh/shared'
@@ -14,7 +14,7 @@ export interface StorefrontPlugins {
   sessionPlugin: ReturnType<typeof createSessionPlugin>
   emailQueuePlugin: ReturnType<typeof createEmailQueuePlugin>
   authRateLimit: ReturnType<typeof authRateLimit>
-  paymentGateway: PaymentGateway
+  paymentGateways: Record<PaymentChannel, PaymentGateway>
   isProduction: boolean
   logger: Logger
 }
@@ -30,8 +30,16 @@ function createEmailQueuePlugin(emailQueue: Queue<SendEmailJobData>) {
 export function createPlugins(
   options: Omit<StorefrontAppOptions, 'corsOrigin'>,
 ): StorefrontPlugins {
-  const { db, redis, emailQueue, paymentGateway, sessionSecret, trustProxy, isProduction, logger } =
-    options
+  const {
+    db,
+    redis,
+    emailQueue,
+    paymentGateways,
+    sessionSecret,
+    trustProxy,
+    isProduction,
+    logger,
+  } = options
   return {
     dbPlugin: dbPlugin(db),
     redisPlugin: redisPlugin(redis, { logger }),
@@ -47,7 +55,7 @@ export function createPlugins(
       prefix: 'rl:auth',
       trustProxy,
     }),
-    paymentGateway,
+    paymentGateways,
     isProduction,
     logger,
   }
