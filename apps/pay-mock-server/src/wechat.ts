@@ -15,7 +15,15 @@ export interface WechatMockContext {
   platformPrivateKey: string
   platformSerialNo: string
   notifyUrl: string
+  // 模拟交易登记(模拟器是单进程常驻的内存态): 供查询对账/关闭模拟使用
+  transactions: Map<
+    string,
+    { transactionId: string; total: number; tradeState: 'SUCCESS' | 'CLOSED' }
+  >
 }
+
+// 构造回调只依赖除交易登记外的上下文字段; 便于测试直接传字面量
+type CallbackContext = Omit<WechatMockContext, 'transactions'>
 
 // 从商户私钥派生公钥, 用于校验网关出站请求签名(与微信侧持有商户公钥同理)
 export function merchantPublicKey(merchantPrivateKey: string): string {
@@ -55,7 +63,7 @@ export interface SimulateInput {
 
 // 构造一笔"支付成功"回调(资源按 APIv3 AES-GCM 加密, 整包按假平台私钥签名)
 export function buildSimulatedCallback(
-  ctx: WechatMockContext,
+  ctx: CallbackContext,
   input: SimulateInput,
 ): SimulatedCallback {
   const total = Math.round(Number(input.amount) * 100)
@@ -159,12 +167,19 @@ export function handleCertificates(ctx: WechatMockContext, req: Request): Respon
   })
 }
 
-// 模拟支付完成: 构造回调并投递给 notifyUrl, 返回投递结果(供 curl 等触发)
+// 模拟支付完成: 登记交易并构造回调投递给 notifyUrl, 返回投递结果(供 curl 等触发)
 export async function simulatePayment(
   ctx: WechatMockContext,
   input: SimulateInput,
 ): Promise<{ status: number; body: string }> {
-  const callback = buildSimulatedCallback(ctx, input)
+  const transactionId =
+    input.transactionId ?? `mock-txn-${randomUUID().replace(/-/g, '').slice(0, 20)}`
+  ctx.transactions.set(input.outTradeNo, {
+    transactionId,
+    total: Math.round(Number(input.amount) * 100),
+    tradeState: 'SUCCESS',
+  })
+  const callback = buildSimulatedCallback(ctx, { ...input, transactionId })
   try {
     const response = await fetch(ctx.notifyUrl, {
       method: 'POST',
@@ -175,4 +190,47 @@ export async function simulatePayment(
   } catch (error) {
     return { status: 502, body: String(error) }
   }
+}
+
+// 模拟查询交易状态: 校验商户签名后按登记返回; 未登记视为 NOTPAY(未支付)。
+// 与真实微信结构一致(真实响应含 trade_state / transaction_id / amount)。
+export function handleQueryTransaction(
+  ctx: WechatMockContext,
+  req: Request,
+  outTradeNo: string,
+): Response {
+  const url = new URL(req.url)
+  const path = `${url.pathname}${url.search}`
+  const authorization = req.headers.get('authorization') ?? ''
+  const valid = verifyMerchantRequest({
+    merchantPublicKey: merchantPublicKey(ctx.merchantPrivateKey),
+    method: 'GET',
+    path,
+    authorization,
+    body: '',
+  })
+  if (!valid) {
+    return Response.json({ code: 'SIGN_ERROR', message: '验签失败(模拟)' }, { status: 401 })
+  }
+  const record = ctx.transactions.get(outTradeNo)
+  if (!record) {
+    return Response.json({ out_trade_no: outTradeNo, trade_state: 'NOTPAY' })
+  }
+  return Response.json({
+    out_trade_no: outTradeNo,
+    trade_state: record.tradeState,
+    transaction_id: record.transactionId,
+    amount: { total: record.total, currency: 'CNY' },
+  })
+}
+
+// 模拟关闭交易(用户超时未支付/渠道关闭): 置为 CLOSED, 对账任务据此取消支付单
+export function closeTransaction(
+  ctx: WechatMockContext,
+  input: { outTradeNo: string },
+): { closed: boolean } {
+  const record = ctx.transactions.get(input.outTradeNo)
+  if (!record) return { closed: false }
+  record.tradeState = 'CLOSED'
+  return { closed: true }
 }

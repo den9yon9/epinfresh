@@ -80,7 +80,10 @@ function buildCallback(input: {
 }
 
 // 模拟微信统一下单服务端: 校验商户签名后返回 prepay_id + code_url
-function startFakeWechatServer(verifyKey: string) {
+function startFakeWechatServer(
+  verifyKey: string,
+  opts: { tradeState?: string; totalFen?: number; transactionId?: string } = {},
+) {
   const server = Bun.serve({
     port: 0,
     routes: {
@@ -100,6 +103,27 @@ function startFakeWechatServer(verifyKey: string) {
           return Response.json({
             prepay_id: 'prepay-test-1',
             code_url: 'weixin://wxpay/bizpayurl?pr=TEST',
+          })
+        },
+      },
+      '/v3/pay/transactions/out-trade-no/:outTradeNo': {
+        GET: async (req) => {
+          // 签名 canonical URL 含查询串, 与网关发出的完全一致才放行
+          const url = new URL(req.url)
+          const path = `${url.pathname}${url.search}`
+          const auth = req.headers.get('authorization') ?? ''
+          const nonce = /nonce_str="([^"]+)"/.exec(auth)?.[1]
+          const timestamp = /timestamp="([^"]+)"/.exec(auth)?.[1]
+          const signature = /signature="([^"]+)"/.exec(auth)?.[1]
+          const message = `GET\n${path}\n${timestamp}\n${nonce}\n\n`
+          if (!signature || !verifyMessage(verifyKey, message, signature)) {
+            return new Response('unauthorized', { status: 401 })
+          }
+          return Response.json({
+            out_trade_no: url.pathname.split('/').pop(),
+            trade_state: opts.tradeState ?? 'SUCCESS',
+            transaction_id: opts.transactionId ?? 'wx-txn-q-1',
+            amount: { total: opts.totalFen ?? 2500, currency: 'CNY' },
           })
         },
       },
@@ -239,5 +263,61 @@ describe('wechat gateway', () => {
     })
     const result = await wrongKeyGateway.verifyWebhook({ headers, rawBody: body })
     expect(result.isErr()).toBe(true)
+  })
+})
+
+describe('wechat gateway queryPayment', () => {
+  test('returns paid with amount and transaction id', async () => {
+    const server = startFakeWechatServer(merchant.publicKey, {
+      tradeState: 'SUCCESS',
+      totalFen: 2500,
+      transactionId: 'wx-txn-q-1',
+    })
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.queryPayment!('trade-001')
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    expect(result.value).toEqual({
+      status: 'paid',
+      providerTransactionId: 'wx-txn-q-1',
+      amount: '25.00',
+    })
+
+    server.stop(true)
+  })
+
+  test('maps NOTPAY to unpaid', async () => {
+    const server = startFakeWechatServer(merchant.publicKey, { tradeState: 'NOTPAY' })
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.queryPayment!('trade-001')
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) expect(result.value.status).toBe('unpaid')
+
+    server.stop(true)
+  })
+
+  test('maps CLOSED to closed', async () => {
+    const server = startFakeWechatServer(merchant.publicKey, { tradeState: 'CLOSED' })
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.queryPayment!('trade-001')
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) expect(result.value.status).toBe('closed')
+
+    server.stop(true)
+  })
+
+  test('returns GATEWAY_ERROR when the merchant signature is rejected', async () => {
+    const rogue = generateRsaKeyPair()
+    const server = startFakeWechatServer(rogue.publicKey)
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.queryPayment!('trade-001')
+    expect(result.isErr()).toBe(true)
+    expect(result.isErr() && result.error).toBe('GATEWAY_ERROR')
+
+    server.stop(true)
   })
 })

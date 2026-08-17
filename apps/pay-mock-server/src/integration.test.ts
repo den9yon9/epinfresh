@@ -205,4 +205,52 @@ describe('pay-mock-server wechat pipeline', () => {
     const sig = signMessage(harness.platform.privateKey, 'hello')
     expect(verifyMessage(fetched.value, 'hello', sig)).toBe(true)
   })
+
+  test('queryPayment after simulate reports paid with amount and transaction id', async () => {
+    const harness = createHarness()
+    const order = await seedPendingOrder('25.00')
+
+    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    if (initiated.isErr()) return
+    const payment = initiated.value.payment
+
+    // 尚未模拟支付: 渠道侧视为 NOTPAY
+    const before = await harness.gateway.queryPayment!(payment.outTradeNo)
+    expect(before.isOk()).toBe(true)
+    if (before.isErr()) return
+    expect(before.value.status).toBe('unpaid')
+
+    await harness.mock.simulate({
+      outTradeNo: payment.outTradeNo,
+      amount: payment.amount,
+    })
+
+    const after = await harness.gateway.queryPayment!(payment.outTradeNo)
+    expect(after.isOk()).toBe(true)
+    if (after.isErr()) return
+    expect(after.value.status).toBe('paid')
+    expect(after.value.amount).toBe('25.00')
+    expect(after.value.providerTransactionId).toMatch(/^mock-txn-/)
+  })
+
+  test('closeSimulation makes queryPayment report closed (reconciliation cancels it)', async () => {
+    const harness = createHarness()
+    const order = await seedPendingOrder('25.00')
+
+    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    if (initiated.isErr()) return
+    const payment = initiated.value.payment
+
+    // 模拟渠道关闭(超时未支付)后, 对账查询返回 closed
+    await harness.mock.simulate({
+      outTradeNo: payment.outTradeNo,
+      amount: payment.amount,
+    })
+    expect(harness.mock.closeSimulation({ outTradeNo: payment.outTradeNo }).closed).toBe(true)
+
+    const queried = await harness.gateway.queryPayment!(payment.outTradeNo)
+    expect(queried.isOk()).toBe(true)
+    if (queried.isErr()) return
+    expect(queried.value.status).toBe('closed')
+  })
 })

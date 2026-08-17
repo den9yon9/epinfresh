@@ -1,6 +1,6 @@
 import { type DbClient, type PaymentStatus, schema } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, lt } from 'drizzle-orm'
 
 import { type PaymentGateway, type PaymentPayload } from './gateway'
 
@@ -182,4 +182,43 @@ export async function listPaymentsByOrder(orderId: string, client: DbClient) {
     .where(eq(schema.payments.orderId, orderId))
     .orderBy(schema.payments.createdAt)
   return { items: items.map(toPaymentRecord) }
+}
+
+// 对账用: 列出创建时间早于 olderThan 仍 pending 的支付单(疑似漏回调/渠道已关闭)。
+// 只关心这批, 已终态的不再扫描。
+export async function listStalePendingPayments(
+  client: DbClient,
+  opts: { olderThan: Date; limit?: number },
+): Promise<PaymentRecord[]> {
+  const rows = await client
+    .select()
+    .from(schema.payments)
+    .where(
+      and(eq(schema.payments.status, 'pending'), lt(schema.payments.createdAt, opts.olderThan)),
+    )
+    .orderBy(schema.payments.createdAt)
+    .limit(opts.limit ?? 100)
+  return rows.map(toPaymentRecord)
+}
+
+// 事务原语: 对账发现渠道侧订单已关闭时, 把 pending 支付单置为 cancelled(CAS 防竞态)。
+// 订单本身保持 pending, 用户可重新发起支付。
+export async function cancelPendingPayment(
+  paymentId: string,
+  client: DbClient,
+): Promise<Result<PaymentRecord, 'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE'>> {
+  const [updated] = await client
+    .update(schema.payments)
+    .set({ status: 'cancelled' })
+    .where(and(eq(schema.payments.id, paymentId), eq(schema.payments.status, 'pending')))
+    .returning()
+  if (!updated) {
+    const existing = await client
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, paymentId))
+    if (!existing[0]) return err('PAYMENT_NOT_FOUND')
+    return err('INVALID_PAYMENT_STATE')
+  }
+  return ok(toPaymentRecord(updated))
 }

@@ -20,6 +20,11 @@ function toFen(amount: string): number {
   return fen
 }
 
+// 按 out_trade_no 查询交易状态; canonical URL 含查询串, 出站签名须逐字一致
+function buildQueryPath(outTradeNo: string, merchantId: string): string {
+  return `/v3/pay/transactions/out-trade-no/${outTradeNo}?mchid=${merchantId}`
+}
+
 // 微信回调头字段(统一按小写匹配)
 const TIMESTAMP_HEADER = 'wechatpay-timestamp'
 const NONCE_HEADER = 'wechatpay-nonce'
@@ -191,6 +196,39 @@ export function createWechatPaymentGateway(config: WechatGatewayConfig): WechatP
         return err('SIGNATURE_INVALID')
       }
       return mapWebhookEvent(config.apiV3Key, payload)
+    },
+    async queryPayment(outTradeNo) {
+      const path = buildQueryPath(outTradeNo, config.merchantId)
+      const authorization = buildAuthorizationHeader({
+        merchantId: config.merchantId,
+        merchantSerialNo: config.merchantSerialNo,
+        merchantPrivateKey: config.merchantPrivateKey,
+        method: 'GET',
+        canonicalUrl: path,
+        body: '',
+      })
+      const response = await fetch(`${config.baseUrl}${path}`, {
+        headers: { Authorization: authorization, Accept: 'application/json' },
+      })
+      if (!response.ok) return err('GATEWAY_ERROR')
+      const data = (await response.json()) as {
+        trade_state?: string
+        transaction_id?: string
+        amount?: { total?: number }
+      }
+      // SUCCESS→paid; NOTPAY/USERPAYING→unpaid; CLOSED/REVOKED/PAYERROR/REFUND→closed
+      const tradeState = data.trade_state
+      const status =
+        tradeState === 'SUCCESS'
+          ? 'paid'
+          : tradeState === 'NOTPAY' || tradeState === 'USERPAYING'
+            ? 'unpaid'
+            : 'closed'
+      return ok({
+        status,
+        providerTransactionId: data.transaction_id,
+        amount: data.amount?.total !== undefined ? (data.amount.total / 100).toFixed(2) : undefined,
+      })
     },
   }
   return gateway

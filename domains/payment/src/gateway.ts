@@ -56,11 +56,15 @@ export interface PaymentGateway {
     input: CreatePaymentInput,
   ): Promise<Result<{ providerRef: string; payload: PaymentPayload }, 'GATEWAY_ERROR'>>
   verifyWebhook(ctx: VerifyWebhookContext): Promise<Result<WebhookEvent, VerifyWebhookError>>
-  queryPayment?(
-    outTradeNo: string,
-  ): Promise<
+  // 对账用: 拉取渠道侧交易状态。渠道无外部真值(如 mock)时不实现, 对账任务会跳过该渠道。
+  // amount 为元字符串, 供确认管线做金额校验。
+  queryPayment?(outTradeNo: string): Promise<
     Result<
-      { status: 'paid' | 'unpaid' | 'closed'; providerTransactionId?: string },
+      {
+        status: 'paid' | 'unpaid' | 'closed'
+        providerTransactionId?: string
+        amount?: string
+      },
       'GATEWAY_ERROR'
     >
   >
