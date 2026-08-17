@@ -15,6 +15,7 @@
   "dependencies": {
     "@epinfresh/database": "workspace:*",
     "@epinfresh/order": "workspace:*",
+    "@epinfresh/outbox": "workspace:*",
     "@epinfresh/payment": "workspace:*",
     "@epinfresh/shared": "workspace:*"
   },

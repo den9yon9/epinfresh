@@ -1,5 +1,6 @@
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { type OrderDetail, updateOrderStatus } from '@epinfresh/order'
+import { insertOutboxEvent } from '@epinfresh/outbox'
 import {
   confirmPayment,
   type PaymentRecord,
@@ -13,8 +14,9 @@ export type ConfirmPaymentError = 'PAYMENT_NOT_FOUND' | 'INVALID_PAYMENT_STATE' 
 
 // 编排: 支付确认跨 payment + order 两域, 事务内保持原子。
 // payment 域只改支付单; 订单 pending→paid 由 order 域状态机推进(CAS 防并发)。
+// 同一事务内写 outbox("payment.succeeded"): 事件与业务状态同生共死, 由 worker 异步投递。
 // 回调内 return err() 由 withTransaction 转为回滚: 订单非 pending(已被取消等)时
-// 整个事务回滚, 支付单不会落 succeeded。
+// 整个事务回滚, 支付单不会落 succeeded, outbox 也不产生事件。
 export async function confirmOrderPayment(
   paymentId: string,
   client: DbClient,
@@ -32,6 +34,19 @@ export async function confirmOrderPayment(
         orderResult.error === 'ORDER_NOT_FOUND' ? 'ORDER_NOT_FOUND' : 'INVALID_PAYMENT_STATE',
       )
     }
+    await insertOutboxEvent(tx, {
+      eventType: 'payment.succeeded',
+      aggregateType: 'payment',
+      aggregateId: payment.id,
+      payload: {
+        orderId,
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        provider: payment.provider,
+        paidAt: new Date().toISOString(),
+      },
+    })
     return ok({ payment, order: orderResult.value.order })
   })
 }

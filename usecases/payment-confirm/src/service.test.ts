@@ -89,6 +89,36 @@ describe('confirmOrderPayment', () => {
     expect(again.isErr()).toBe(true)
     expect(again._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
   })
+
+  test('writes a payment.succeeded outbox event in the same transaction', async () => {
+    const order = await seedPendingOrder()
+    const payment = await seedPayment(order.id)
+
+    const result = await confirmOrderPayment(payment.id, db)
+    expect(result.isOk()).toBe(true)
+
+    const [event] = await db.select().from(schema.outboxEvents)
+    expect(event.eventType).toBe('payment.succeeded')
+    expect(event.aggregateType).toBe('payment')
+    expect(event.aggregateId).toBe(payment.id)
+    expect(event.status).toBe('pending')
+    expect(event.payload).toMatchObject({ orderId: order.id, paymentId: payment.id })
+  })
+
+  test('does not write an outbox event when confirmation rolls back', async () => {
+    const order = await seedPendingOrder()
+    const payment = await seedPayment(order.id)
+    await db
+      .update(schema.orders)
+      .set({ status: 'cancelled' })
+      .where(eq(schema.orders.id, order.id))
+
+    const result = await confirmOrderPayment(payment.id, db)
+    expect(result.isErr()).toBe(true)
+
+    const events = await db.select().from(schema.outboxEvents)
+    expect(events).toHaveLength(0)
+  })
 })
 
 describe('confirmByWebhookEvent', () => {
@@ -147,6 +177,17 @@ describe('confirmByWebhookEvent', () => {
 
     const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
     expect(after.status).toBe('paid')
+  })
+
+  test('writes exactly one outbox event across duplicate callbacks', async () => {
+    const { payment } = await seedWebhookPayment()
+    const event = succeededEvent(payment)
+
+    await confirmByWebhookEvent(event, db)
+    await confirmByWebhookEvent(event, db)
+
+    const events = await db.select().from(schema.outboxEvents)
+    expect(events).toHaveLength(1)
   })
 
   test('rejects a webhook event with mismatched amount', async () => {
