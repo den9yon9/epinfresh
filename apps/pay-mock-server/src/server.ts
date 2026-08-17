@@ -4,6 +4,7 @@ import {
   handleCertificates,
   handleNativeOrder,
   handleQueryTransaction,
+  handleRefund,
   type SimulateInput,
   simulatePayment,
   type WechatMockContext,
@@ -28,6 +29,7 @@ export function startPayMockServer(config: PayMockServerConfig): PayMockServer {
     platformSerialNo: config.platformSerialNo,
     notifyUrl: config.notifyUrl,
     transactions: new Map(),
+    refunds: new Map(),
   }
 
   const server = Bun.serve({
@@ -36,6 +38,9 @@ export function startPayMockServer(config: PayMockServerConfig): PayMockServer {
       // 微信 APIv3 端点(与真实微信响应结构一致)
       '/v3/pay/transactions/native': {
         POST: (req) => handleNativeOrder(ctx, req),
+      },
+      '/v3/refund/domestic/refunds': {
+        POST: (req) => handleRefund(ctx, req),
       },
       '/v3/pay/transactions/out-trade-no/:outTradeNo': {
         GET: (req) => handleQueryTransaction(ctx, req, req.params.outTradeNo),

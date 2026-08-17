@@ -14,5 +14,9 @@ export function createMockPaymentGateway(): PaymentGateway {
     async verifyWebhook() {
       return err('UNSUPPORTED')
     },
+    async refund() {
+      // mock 退款即时成功: 本地状态翻转即代表渠道结果(与 e2e/admin 既有行为一致)
+      return ok({ refundId: `mock-refund-${crypto.randomUUID()}`, status: 'succeeded' })
+    },
   }
 }

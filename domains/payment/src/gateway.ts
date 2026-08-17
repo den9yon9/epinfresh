@@ -48,6 +48,22 @@ export interface VerifyWebhookContext {
 
 export type VerifyWebhookError = 'SIGNATURE_INVALID' | 'UNSUPPORTED'
 
+// 退款请求: 金额为元字符串。refundNo 由调用方确定性生成(同支付单重试同号, 渠道幂等)。
+export interface RefundInput {
+  outTradeNo: string
+  refundNo: string
+  amount: string
+  total: string
+  currency: string
+  reason?: string
+}
+
+// 渠道退款结果: 真实渠道异步(微信先返回 PROCESSING, 结果走退款通知); mock 同步成功。
+export interface RefundResult {
+  refundId?: string
+  status: 'processing' | 'succeeded'
+}
+
 export interface PaymentGateway {
   readonly channel: PaymentChannel
   // 回调确认成功后回给渠道平台的应答体(微信 'SUCCESS', 支付宝 'success', mock 'OK')
@@ -56,6 +72,9 @@ export interface PaymentGateway {
     input: CreatePaymentInput,
   ): Promise<Result<{ providerRef: string; payload: PaymentPayload }, 'GATEWAY_ERROR'>>
   verifyWebhook(ctx: VerifyWebhookContext): Promise<Result<WebhookEvent, VerifyWebhookError>>
+  // 提交退款(渠道调用先于本地状态翻转, 避免"本地已退、渠道未退"分叉)。
+  // 渠道无退款能力(如纯本地 mock 之外的未知渠道)时不实现, 退款用例返回 UNSUPPORTED_CHANNEL。
+  refund?(input: RefundInput): Promise<Result<RefundResult, 'GATEWAY_ERROR'>>
   // 对账用: 拉取渠道侧交易状态。渠道无外部真值(如 mock)时不实现, 对账任务会跳过该渠道。
   // amount 为元字符串, 供确认管线做金额校验。
   queryPayment?(outTradeNo: string): Promise<

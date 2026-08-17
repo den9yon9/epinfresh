@@ -106,6 +106,26 @@ function startFakeWechatServer(
           })
         },
       },
+      '/v3/refund/domestic/refunds': {
+        POST: async (req) => {
+          const path = '/v3/refund/domestic/refunds'
+          const body = await req.text()
+          const auth = req.headers.get('authorization') ?? ''
+          const nonce = /nonce_str="([^"]+)"/.exec(auth)?.[1]
+          const timestamp = /timestamp="([^"]+)"/.exec(auth)?.[1]
+          const signature = /signature="([^"]+)"/.exec(auth)?.[1]
+          const message = `POST\n${path}\n${timestamp}\n${nonce}\n${body}\n`
+          if (!signature || !verifyMessage(verifyKey, message, signature)) {
+            return new Response('unauthorized', { status: 401 })
+          }
+          const parsed = JSON.parse(body) as { out_refund_no?: string }
+          return Response.json({
+            refund_id: 'mock-refund-1',
+            out_refund_no: parsed.out_refund_no,
+            status: 'SUCCESS',
+          })
+        },
+      },
       '/v3/pay/transactions/out-trade-no/:outTradeNo': {
         GET: async (req) => {
           // 签名 canonical URL 含查询串, 与网关发出的完全一致才放行
@@ -263,6 +283,45 @@ describe('wechat gateway', () => {
     })
     const result = await wrongKeyGateway.verifyWebhook({ headers, rawBody: body })
     expect(result.isErr()).toBe(true)
+  })
+})
+
+describe('wechat gateway refund', () => {
+  test('submits refund with signed request and maps SUCCESS to succeeded', async () => {
+    const server = startFakeWechatServer(merchant.publicKey)
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.refund!({
+      outTradeNo: 'trade-001',
+      refundNo: 'rf-order-1',
+      amount: '10.00',
+      total: '25.00',
+      currency: 'CNY',
+      reason: '用户申请退款',
+    })
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    expect(result.value).toEqual({ refundId: 'mock-refund-1', status: 'succeeded' })
+
+    server.stop(true)
+  })
+
+  test('returns GATEWAY_ERROR when the merchant signature is rejected', async () => {
+    const rogue = generateRsaKeyPair()
+    const server = startFakeWechatServer(rogue.publicKey)
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.refund!({
+      outTradeNo: 'trade-001',
+      refundNo: 'rf-order-1',
+      amount: '10.00',
+      total: '25.00',
+      currency: 'CNY',
+    })
+    expect(result.isErr()).toBe(true)
+    expect(result.isErr() && result.error).toBe('GATEWAY_ERROR')
+
+    server.stop(true)
   })
 })
 

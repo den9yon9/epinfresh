@@ -13,6 +13,7 @@ import {
 import { aesGcmDecrypt, buildAuthorizationHeader, verifyPlatformSignature } from '../wechat/crypto'
 
 const NATIVE_ORDER_PATH = '/v3/pay/transactions/native'
+const REFUND_PATH = '/v3/refund/domestic/refunds'
 
 function toFen(amount: string): number {
   const fen = Math.round(Number(amount) * 100)
@@ -229,6 +230,40 @@ export function createWechatPaymentGateway(config: WechatGatewayConfig): WechatP
         providerTransactionId: data.transaction_id,
         amount: data.amount?.total !== undefined ? (data.amount.total / 100).toFixed(2) : undefined,
       })
+    },
+    async refund(input) {
+      const body = JSON.stringify({
+        out_trade_no: input.outTradeNo,
+        out_refund_no: input.refundNo,
+        reason: input.reason,
+        amount: {
+          refund: toFen(input.amount),
+          total: toFen(input.total),
+          currency: input.currency,
+        },
+      })
+      const authorization = buildAuthorizationHeader({
+        merchantId: config.merchantId,
+        merchantSerialNo: config.merchantSerialNo,
+        merchantPrivateKey: config.merchantPrivateKey,
+        method: 'POST',
+        canonicalUrl: REFUND_PATH,
+        body,
+      })
+      const response = await fetch(`${config.baseUrl}${REFUND_PATH}`, {
+        method: 'POST',
+        headers: {
+          Authorization: authorization,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body,
+      })
+      if (!response.ok) return err('GATEWAY_ERROR')
+      const data = (await response.json()) as { refund_id?: string; status?: string }
+      // 真实微信退款异步: 提交后为 PROCESSING, 结果走退款通知回调; mock 直接 SUCCESS
+      const status = data.status === 'SUCCESS' ? 'succeeded' : 'processing'
+      return ok({ refundId: data.refund_id, status })
     },
   }
   return gateway

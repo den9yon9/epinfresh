@@ -16,6 +16,7 @@ import { Elysia, status, t } from 'elysia'
 import { type AdminPlugins } from '../plugins'
 
 export function createOrderRoutes(plugins: AdminPlugins) {
+  const { paymentGateways } = plugins
   return new Elysia({ name: 'order-admin', prefix: '/admin' })
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
@@ -142,7 +143,7 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     .post(
       '/orders/:id/refund',
       async ({ params, db }) => {
-        const result = await refundOrderWorkflow(params.id, db)
+        const result = await refundOrderWorkflow(params.id, paymentGateways, db)
         return result.match(
           ({ payment }) => payment,
           (e) => {
@@ -153,6 +154,10 @@ export function createOrderRoutes(plugins: AdminPlugins) {
                 return status(404, { error: e, message: 'No refundable payment' })
               case 'INVALID_PAYMENT_STATE':
                 return status(409, { error: e, message: 'Order cannot be refunded' })
+              case 'GATEWAY_ERROR':
+                return status(502, { error: e, message: 'Refund gateway error' })
+              case 'UNSUPPORTED_CHANNEL':
+                return status(400, { error: e, message: 'Channel does not support refunds' })
               default:
                 return assertNever(e)
             }
@@ -164,14 +169,16 @@ export function createOrderRoutes(plugins: AdminPlugins) {
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
         response: {
           200: PaymentModel.PaymentResponseSchema,
+          400: ErrorResponse,
           404: ErrorResponse,
           409: ErrorResponse,
+          502: ErrorResponse,
         },
         detail: {
           tags: ['Admin/Orders'],
           summary: '订单退款',
           description:
-            '对已支付订单发起退款，返回退款支付单。\n\n- 需要 admin 角色\n- 订单不存在或无可退支付返回 404\n- 支付状态不允许退款返回 409',
+            '向支付渠道提交退款并标记订单/支付单为已退款。\n\n- 需要 admin 角色\n- 退款先经渠道网关提交，渠道失败返回 502 且不改本地状态\n- 订单不存在或无可退支付返回 404，状态不允许退款返回 409，渠道不支持退款返回 400',
         },
       },
     )

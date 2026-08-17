@@ -2,7 +2,11 @@ import { treaty } from '@elysiajs/eden'
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { createOrderRecord, updateOrderStatus } from '@epinfresh/order'
-import { createMockPaymentGateway, initiatePayment } from '@epinfresh/payment'
+import {
+  createMockPaymentGateway,
+  createPaymentGateways,
+  initiatePayment,
+} from '@epinfresh/payment'
 import { confirmOrderPayment } from '@epinfresh/payment-confirm'
 import { reduceProductStock } from '@epinfresh/product'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
@@ -25,6 +29,7 @@ let api: ReturnType<typeof treaty<typeof app>>
 function createTestDeps(deps: { db: Db; redis: Redis }): AdminAppOptions {
   return {
     ...deps,
+    paymentGateways: createPaymentGateways([{ channel: 'mock' }]),
     sessionSecret: env.TESTING_SESSION_SECRET,
     corsOrigin: true,
     trustProxy: false,

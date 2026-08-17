@@ -253,4 +253,30 @@ describe('pay-mock-server wechat pipeline', () => {
     if (queried.isErr()) return
     expect(queried.value.status).toBe('closed')
   })
+
+  test('refund round-trip: gateway refund → mock accepts → SUCCESS', async () => {
+    const harness = createHarness()
+    const order = await seedPendingOrder('25.00')
+
+    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    if (initiated.isErr()) return
+    const payment = initiated.value.payment
+    await harness.mock.simulate({
+      outTradeNo: payment.outTradeNo,
+      amount: payment.amount,
+    })
+
+    const refunded = await harness.gateway.refund!({
+      outTradeNo: payment.outTradeNo,
+      refundNo: `rf-${payment.id}`,
+      amount: payment.amount,
+      total: payment.amount,
+      currency: payment.currency,
+      reason: 'test refund',
+    })
+    expect(refunded.isOk()).toBe(true)
+    if (refunded.isErr()) return
+    expect(refunded.value.status).toBe('succeeded')
+    expect(refunded.value.refundId).toMatch(/^mock-refund-/)
+  })
 })

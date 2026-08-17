@@ -74,6 +74,18 @@ curl -X POST http://localhost:8787/__simulate__/pay \
 
 支付配置（`PAYMENT_GATEWAY`/`WECHAT_*`/PEM 读取/校验）由 `domains/payment` 的 `createPaymentGatewaysFromEnv` 统一提供，storefront-api / admin-api / worker 三进程同一来源。
 
+## 退款
+
+退款走渠道网关：admin-api 的 `POST /admin/orders/:id/refund` → `refundOrderWorkflow` **先向渠道提交退款**，成功后再事务内翻转本地（order refunded + payment refunded）。渠道提交失败返回 502 且不改本地，不存在"本地已退、渠道未退"的分叉。
+
+- 退款编号确定性派生：`rf-{paymentId}` —— 同一支付单的重试复用相同 `out_refund_no`，渠道侧幂等，不会重复退款
+- mock 渠道退款即时成功（本地翻转即代表结果）；微信真实退款是**异步**的（提交后为 PROCESSING，结果走退款通知回调），当前按"提交成功即记退款成功"处理，退款结果 notify 跟进见 tech-debt
+- 联调模拟：`POST /v3/refund/domestic/refunds`（pay-mock-server 验商户签名后返回 `status: SUCCESS`）
+
+### tech-debt（异步退款跟进）
+
+- 真实微信退款结果为异步通知（`REFUND.SUCCESS`/`REFUND.ABNORMAL`），当前无退款状态机与退款 notify 路由；接入真实网关后需补：退款单状态（processing→succeeded）、退款通知验签入库、退款对账。异常分叉由对账兜底。
+
 ## 代码结构
 
 ```

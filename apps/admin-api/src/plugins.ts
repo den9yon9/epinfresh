@@ -9,12 +9,13 @@ export interface AdminPlugins {
   redisPlugin: ReturnType<typeof redisPlugin>
   sessionPlugin: ReturnType<typeof createSessionPlugin>
   rateLimitPlugin: ReturnType<typeof authRateLimit>
+  paymentGateways: AdminAppOptions['paymentGateways']
   isProduction: boolean
   logger: Logger
 }
 
 export function createPlugins(options: Omit<AdminAppOptions, 'corsOrigin'>): AdminPlugins {
-  const { db, redis, sessionSecret, trustProxy, isProduction, logger } = options
+  const { db, redis, sessionSecret, trustProxy, isProduction, logger, paymentGateways } = options
   return {
     dbPlugin: dbPlugin(db),
     redisPlugin: redisPlugin(redis, { logger }),
@@ -29,6 +30,7 @@ export function createPlugins(options: Omit<AdminAppOptions, 'corsOrigin'>): Adm
       prefix: 'rl:admin',
       trustProxy,
     }),
+    paymentGateways,
     isProduction,
     logger,
   }

@@ -20,10 +20,12 @@ export interface WechatMockContext {
     string,
     { transactionId: string; total: number; tradeState: 'SUCCESS' | 'CLOSED' }
   >
+  // 模拟退款登记: 供退款提交返回
+  refunds: Map<string, { refundId: string; status: 'SUCCESS' }>
 }
 
 // 构造回调只依赖除交易登记外的上下文字段; 便于测试直接传字面量
-type CallbackContext = Omit<WechatMockContext, 'transactions'>
+type CallbackContext = Omit<WechatMockContext, 'transactions' | 'refunds'>
 
 // 从商户私钥派生公钥, 用于校验网关出站请求签名(与微信侧持有商户公钥同理)
 export function merchantPublicKey(merchantPrivateKey: string): string {
@@ -133,6 +135,41 @@ export async function handleNativeOrder(ctx: WechatMockContext, req: Request): P
   const prepayId = `mock-prepay-${randomUUID().replace(/-/g, '')}`
   const codeUrl = `weixin://wxpay/bizpayurl?pr=${randomBytes(8).toString('hex')}`
   return Response.json({ prepay_id: prepayId, code_url: codeUrl })
+}
+
+// 模拟退款申请: 校验商户签名后登记并返回(与真实微信响应结构一致)。
+// mock 按同步成功返回; 真实微信此处通常为 PROCESSING(异步结果走退款通知)。
+export async function handleRefund(ctx: WechatMockContext, req: Request): Promise<Response> {
+  const authorization = req.headers.get('authorization') ?? ''
+  const body = await req.text()
+  const valid = verifyMerchantRequest({
+    merchantPublicKey: merchantPublicKey(ctx.merchantPrivateKey),
+    method: 'POST',
+    path: '/v3/refund/domestic/refunds',
+    authorization,
+    body,
+  })
+  if (!valid) {
+    return Response.json({ code: 'SIGN_ERROR', message: '验签失败(模拟)' }, { status: 401 })
+  }
+  const input = JSON.parse(body) as {
+    out_refund_no?: string
+    amount?: { refund?: number; total?: number; currency?: string }
+  }
+  if (!input.out_refund_no) {
+    return Response.json(
+      { code: 'PARAM_ERROR', message: 'out_refund_no required' },
+      { status: 400 },
+    )
+  }
+  const refundId = `mock-refund-${randomUUID().replace(/-/g, '')}`
+  ctx.refunds.set(input.out_refund_no, { refundId, status: 'SUCCESS' })
+  return Response.json({
+    refund_id: refundId,
+    out_refund_no: input.out_refund_no,
+    status: 'SUCCESS',
+    amount: input.amount ?? { refund: 0, total: 0, currency: 'CNY' },
+  })
 }
 
 // 模拟平台证书下载: 加密返回假平台公钥(与真实 /v3/certificates 响应结构一致)
