@@ -32,6 +32,8 @@ const PAID_STATUSES = new Set(['paid', 'shipped', 'completed'])
 
 // 二维码展示期间轮询订单状态, 渠道回调确认成功后前端自动翻页
 const PAYMENT_POLL_INTERVAL_MS = 3000
+// 自动轮询上限: 5 分钟未支付则停止轮询, 仅保留提示, 避免无限空转
+const PAYMENT_POLL_TIMEOUT_MS = 5 * 60 * 1000
 
 // 支付渠道由构建环境决定(VITE_PAYMENT_CHANNEL): mock=开发/联调走本地确认, wechat=真实/模拟器回调
 const PAYMENT_CHANNEL: 'mock' | 'wechat' = import.meta.env.VITE_PAYMENT_CHANNEL ?? 'mock'
@@ -55,11 +57,18 @@ function PayPage() {
     provider: string
     payload: PayPayload
   } | null>(null)
+  const [pollStopped, setPollStopped] = useState(false)
 
   // 发起支付后轮询订单状态: 支付成功/取消/退款都能即时反映到页面
   useEffect(() => {
-    if (pending === null || status !== 'pending') return
+    if (pending === null || status !== 'pending' || pollStopped) return
+    const deadline = Date.now() + PAYMENT_POLL_TIMEOUT_MS
     const timer = setInterval(async () => {
+      if (Date.now() > deadline) {
+        clearInterval(timer)
+        setPollStopped(true)
+        return
+      }
       const res = await api.orders({ id: orderId }).get()
       if (isUnauthorized(res.error)) {
         clearSessionCache()
@@ -70,7 +79,7 @@ function PayPage() {
       setStatus(res.data.status)
     }, PAYMENT_POLL_INTERVAL_MS)
     return () => clearInterval(timer)
-  }, [pending, status, orderId])
+  }, [pending, status, orderId, pollStopped])
 
   async function pay() {
     setError(null)
@@ -183,6 +192,9 @@ function PayPage() {
           <h2 className="text-base font-semibold text-gray-900">扫码支付</h2>
           <PaymentQrCode codeUrl={pending.payload.codeUrl} />
           <p className="text-sm text-gray-500">请使用微信或支付宝扫码完成支付</p>
+          {pollStopped && (
+            <p className="text-sm text-amber-600">订单仍待支付；若已支付请刷新页面查看结果</p>
+          )}
           {pending.provider === 'mock' && (
             <button
               onClick={confirmMock}

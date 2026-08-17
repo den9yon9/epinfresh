@@ -55,6 +55,7 @@ curl -X POST http://localhost:8787/__simulate__/pay \
 - 变 `paid/shipped/completed` → 自动翻页到"支付成功"
 - 变 `cancelled/refunded` → 自动展示对应终态（不再依赖首次加载的快照）
 - 轮询期间请求瞬时失败会静默重试下一轮；会话失效则跳登录
+- 自动轮询上限 5 分钟：超时未支付则停止轮询，二维码下方提示「订单仍待支付；若已支付请刷新页面」，避免无限空转
 
 实现位于 `apps/storefront-web/src/routes/pay.tsx`。mock 渠道的「模拟支付完成」按钮保留，点击后同样落到 `status='paid'`。若后续并发上来自建一个轻量支付状态端点（如 `GET /payments/:id/status`）可省去拉取整个订单，记入 tech-debt。
 
