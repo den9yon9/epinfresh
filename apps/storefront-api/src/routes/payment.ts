@@ -135,6 +135,7 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
         if (!gateway) {
           return status(400, 'FAIL')
         }
+        // parse hook 将原始 body 作为字符串传入(见下方 parse), 验签必须用未改动的原文
         const verified = await gateway.verifyWebhook({ headers, rawBody: body as string })
         if (verified.isErr()) {
           return status(400, 'FAIL')
@@ -149,6 +150,8 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
       {
         // 公共回调入口, 无登录; 渠道平台直接调用
         type: 'text/plain',
+        // 微信/支付宝回调一律 application/json; 强制按原文文本解析, 避免 Elysia 按 content-type 转成对象
+        parse: ({ request }) => request.text(),
         params: t.Object({ channel: paymentChannelSchema }),
         response: {
           200: t.String(),

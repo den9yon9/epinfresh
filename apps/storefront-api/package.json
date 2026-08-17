@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@elysiajs/eden": "^1.4.9",
+    "@epinfresh/pay-mock-server": "workspace:*",
     "drizzle-orm": "^0.40.0"
   }
 }

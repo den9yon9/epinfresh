@@ -30,6 +30,9 @@ export const Route = createFileRoute('/pay')({
 
 const PAID_STATUSES = new Set(['paid', 'shipped', 'completed'])
 
+// 支付渠道由构建环境决定(VITE_PAYMENT_CHANNEL): mock=开发/联调走本地确认, wechat=真实/模拟器回调
+const PAYMENT_CHANNEL: 'mock' | 'wechat' = import.meta.env.VITE_PAYMENT_CHANNEL ?? 'mock'
+
 // 与网关契约的 PaymentPayload 保持一致; 前端按 type 分支渲染
 type PayPayload =
   | { type: 'qr'; codeUrl: string }
@@ -51,8 +54,8 @@ function PayPage() {
   async function pay() {
     setError(null)
     setBusy(true)
-    // mock 渠道: M1 前端写死 mock; 接入真实渠道后在支付页提供渠道选择
-    const initiated = await api.orders({ id: orderId }).pay.post({ channel: 'mock' })
+    // 渠道由 VITE_PAYMENT_CHANNEL 决定; 前端不做渠道选择
+    const initiated = await api.orders({ id: orderId }).pay.post({ channel: PAYMENT_CHANNEL })
     if (initiated.error) {
       setBusy(false)
       const code = 'error' in initiated.error.value ? initiated.error.value.error : undefined

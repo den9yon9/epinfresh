@@ -1,7 +1,12 @@
 import { treaty } from '@elysiajs/eden'
 import { closeDb, type Db, type ProductStatus, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
-import { createPaymentGateways } from '@epinfresh/payment'
+import {
+  buildSimulatedCallback,
+  type PayMockServer,
+  startPayMockServer,
+} from '@epinfresh/pay-mock-server'
+import { createPaymentGateways, generateRsaKeyPair } from '@epinfresh/payment'
 import { createQueue, type Queue } from '@epinfresh/queue'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { flushTestRedis } from '@epinfresh/redis/testing'
@@ -848,6 +853,114 @@ describe('payments', () => {
     expect(res.status).toBe(400)
     if (res.error === null) throw new Error('expected error response')
     expect(res.error.value).toBe('FAIL')
+  })
+})
+
+describe('wechat payment through the real notify route', () => {
+  const merchant = generateRsaKeyPair()
+  const platform = generateRsaKeyPair()
+  const API_V3_KEY = '0123456789abcdef0123456789abcdef'
+  let mock: PayMockServer
+  let wechatApp: App
+  let wechatApi: ReturnType<typeof treaty<typeof wechatApp>>
+  let notifyUrl: string
+
+  beforeAll(async () => {
+    // 模拟器只提供 /v3 下单端点; 回调用 buildSimulatedCallback 直发真实 notify 路由
+    mock = startPayMockServer({
+      port: 0,
+      merchantId: 'mock-merchant-1',
+      appId: 'mock-app-1',
+      apiV3Key: API_V3_KEY,
+      merchantPrivateKey: merchant.privateKey,
+      platformPrivateKey: platform.privateKey,
+      platformSerialNo: 'P-SERIAL-MOCK',
+      notifyUrl: 'http://localhost:1/unused',
+    })
+    wechatApp = buildApp({
+      ...createTestDeps({ db, redis, emailQueue }),
+      paymentGateways: createPaymentGateways([
+        { channel: 'mock' },
+        {
+          channel: 'wechat',
+          config: {
+            baseUrl: mock.url,
+            merchantId: 'mock-merchant-1',
+            appId: 'mock-app-1',
+            apiV3Key: API_V3_KEY,
+            merchantSerialNo: 'M-SERIAL-1',
+            merchantPrivateKey: merchant.privateKey,
+            platformPublicKey: platform.publicKey,
+            notifyUrl: 'http://localhost:1/unused',
+          },
+        },
+      ]),
+    })
+    await wechatApp.listen(0)
+    const port = wechatApp.server?.port
+    if (!port) throw new Error('wechat app did not bind a port')
+    notifyUrl = `http://localhost:${port}/payments/notify/wechat`
+    wechatApi = treaty<typeof wechatApp>(wechatApp)
+  })
+
+  afterAll(async () => {
+    mock.stop()
+    // 只停 HTTP server, 不触发 Elysia onStop(db/redis 由顶层 afterAll 统一关闭)
+    wechatApp.server?.stop(true)
+  })
+
+  test('initiates wechat payment and confirms via simulated callback', async () => {
+    const user = await seedUser('wechat@example.com')
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('apple', '25.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const orderRes = await wechatApi.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    if (orderRes.error !== null) throw orderRes.error
+    const orderId = orderRes.data.id
+
+    const payRes = await wechatApi
+      .orders({ id: orderId })
+      .pay.post({ channel: 'wechat' }, { fetch: { headers: { cookie } } })
+    expect(payRes.status).toBe(201)
+    if (payRes.error !== null) throw payRes.error
+    expect(payRes.data.payload).toMatchObject({
+      type: 'qr',
+      codeUrl: expect.stringContaining('weixin://wxpay/bizpayurl'),
+    })
+
+    // 模拟器构造回调 → 直发真实 notify 路由(含 application/json 内容类型)
+    const callback = buildSimulatedCallback(
+      {
+        merchantId: 'mock-merchant-1',
+        appId: 'mock-app-1',
+        apiV3Key: API_V3_KEY,
+        merchantPrivateKey: merchant.privateKey,
+        platformPrivateKey: platform.privateKey,
+        platformSerialNo: 'P-SERIAL-MOCK',
+        notifyUrl,
+      },
+      { outTradeNo: payRes.data.payment.outTradeNo, amount: payRes.data.payment.amount },
+    )
+    const notifyRes = await fetch(notifyUrl, {
+      method: 'POST',
+      headers: callback.headers,
+      body: callback.body,
+    })
+    expect(notifyRes.status).toBe(200)
+    expect(await notifyRes.text()).toBe('SUCCESS')
+
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, orderId))
+    expect(afterOrder.status).toBe('paid')
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payRes.data.payment.id))
+    expect(afterPayment.status).toBe('succeeded')
+    expect(afterPayment.providerTransactionId).toMatch(/^mock-txn-/)
   })
 })
 
