@@ -43,9 +43,20 @@ curl -X POST http://localhost:8787/__simulate__/pay \
   -H 'content-type: application/json' \
   -d '{"outTradeNo":"<支付单 out_trade_no>","amount":"25.00"}'
 # 返回 { sent:true, status:200, responseBody:"SUCCESS" } 即回调被真实 notify 路由接受
+# 前端支付页每 3s 轮询订单状态, ≤3s 内自动从"扫码支付"翻到"支付成功"
 ```
 
 `out_trade_no` 可从 storefront-api 的支付单列表接口拿到（`/orders/:id/payments`）。
+
+## 前端支付结果感知（轮询）
+
+支付页发起支付拿到二维码后，前端每 3s 轮询订单详情（`GET /orders/:id`），直到订单离开 `pending` 态：
+
+- 变 `paid/shipped/completed` → 自动翻页到"支付成功"
+- 变 `cancelled/refunded` → 自动展示对应终态（不再依赖首次加载的快照）
+- 轮询期间请求瞬时失败会静默重试下一轮；会话失效则跳登录
+
+实现位于 `apps/storefront-web/src/routes/pay.tsx`。mock 渠道的「模拟支付完成」按钮保留，点击后同样落到 `status='paid'`。若后续并发上来自建一个轻量支付状态端点（如 `GET /payments/:id/status`）可省去拉取整个订单，记入 tech-debt。
 
 ## 代码结构
 

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import * as v from 'valibot'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { PaymentQrCode } from '../components/PaymentQrCode'
 import { api } from '../libs/api/client'
@@ -30,6 +30,9 @@ export const Route = createFileRoute('/pay')({
 
 const PAID_STATUSES = new Set(['paid', 'shipped', 'completed'])
 
+// 二维码展示期间轮询订单状态, 渠道回调确认成功后前端自动翻页
+const PAYMENT_POLL_INTERVAL_MS = 3000
+
 // 支付渠道由构建环境决定(VITE_PAYMENT_CHANNEL): mock=开发/联调走本地确认, wechat=真实/模拟器回调
 const PAYMENT_CHANNEL: 'mock' | 'wechat' = import.meta.env.VITE_PAYMENT_CHANNEL ?? 'mock'
 
@@ -44,12 +47,30 @@ function PayPage() {
   const { orderId } = Route.useSearch()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [paid, setPaid] = useState(PAID_STATUSES.has(order.status))
+  // 订单状态随轮询实时更新, 不再依赖 loader 初始快照
+  const [status, setStatus] = useState(order.status)
+  const paid = PAID_STATUSES.has(status)
   const [pending, setPending] = useState<{
     paymentId: string
     provider: string
     payload: PayPayload
   } | null>(null)
+
+  // 发起支付后轮询订单状态: 支付成功/取消/退款都能即时反映到页面
+  useEffect(() => {
+    if (pending === null || status !== 'pending') return
+    const timer = setInterval(async () => {
+      const res = await api.orders({ id: orderId }).get()
+      if (isUnauthorized(res.error)) {
+        clearSessionCache()
+        window.location.assign(`/login?redirectTo=${encodeURIComponent(`/pay?orderId=${orderId}`)}`)
+        return
+      }
+      if (res.error) return // 瞬时失败, 下一轮重试
+      setStatus(res.data.status)
+    }, PAYMENT_POLL_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [pending, status, orderId])
 
   async function pay() {
     setError(null)
@@ -86,7 +107,7 @@ function PayPage() {
       setError('支付确认失败，请刷新后重试')
       return
     }
-    setPaid(true)
+    setStatus('paid')
   }
 
   if (paid) {
@@ -111,7 +132,7 @@ function PayPage() {
     )
   }
 
-  if (order.status !== 'pending') {
+  if (status !== 'pending') {
     const labels: Record<string, string> = {
       cancelled: '订单已取消',
       refunded: '订单已退款',
@@ -122,7 +143,7 @@ function PayPage() {
           !
         </div>
         <h2 className="text-lg font-semibold text-gray-900">
-          {labels[order.status] ?? '订单状态已变化'}
+          {labels[status] ?? '订单状态已变化'}
         </h2>
         <Link
           to="/orders/$id"
