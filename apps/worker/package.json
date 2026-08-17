@@ -6,14 +6,17 @@
     "dev": "bun --watch --env-file=../../.env src/index.ts",
     "start": "bun src/index.ts",
     "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun --env-file=../../.env test --parallel=1"
   },
   "dependencies": {
     "@epinfresh/checkout": "workspace:*",
     "@epinfresh/database": "workspace:*",
+    "@epinfresh/outbox": "workspace:*",
     "@epinfresh/queue": "workspace:*",
     "@epinfresh/shared": "workspace:*",
     "@epinfresh/user": "workspace:*",
-    "@sinclair/typebox": "^0.34.0"
+    "@sinclair/typebox": "^0.34.0",
+    "drizzle-orm": "^0.40.0"
   }
 }
