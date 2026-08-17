@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "check": "eslint . && prettier --check .",
     "clean": "rm -rf apps/*/dist packages/*/dist domains/*/dist apps/*/.turbo packages/*/.turbo domains/*/.turbo",
+    "keys:pay": "bun scripts/generate-pay-keys.ts",
     "prepare": "lefthook install"
   },
   "devDependencies": {
