@@ -12,6 +12,7 @@ import * as schema from './schema'
 export { schema }
 export { emailSchema, table } from './model'
 export { ORDER_STATUS, type OrderStatus } from './schema/order/orders'
+export { OUTBOX_EVENT_STATUS, type OutboxEventStatus } from './schema/outbox/outbox-events'
 export { PAYMENT_STATUS, type PaymentStatus } from './schema/payment/payments'
 export { PRODUCT_STATUS, type ProductStatus } from './schema/product/products'
 export { USER_ROLE, type UserRole } from './schema/user/users'

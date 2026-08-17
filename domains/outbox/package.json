@@ -1,0 +1,21 @@
+{
+  "name": "@epinfresh/outbox",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./jobs": "./src/jobs.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "bun --env-file=../../.env test --parallel=1"
+  },
+  "dependencies": {
+    "@epinfresh/database": "workspace:*",
+    "@epinfresh/shared": "workspace:*",
+    "drizzle-orm": "^0.40.0"
+  }
+}

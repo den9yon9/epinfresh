@@ -10,7 +10,14 @@ export { cartItems } from './cart/cart-items'
 export { checkoutIdempotencyKeys } from './checkout/checkout-idempotency-keys'
 // order 域
 export { orderItems } from './order/order-items'
+// outbox 域(领域事件持久化, 事务内写入, worker 异步投递)
 export { ORDER_STATUS, orders, type OrderStatus, orderStatus } from './order/orders'
+export {
+  OUTBOX_EVENT_STATUS,
+  outboxEvents,
+  type OutboxEventStatus,
+  outboxEventStatus,
+} from './outbox/outbox-events'
 // payment 域
 export { PAYMENT_STATUS, payments, type PaymentStatus, paymentStatus } from './payment/payments'
 // product 域
