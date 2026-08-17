@@ -2,7 +2,8 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests',
-  timeout: 30_000,
+  // 60s: 覆盖 CI 冷启动首次注册/下单的余量(此前 30s 偶发超时 flake)
+  timeout: 60_000,
   fullyParallel: true,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {

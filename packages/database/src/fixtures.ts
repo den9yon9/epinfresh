@@ -28,6 +28,13 @@ interface SkuFixture {
   attributes: Record<string, string>
 }
 
+// 产品占位图: 本地 data-URI SVG, 消除对 picsum.photos 的外网依赖(e2e 曾因外图加载失败报 console 错误而 flake)。
+// 浏览器渲染与远程图一致, 离线/CI 环境可跑。
+function placeholderImage(slug: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#e5e7eb"/><text x="50%" y="50%" fill="#9ca3af" font-size="28" font-family="sans-serif" text-anchor="middle" dominant-baseline="middle">${slug}</text></svg>`
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+}
+
 interface ProductFixture {
   name: string
   slug: string
@@ -351,7 +358,7 @@ async function upsertProduct(
       slug: p.slug,
       description: p.description,
       categoryId,
-      images: [`https://picsum.photos/seed/${p.slug}/400/400`],
+      images: [placeholderImage(p.slug)],
       status: 'published',
     })
     .onConflictDoNothing()
