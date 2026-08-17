@@ -1,3 +1,4 @@
+export { type WechatGatewayConfig } from './config/wechat'
 export {
   createPaymentGateways,
   type CreatePaymentInput,
@@ -12,6 +13,11 @@ export {
 } from './gateway'
 export { createMockPaymentGateway } from './gateways/mock'
 export {
+  createWechatPaymentGateway,
+  fetchWechatPlatformPublicKey,
+  type WechatPaymentGateway,
+} from './gateways/wechat'
+export {
   confirmPayment,
   getPaymentById,
   initiatePayment,
@@ -21,3 +27,12 @@ export {
   refundPayment,
   toPaymentRecord,
 } from './service'
+export {
+  aesGcmDecrypt,
+  aesGcmEncrypt,
+  buildAuthorizationHeader,
+  generateRsaKeyPair,
+  signMessage,
+  verifyMessage,
+  verifyPlatformSignature,
+} from './wechat/crypto'

@@ -1,7 +1,9 @@
 import { type Result } from '@epinfresh/shared'
 import { type StaticDecode, Type } from '@sinclair/typebox'
 
+import { type WechatGatewayConfig } from './config/wechat'
 import { createMockPaymentGateway } from './gateways/mock'
+import { createWechatPaymentGateway } from './gateways/wechat'
 
 // --- 支付载荷(渠道无关) ---
 // 前端按 type 分支渲染: qr=扫码, redirect=跳转, params=渠道内拉起(H5/JSAPI 参数)。
@@ -65,7 +67,7 @@ export interface PaymentGateway {
 }
 
 export type PaymentGatewayConfig =
-  { channel: 'mock' } | { channel: 'wechat' } | { channel: 'alipay' }
+  { channel: 'mock' } | { channel: 'wechat'; config: WechatGatewayConfig } | { channel: 'alipay' }
 
 // 渠道注册表: 前端按 channel 发起支付, 路由按 channel 分发回调。
 // 核心零渠道逻辑, 微信/支付宝都只是可配置的一项; M1 仅 mock 已实现。
@@ -82,9 +84,11 @@ export function createPaymentGateways(
         registry.mock = createMockPaymentGateway()
         break
       case 'wechat':
+        registry.wechat = createWechatPaymentGateway(config.config)
+        break
       case 'alipay':
         throw new Error(
-          `[payment] gateway "${config.channel}" not implemented yet; only "mock" is available`,
+          `[payment] gateway "alipay" not implemented yet; only "mock" and "wechat" are available`,
         )
     }
   }
