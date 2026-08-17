@@ -14,6 +14,8 @@ import {
 // `shared: isRedisInstance(opts.connection)`); v4 时代的 useSharedConnection 选项已移除。
 // 共享时调用方持有连接实例并负责关闭; worker 的阻塞连接不受影响(bullmq 内部始终 duplicate)。
 // 传 redisUrl 时 bullmq 自建连接并自行管理生命周期。
+// 指标(AUDIT #7): v5 默认开启 metric 采集(Redis 内 `metrics:completed/failed` 桶), opts.metrics
+// 只控制 maxDataPoints 保留长度; 消费侧用 queue.getMetrics('completed') 读取(后续 /metrics 端点)。
 export type QueueConnection =
   { connection: Redis; redisUrl?: never } | { connection?: never; redisUrl: string }
 

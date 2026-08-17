@@ -23,7 +23,7 @@ export function registerReconciliationWorker(
   gateways: Partial<Record<PaymentChannel, PaymentGateway>>,
   logger: Logger,
 ): ReconciliationWorker {
-  const db = createDb(databaseUrl)
+  const db = createDb(databaseUrl, { logger })
 
   const queue = createQueue(RECONCILE_QUEUE_NAME, { redisUrl })
   queue
@@ -48,7 +48,7 @@ export function registerReconciliationWorker(
     logger,
   )
 
-  const worker = createWorker(RECONCILE_QUEUE_NAME, processor, { redisUrl, logger })
+  const worker = createWorker(RECONCILE_QUEUE_NAME, processor, { redisUrl, logger, metrics: {} })
 
   return {
     worker,

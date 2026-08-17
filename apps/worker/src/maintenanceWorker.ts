@@ -18,7 +18,7 @@ export function registerMaintenanceWorker(
   databaseUrl: string,
   logger: Logger,
 ): MaintenanceWorker {
-  const db = createDb(databaseUrl)
+  const db = createDb(databaseUrl, { logger })
 
   // repeatable job: 每天 03:00 UTC 触发一次幂等键清理。
   // upsertJobScheduler 幂等: 重复启动不会重复注册(以 id 覆盖)。
@@ -47,7 +47,7 @@ export function registerMaintenanceWorker(
     logger,
   )
 
-  const worker = createWorker(MAINTENANCE_QUEUE_NAME, processor, { redisUrl, logger })
+  const worker = createWorker(MAINTENANCE_QUEUE_NAME, processor, { redisUrl, logger, metrics: {} })
 
   return {
     worker,

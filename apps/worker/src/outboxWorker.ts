@@ -25,7 +25,7 @@ export function registerOutboxWorker(
   databaseUrl: string,
   logger: Logger,
 ): OutboxWorker {
-  const db = createDb(databaseUrl)
+  const db = createDb(databaseUrl, { logger })
 
   // repeatable job: 每 OUTBOX_POLL_INTERVAL_MS 触发一次 dispatch 扫描。
   // upsertJobScheduler 幂等: 重复启动不会重复注册(以 id 覆盖)。
@@ -49,7 +49,7 @@ export function registerOutboxWorker(
     logger,
   )
 
-  const worker = createWorker(OUTBOX_QUEUE_NAME, processor, { redisUrl, logger })
+  const worker = createWorker(OUTBOX_QUEUE_NAME, processor, { redisUrl, logger, metrics: {} })
 
   return {
     worker,

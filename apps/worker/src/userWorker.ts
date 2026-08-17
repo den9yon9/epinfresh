@@ -7,5 +7,6 @@ export function registerEmailWorker(redisUrl: string, logger: Logger): Worker {
   return createWorker(EMAIL_QUEUE_NAME, createDispatcher(emailHandlers, logger), {
     redisUrl,
     logger,
+    metrics: {},
   })
 }
