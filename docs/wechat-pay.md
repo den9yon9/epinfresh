@@ -8,6 +8,8 @@
 - 返回 Native 下单结果（`prepay_id` + `weixin://wxpay/bizpayurl?pr=…`）
 - 提供 `/v3/certificates`（加密返回假平台公钥，供运行时拉取公钥的链路测试）
 - 构造"支付成功"回调：资源按 APIv3 AES-256-GCM 加密、整包按假平台私钥签名，投递到通知地址
+- `GET /v3/pay/transactions/out-trade-no/:no`（验商户签名后按内存登记返回 trade_state，供对账）
+- `POST /__simulate__/close`（把已登记交易置为 CLOSED，模拟用户超时未支付）
 
 与真实微信的差异仅在于密钥来源：接受本地生成的商户签名、用本地假平台密钥签发回调。将来支付宝 mock 复用同一套"假平台签名"模式（`src/alipay.ts`）。
 
@@ -59,17 +61,34 @@ curl -X POST http://localhost:8787/__simulate__/pay \
 
 实现位于 `apps/storefront-web/src/routes/pay.tsx`。mock 渠道的「模拟支付完成」按钮保留，点击后同样落到 `status='paid'`。若后续并发上来自建一个轻量支付状态端点（如 `GET /payments/:id/status`）可省去拉取整个订单，记入 tech-debt。
 
+## 对账（reconciliation）
+
+渠道回调偶发丢失/延迟会导致"渠道已支付、本地仍 pending"的漂移，靠对账兜底。worker 的支付对账任务每 5 分钟跑一次，扫描**创建超 30 分钟仍 pending** 且渠道支持查询（实现了 `queryPayment`）的支付单：
+
+- 渠道侧 `paid` → 视为漏回调，走与真实 webhook 相同的幂等确认管线（含 transaction_id 回填 + 金额校验），订单与支付单置为已支付
+- 渠道侧 `closed`（超时未支付）→ 本地支付单置 `cancelled`，订单保持 pending，用户可重新发起
+- `unpaid` / 查询失败 → 保持原样，下一轮再扫（幂等）
+- mock 渠道无外部真值、不实现 `queryPayment`，自动跳过
+
+实现：`usecases/payment-confirm` 的 `reconcilePendingPayments` + `apps/worker/src/reconciliationWorker.ts`（repeatable job）。联调可手动触发：`curl -X POST http://localhost:8787/__simulate__/pay`（模拟支付）或 `__simulate__/close`（模拟关闭）后等下一轮对账观察自动修复。
+
+支付配置（`PAYMENT_GATEWAY`/`WECHAT_*`/PEM 读取/校验）由 `domains/payment` 的 `createPaymentGatewaysFromEnv` 统一提供，storefront-api / admin-api / worker 三进程同一来源。
+
 ## 代码结构
 
 ```
 domains/payment/src/
   wechat/crypto.ts        RSA 签名/验签、Authorization 头构造、防重放、AES-256-GCM 加解密
   config/wechat.ts        WechatGatewayConfig(密钥以 PEM 内容传入, 由调用方读文件)
-  gateways/wechat.ts      统一下单、回调验签+解密→WebhookEvent、/v3/certificates 公钥拉取
+  env.ts                  支付配置单一来源(PAYMENT_GATEWAY + WECHAT_* 解析/校验/读 PEM)
+  gateways/wechat.ts      统一下单、回调验签+解密→WebhookEvent、/v3/certificates 公钥拉取、queryPayment 对账查询
 apps/pay-mock-server/
-  src/wechat.ts           假微信服务端(验商户签名、模拟下单/证书/回调构造)
+  src/wechat.ts           假微信服务端(验商户签名、模拟下单/证书/回调构造/交易登记查询/关闭)
   src/server.ts           Bun.serve 路由装配
   src/cli.ts              dev 入口
+usecases/payment-confirm/  确认编排 + reconcilePendingPayments(对账修复漂移)
+apps/worker/src/
+  reconciliationWorker.ts 对账 repeatable job(每 5 分钟)
 ```
 
 ## 真实接入清单（商户号到位后）

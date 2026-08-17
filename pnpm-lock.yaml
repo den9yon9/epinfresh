@@ -315,6 +315,12 @@ importers:
       '@epinfresh/outbox':
         specifier: workspace:*
         version: link:../../domains/outbox
+      '@epinfresh/payment':
+        specifier: workspace:*
+        version: link:../../domains/payment
+      '@epinfresh/payment-confirm':
+        specifier: workspace:*
+        version: link:../../usecases/payment-confirm
       '@epinfresh/queue':
         specifier: workspace:*
         version: link:../../packages/queue

@@ -2,7 +2,11 @@ import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { type OrderDetail, updateOrderStatus } from '@epinfresh/order'
 import { insertOutboxEvent } from '@epinfresh/outbox'
 import {
+  cancelPendingPayment,
   confirmPayment,
+  listStalePendingPayments,
+  type PaymentChannel,
+  type PaymentGateway,
   type PaymentRecord,
   toPaymentRecord,
   type WebhookEvent,
@@ -106,4 +110,75 @@ export async function confirmByWebhookEvent(
     .where(eq(schema.payments.id, payment.id))
   if (current?.status === 'succeeded') return ok({ payment: toPaymentRecord(current) })
   return err(confirmed.error === 'ORDER_NOT_FOUND' ? 'ORDER_NOT_FOUND' : 'INVALID_PAYMENT_STATE')
+}
+
+export interface ReconcileOptions {
+  staleAfterMs?: number
+  limit?: number
+}
+
+export interface ReconcileResult {
+  scanned: number
+  fixedPaid: number
+  closed: number
+  // 跳过: 渠道不支持查询(mock)/查询失败/渠道侧未支付/确认或取消被并发抢占
+  skipped: number
+}
+
+// 对账: 拉渠道侧交易状态 vs 本地长期 pending 的支付单, 修复漏回调/渠道关闭造成的漂移。
+// 仅扫描渠道支持查询(实现了 queryPayment)的支付单; mock 无外部真值, 自动跳过。
+// paid → 走与真实 webhook 相同的幂等确认管线(含 transaction_id 回填 + 金额校验 + 并发容忍);
+// closed → 取消本地支付单(订单保持 pending, 用户可重新发起);
+// unpaid/失败 → 保持原样, 下一轮再扫(幂等)。
+export async function reconcilePendingPayments(
+  gateways: Partial<Record<PaymentChannel, PaymentGateway>>,
+  client: DbClient,
+  opts: ReconcileOptions = {},
+): Promise<ReconcileResult> {
+  const staleAfterMs = opts.staleAfterMs ?? 30 * 60 * 1000
+  const olderThan = new Date(Date.now() - staleAfterMs)
+  const pending = await listStalePendingPayments(client, { olderThan, limit: opts.limit ?? 100 })
+  const result: ReconcileResult = { scanned: 0, fixedPaid: 0, closed: 0, skipped: 0 }
+
+  for (const payment of pending) {
+    const provider = payment.provider as PaymentChannel
+    const gateway = gateways[provider]
+    if (!gateway?.queryPayment) {
+      result.skipped += 1
+      continue
+    }
+    result.scanned += 1
+
+    const queried = await gateway.queryPayment(payment.outTradeNo)
+    if (queried.isErr()) {
+      result.skipped += 1
+      continue
+    }
+    const state = queried.value
+
+    if (state.status === 'paid') {
+      const event: WebhookEvent = {
+        channel: provider,
+        eventId: crypto.randomUUID(),
+        outTradeNo: payment.outTradeNo,
+        providerTransactionId: state.providerTransactionId,
+        amount: state.amount ?? payment.amount,
+        status: 'succeeded',
+      }
+      const confirmed = await confirmByWebhookEvent(event, client)
+      if (confirmed.isOk()) result.fixedPaid += 1
+      else result.skipped += 1
+      continue
+    }
+
+    if (state.status === 'closed') {
+      const cancelled = await cancelPendingPayment(payment.id, client)
+      if (cancelled.isOk()) result.closed += 1
+      else result.skipped += 1
+      continue
+    }
+
+    result.skipped += 1
+  }
+  return result
 }

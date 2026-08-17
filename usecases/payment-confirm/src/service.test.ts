@@ -1,10 +1,11 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
-import { createMockPaymentGateway, initiatePayment } from '@epinfresh/payment'
+import { createMockPaymentGateway, initiatePayment, type PaymentGateway } from '@epinfresh/payment'
+import { err, ok } from '@epinfresh/shared'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
-import { confirmByWebhookEvent, confirmOrderPayment } from './service'
+import { confirmByWebhookEvent, confirmOrderPayment, reconcilePendingPayments } from './service'
 
 let db: Db
 
@@ -238,5 +239,171 @@ describe('confirmByWebhookEvent', () => {
     expect(afterPayment.status).toBe('pending')
     const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
     expect(after.status).toBe('pending')
+  })
+})
+
+describe('reconcilePendingPayments', () => {
+  // 以 wechat provider 落库(provider 列决定对账走哪个网关)
+  async function seedWechatPayment(orderId: string) {
+    const wechatGateway = { ...createMockPaymentGateway(), channel: 'wechat' as const }
+    const payment = (await initiatePayment(orderId, wechatGateway, db))._unsafeUnwrap()
+    return payment.payment
+  }
+
+  // 对账用假 wechat 网关: 只实现 queryPayment, 其余方法不用于对账路径
+  function fakeGateway(
+    results: Record<
+      string,
+      { status: 'paid' | 'unpaid' | 'closed'; providerTransactionId?: string; amount?: string }
+    >,
+  ): Record<'mock' | 'wechat', PaymentGateway> {
+    return {
+      mock: createMockPaymentGateway(),
+      wechat: {
+        channel: 'wechat',
+        notifySuccessBody: 'SUCCESS',
+        async createPayment() {
+          throw new Error('not used in reconciliation')
+        },
+        async verifyWebhook() {
+          throw new Error('not used in reconciliation')
+        },
+        async queryPayment(outTradeNo) {
+          const state = results[outTradeNo]
+          if (!state) return err('GATEWAY_ERROR')
+          return ok(state)
+        },
+      },
+    }
+  }
+
+  test('fixes a missed callback: local pending + gateway paid → confirmed + outbox', async () => {
+    const order = await seedPendingOrder('25.00')
+    const payment = await seedWechatPayment(order.id)
+    // 模拟时间流逝: 直接改 createdAt 使支付单进入"超时未确认"窗口
+    await db
+      .update(schema.payments)
+      .set({ createdAt: new Date(Date.now() - 60 * 60 * 1000) })
+      .where(eq(schema.payments.id, payment.id))
+    const gateways = fakeGateway({
+      [payment.outTradeNo]: {
+        status: 'paid',
+        providerTransactionId: 'txn-123',
+        amount: '25.00',
+      },
+    })
+
+    const result = await reconcilePendingPayments(gateways, db)
+    expect(result.scanned).toBe(1)
+    expect(result.fixedPaid).toBe(1)
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('succeeded')
+    expect(afterPayment.providerTransactionId).toBe('txn-123')
+    const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(after.status).toBe('paid')
+    const events = await db.select().from(schema.outboxEvents)
+    expect(events).toHaveLength(1)
+  })
+
+  test('rejects fixing a paid gateway state when the amount differs', async () => {
+    const order = await seedPendingOrder('25.00')
+    const payment = await seedWechatPayment(order.id)
+    await db
+      .update(schema.payments)
+      .set({ createdAt: new Date(Date.now() - 60 * 60 * 1000) })
+      .where(eq(schema.payments.id, payment.id))
+    const gateways = fakeGateway({
+      [payment.outTradeNo]: { status: 'paid', amount: '1.00' },
+    })
+
+    const result = await reconcilePendingPayments(gateways, db)
+    expect(result.scanned).toBe(1)
+    expect(result.fixedPaid).toBe(0)
+    expect(result.skipped).toBe(1)
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('pending')
+  })
+
+  test('cancels a pending payment when the gateway reports the order closed', async () => {
+    const order = await seedPendingOrder()
+    const payment = await seedWechatPayment(order.id)
+    await db
+      .update(schema.payments)
+      .set({ createdAt: new Date(Date.now() - 60 * 60 * 1000) })
+      .where(eq(schema.payments.id, payment.id))
+    const gateways = fakeGateway({
+      [payment.outTradeNo]: { status: 'closed' },
+    })
+
+    const result = await reconcilePendingPayments(gateways, db)
+    expect(result.closed).toBe(1)
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('cancelled')
+    // 订单保持 pending, 用户可重新发起支付
+    const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(after.status).toBe('pending')
+  })
+
+  test('skips payments that are still within the stale window', async () => {
+    const order = await seedPendingOrder()
+    const payment = await seedWechatPayment(order.id)
+    const gateways = fakeGateway({
+      [payment.outTradeNo]: { status: 'paid' },
+    })
+
+    const result = await reconcilePendingPayments(gateways, db)
+    expect(result.scanned).toBe(0)
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('pending')
+  })
+
+  test('skips mock-provider payments without a queryPayment gateway', async () => {
+    const order = await seedPendingOrder()
+    const payment = await seedPayment(order.id)
+    await db
+      .update(schema.payments)
+      .set({ createdAt: new Date(Date.now() - 60 * 60 * 1000) })
+      .where(eq(schema.payments.id, payment.id))
+
+    const result = await reconcilePendingPayments({ mock: createMockPaymentGateway() }, db)
+    expect(result.scanned).toBe(0)
+    expect(result.skipped).toBe(1)
+  })
+
+  test('leaves unpaid gateway state untouched', async () => {
+    const order = await seedPendingOrder()
+    const payment = await seedWechatPayment(order.id)
+    await db
+      .update(schema.payments)
+      .set({ createdAt: new Date(Date.now() - 60 * 60 * 1000) })
+      .where(eq(schema.payments.id, payment.id))
+    const gateways = fakeGateway({ [payment.outTradeNo]: { status: 'unpaid' } })
+
+    const result = await reconcilePendingPayments(gateways, db)
+    expect(result.scanned).toBe(1)
+    expect(result.fixedPaid).toBe(0)
+    expect(result.closed).toBe(0)
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('pending')
   })
 })

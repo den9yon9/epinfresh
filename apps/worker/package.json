@@ -13,6 +13,8 @@
     "@epinfresh/checkout": "workspace:*",
     "@epinfresh/database": "workspace:*",
     "@epinfresh/outbox": "workspace:*",
+    "@epinfresh/payment": "workspace:*",
+    "@epinfresh/payment-confirm": "workspace:*",
     "@epinfresh/queue": "workspace:*",
     "@epinfresh/shared": "workspace:*",
     "@epinfresh/user": "workspace:*",
