@@ -12,7 +12,6 @@
 | 3   | `packages/session/src/rateLimit.ts:12`                                                     | nazli 顶层规则会全局 onRequest 计数（曾 429 全 API）；限流只走路由级宏     | 换库或修 nazli 后移除 workaround 说明                  |
 | 4   | `apps/storefront-api/src/routes/payment.ts:82`                                             | mock 网关回调入口（需登录）                                                | 接真实网关 + webhook 验签（AUDIT #2，冻结中）          |
 | 5   | `domains/user/src/handlers.ts:13`                                                          | mock 邮件只打日志，token 拼在重置链接                                      | 接真实邮件服务                                         |
-| 6   | `apps/storefront-web/src/routes/cart.tsx:39`                                               | 购物车全局串行锁防连点竞态                                                 | 并发量上来改 per-sku 锁                                |
 | 7   | `apps/storefront-web/src/components/Header.tsx:6`                                          | `staticData` 类型太松，读侧用窄接口断言                                    | 收紧路由 meta 类型                                     |
 | 8   | `packages/database/src/fixtures.ts:384`                                                    | `orderItems.sku_id` restrict 外键，删除被拒时预检报错而非级联              | 若改级联需迁移，属刻意决策                             |
 | 9   | `domains/address/src/service.ts:19`                                                        | 默认唯一性靠事务内先清后设，无部分唯一索引                                 | 地址量级变大后加 `(user_id, is_default)` 部分唯一索引  |
@@ -32,3 +31,4 @@
 ## 历史结清
 
 - ~~表访问收敛回 domain~~（checkout/order-cancel 直读直删改调 `@epinfresh/address`/`@epinfresh/cart`/`@epinfresh/payment`，2026-08-15，AUDIT #1）
+- ~~购物车全局串行锁~~（cart.tsx 已按 per-sku 粒度锁 `busySkuId`，不同商品可并发改数量，2026-08-18，tech-debt #6）

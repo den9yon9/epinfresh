@@ -55,9 +55,9 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    Deps["deps: createPaymentGateways(configs)"] --> Mock[mock: createMockPaymentGateway]
-    Deps --> Wechat[wechat: 未实现<br/>M3 接入]
-    Deps --> Alipay[alipay: 未实现<br/>M4 接入]
+    Deps["deps: createPaymentGatewaysFromEnv(source)"] --> Mock[mock: createMockPaymentGateway]
+    Deps --> Wechat[wechat: createWechatPaymentGateway<br/>APIv3 签名/验签 + AES-GCM]
+    Deps --> Alipay[alipay: createAlipayPaymentGateway<br/>RSA2 签名/验签]
     Mock --> Core[支付核心<br/>零渠道逻辑]
     Wechat --> Core
     Alipay --> Core
@@ -67,6 +67,19 @@ flowchart LR
 
 > 核心（`domains/payment`）不感知任何渠道特有概念（openid、UA、公众号）；
 > 前端按 channel 发起，路由按 channel 分发回调，加新渠道 = 注册表一项 + 前端一个支付方式选项。
+> 支付配置（`PAYMENT_GATEWAY` + 各渠道 `*_API_BASE`/密钥路径）由 `createPaymentGatewaysFromEnv`
+> 统一解析/校验/读 PEM，storefront-api / admin-api / worker 三进程同一来源。
+
+## 渠道网关能力
+
+| 渠道   | 下单                | 回调验签                | 查询(queryPayment)       | 退款(refund)              |
+| ------ | ------------------- | ----------------------- | ------------------------ | ------------------------- |
+| mock   | 同步返回 qr         | 不支持(走本地确认端点)  | 无(无外部真值, 对账跳过) | 同步成功                  |
+| wechat | APIv3 native        | 平台签名 + AES-GCM 解密 | GET 交易查询             | /v3/refund(异步结果)      |
+| alipay | 当面付 precreate→qr | RSA2 验签(表单 notify)  | alipay.trade.query       | alipay.trade.refund(同步) |
+
+- **对账**：worker 每 5 分钟扫超 30 分钟 pending 的支付单，`queryPayment` 渠道侧 paid→走幂等确认管线、closed→取消支付单；mock 跳过。
+- **退款**：`refundOrderWorkflow` 先渠道后本地（确定性 `rf-{paymentId}` 退款号保证重试幂等）；渠道失败不改本地。
 
 ## 状态机
 
