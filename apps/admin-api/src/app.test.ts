@@ -11,6 +11,7 @@ import { confirmOrderPayment } from '@epinfresh/payment-confirm'
 import { reduceProductStock } from '@epinfresh/product'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { flushTestRedis } from '@epinfresh/redis/testing'
+import { createSessionStore } from '@epinfresh/session'
 import { createLogger, hashPassword } from '@epinfresh/shared'
 import { getTestEnv } from '@epinfresh/shared/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
@@ -124,14 +125,14 @@ async function signCookieValue(value: string, secret: string): Promise<string> {
 
 async function forgeSessionCookie(userId: string, role: 'customer' | 'admin'): Promise<string> {
   const client = createRedisClient(env.TESTING_REDIS_URL)
-  const sessionId = crypto.randomUUID()
   try {
     await client.connect()
-    await client.set(`session:${sessionId}`, JSON.stringify({ userId, role }), 'EX', 86400)
+    // 走真实 store: 同时维护 per-user 会话索引(destroyAllForUser 依赖)
+    const sessionId = await createSessionStore(client).create({ userId, role })
+    return `session_id=${await signCookieValue(sessionId, env.TESTING_SESSION_SECRET)}`
   } finally {
     await client.quit()
   }
-  return `session_id=${await signCookieValue(sessionId, env.TESTING_SESSION_SECRET)}`
 }
 
 describe('auth', () => {

@@ -119,11 +119,19 @@ export interface SessionStore {
   destroyAllForUser(userId: string): Promise<void>
 }
 
+// per-user 会话索引: 每次登录 SADD, 使 destroyAllForUser 免全量 scanStream(O(1) SMEMBERS)。
+// 索引 key 随会话存活续期(SADD 时 EXPIRE), 会话全部过期后自然消失。
+function userSessionsKey(userId: string): string {
+  return `session:user:${userId}`
+}
+
 export function createSessionStore(redis: Redis): SessionStore {
   return {
     async create(session) {
       const sessionId = crypto.randomUUID()
       await redis.set(`session:${sessionId}`, JSON.stringify(session), 'EX', SESSION_TTL_SECONDS)
+      await redis.sadd(userSessionsKey(session.userId), sessionId)
+      await redis.expire(userSessionsKey(session.userId), SESSION_TTL_SECONDS)
       return sessionId
     },
     async read(sessionId) {
@@ -132,19 +140,18 @@ export function createSessionStore(redis: Redis): SessionStore {
     },
     async destroy(sessionId) {
       if (!sessionId) return
+      const session = parseSession(await redis.get(`session:${sessionId}`))
       await redis.del(`session:${sessionId}`)
+      if (session) await redis.srem(userSessionsKey(session.userId), sessionId)
     },
-    // ponytail: O(n) 全量 scanStream, 会话量为百千级毫秒完成;
-    // 会话量大到需要每次登录 SADD 维护 per-user 索引时再换 Set 方案
+    // per-user Set 索引: 按 userId 直接取会话集合, 免全量扫描
     async destroyAllForUser(userId) {
-      const keys: string[] = []
-      for await (const chunk of redis.scanStream({ match: 'session:*' })) {
-        for (const key of chunk) {
-          const raw = await redis.get(key)
-          if (parseSession(raw)?.userId === userId) keys.push(key)
-        }
+      const key = userSessionsKey(userId)
+      const members = await redis.smembers(key)
+      if (members.length > 0) {
+        await redis.del(...members.map((id) => `session:${id}`))
       }
-      if (keys.length > 0) await redis.del(keys)
+      await redis.del(key)
     },
   }
 }

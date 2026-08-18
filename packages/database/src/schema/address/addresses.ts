@@ -1,4 +1,5 @@
-import { boolean, index, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { boolean, index, pgTable, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
 
 import { users } from './../user/users'
 
@@ -21,5 +22,9 @@ export const addresses = pgTable(
   },
   (t) => ({
     userIdIdx: index('addresses_user_id_idx').on(t.userId),
+    // 部分唯一索引: 每个用户至多一个默认地址(tech-debt #9, 并发下由 DB 兜底)
+    defaultUniqueIdx: uniqueIndex('addresses_user_default_unique')
+      .on(t.userId)
+      .where(sql`${t.isDefault} = true`),
   }),
 )

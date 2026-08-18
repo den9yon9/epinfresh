@@ -4,6 +4,26 @@ import { and, desc, eq } from 'drizzle-orm'
 
 export type AddressError = 'ADDRESS_NOT_FOUND'
 
+// 部分唯一索引(每个用户至多一个默认地址)在并发写默认地址时可能 23505 冲突:
+// 重试一次即可(对方事务已提交, 重试会先清旧默认再设新默认), 避免 500。
+function isUniqueViolation(caught: unknown): boolean {
+  return (
+    typeof caught === 'object' &&
+    caught !== null &&
+    'code' in caught &&
+    (caught as { code: string }).code === '23505'
+  )
+}
+
+async function withDefaultRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (caught) {
+    if (isUniqueViolation(caught)) return fn()
+    throw caught
+  }
+}
+
 export async function createAddress(
   input: {
     userId: string
@@ -15,32 +35,33 @@ export async function createAddress(
   client: DbClient,
 ) {
   const isDefault = input.isDefault ?? false
-  return withTransaction(client, async (tx) => {
-    // ponytail: 默认唯一性靠事务内先清后设；地址量级小，不需要部分唯一索引
-    const [first] = await tx
-      .select()
-      .from(schema.addresses)
-      .where(eq(schema.addresses.userId, input.userId))
-      .limit(1)
-    const effectiveDefault = isDefault || !first
-    if (effectiveDefault) {
-      await tx
-        .update(schema.addresses)
-        .set({ isDefault: false })
+  return withDefaultRetry(() =>
+    withTransaction(client, async (tx) => {
+      const [first] = await tx
+        .select()
+        .from(schema.addresses)
         .where(eq(schema.addresses.userId, input.userId))
-    }
-    const [address] = await tx
-      .insert(schema.addresses)
-      .values({
-        userId: input.userId,
-        recipientName: input.recipientName,
-        phone: input.phone,
-        address: input.address,
-        isDefault: effectiveDefault,
-      })
-      .returning()
-    return address
-  })
+        .limit(1)
+      const effectiveDefault = isDefault || !first
+      if (effectiveDefault) {
+        await tx
+          .update(schema.addresses)
+          .set({ isDefault: false })
+          .where(eq(schema.addresses.userId, input.userId))
+      }
+      const [address] = await tx
+        .insert(schema.addresses)
+        .values({
+          userId: input.userId,
+          recipientName: input.recipientName,
+          phone: input.phone,
+          address: input.address,
+          isDefault: effectiveDefault,
+        })
+        .returning()
+      return address
+    }),
+  )
 }
 
 export async function listAddressesByUser(userId: string, client: DbClient) {
@@ -72,26 +93,28 @@ export async function updateAddress(
   client: DbClient,
 ): Promise<Result<typeof schema.addresses.$inferSelect, AddressError>> {
   const { isDefault, ...rest } = input
-  return withTransaction(client, async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(schema.addresses)
-      .where(and(eq(schema.addresses.id, addressId), eq(schema.addresses.userId, userId)))
-    if (!existing) return err('ADDRESS_NOT_FOUND')
+  return withDefaultRetry(() =>
+    withTransaction(client, async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(schema.addresses)
+        .where(and(eq(schema.addresses.id, addressId), eq(schema.addresses.userId, userId)))
+      if (!existing) return err('ADDRESS_NOT_FOUND')
 
-    if (isDefault && !existing.isDefault) {
-      await tx
+      if (isDefault && !existing.isDefault) {
+        await tx
+          .update(schema.addresses)
+          .set({ isDefault: false })
+          .where(eq(schema.addresses.userId, userId))
+      }
+      const [updated] = await tx
         .update(schema.addresses)
-        .set({ isDefault: false })
-        .where(eq(schema.addresses.userId, userId))
-    }
-    const [updated] = await tx
-      .update(schema.addresses)
-      .set({ ...rest, isDefault: isDefault ?? existing.isDefault })
-      .where(eq(schema.addresses.id, addressId))
-      .returning()
-    return ok(updated)
-  })
+        .set({ ...rest, isDefault: isDefault ?? existing.isDefault })
+        .where(eq(schema.addresses.id, addressId))
+        .returning()
+      return ok(updated)
+    }),
+  )
 }
 
 export async function deleteAddress(

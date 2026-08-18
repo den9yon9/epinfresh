@@ -64,6 +64,26 @@ describe('createAddress', () => {
     expect(items.items.filter((a) => a.isDefault)).toHaveLength(1)
     expect(items.items[0].isDefault).toBe(true)
   })
+
+  test('partial unique index rejects a second concurrent default at the DB level', async () => {
+    const user = await seedUser()
+    await createAddress(
+      { userId: user.id, recipientName: 'Alice', phone: '1', address: 'Home', isDefault: true },
+      db,
+    )
+    // 绕过服务层直接写第二个默认地址: 部分唯一索引应拒绝(23505)
+    await expect(
+      Promise.resolve(
+        db.insert(schema.addresses).values({
+          userId: user.id,
+          recipientName: 'Bob',
+          phone: '2',
+          address: 'Office',
+          isDefault: true,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: '23505' })
+  })
 })
 
 describe('address queries', () => {
