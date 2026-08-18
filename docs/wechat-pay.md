@@ -17,14 +17,23 @@
 
 支付接入由两个独立开关控制，可任意组合：
 
-| 轴   | 变量              | 说明                                                                  |
-| ---- | ----------------- | --------------------------------------------------------------------- |
-| 渠道 | `PAYMENT_GATEWAY` | `mock`（本地无加密快速通道，e2e 依赖）/ `wechat`                      |
-| 端点 | `WECHAT_API_BASE` | 真实 `https://api.mch.weixin.qq.com` / 模拟器 `http://localhost:8787` |
+| 轴   | 变量              | 说明                                                                            |
+| ---- | ----------------- | ------------------------------------------------------------------------------- |
+| 渠道 | `PAYMENT_GATEWAY` | `mock`（本地无加密快速通道，e2e 依赖）/ `wechat` / `alipay`（见 alipay-pay.md） |
+| 端点 | `WECHAT_API_BASE` | 真实 `https://api.mch.weixin.qq.com` / 模拟器 `http://localhost:8787`           |
 
-其余 `WECHAT_*`（商户号/证书/密钥路径/回调地址）只在 `PAYMENT_GATEWAY=wechat` 时必需，`createEnv` 会运行时校验。
+其余 `WECHAT_*`（商户号/证书/密钥路径/回调地址）只在 `PAYMENT_GATEWAY=wechat` 时必需，`createPaymentGatewaysFromEnv` 会运行时校验。
 
 前端渠道由构建环境 `VITE_PAYMENT_CHANNEL` 决定（默认 `mock`），写入 `apps/storefront-web/.env` 即可切到 `wechat`。
+
+## 支付单关键字段语义
+
+| 字段                      | 内容                                                                                    | 生命周期 / 用途                                                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `out_trade_no`            | 商户侧交易号（32 位 hex，我们生成）                                                     | 下单时落库；**全链路主关联键**（下单/回调定位/对账查询/退款提交）                                                 |
+| `provider_ref`            | 渠道下单凭证（不透明，各渠道自定义：微信 `prepay_id`、支付宝 `qr_code`、mock `mock-*`） | 下单成功回填；Native 流程不消费（前端只用 code_url），存作凭证 + 供未来 JSAPI/H5 拉起支付用；admin 渠道单号列展示 |
+| `provider_transaction_id` | 渠道交易号（微信 `transaction_id` / 支付宝 `trade_no`）                                 | 支付成功回调/对账回填；部分唯一索引防重复确认                                                                     |
+| `payload`                 | 渠道载荷 `{type, codeUrl…}`                                                             | 下单成功回填；前端按 type 渲染（qr/redirect/params）                                                              |
 
 ## 本地联调
 

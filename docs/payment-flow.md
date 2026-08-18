@@ -1,7 +1,7 @@
 # 支付流程（Payment Flow）
 
-> M1 落地形态：渠道无关核心 + 渠道注册表 + mock 全链路。真实微信/支付宝网关在后续里程碑接入。
-> 相关代码：`domains/payment`、`usecases/payment-confirm`、`apps/storefront-api/src/routes/payment.ts`。
+> 当前形态：渠道无关核心 + 渠道注册表 + 三渠道已实现（mock 本地沙箱 / wechat APIv3 / alipay RSA2）。
+> 相关代码：`domains/payment`、`usecases/payment-confirm`、`usecases/payment-refund`、`apps/storefront-api/src/routes/payment.ts`。
 
 ## 发起支付 → 支付确认 主链路
 
@@ -79,7 +79,25 @@ flowchart LR
 | alipay | 当面付 precreate→qr | RSA2 验签(表单 notify)  | alipay.trade.query       | alipay.trade.refund(同步) |
 
 - **对账**：worker 每 5 分钟扫超 30 分钟 pending 的支付单，`queryPayment` 渠道侧 paid→走幂等确认管线、closed→取消支付单；mock 跳过。
-- **退款**：`refundOrderWorkflow` 先渠道后本地（确定性 `rf-{paymentId}` 退款号保证重试幂等）；渠道失败不改本地。
+- **退款**：`refundOrderWorkflow` 先渠道后本地（确定性 `rf-{paymentId}` 退款号保证重试幂等）；渠道失败不改本地。异步渠道（微信）提交后落**退款单 processing**，订单/支付单保持不动，由**退款通知**驱动终态（见下）。
+
+## 退款（异步两段式）
+
+真实渠道（微信）退款是异步的，`refunds` 表记录退款单生命周期：
+
+```mermaid
+flowchart LR
+    Submit["退款提交<br/>(admin 退款 / 取消已支付订单)"] --> Gw{渠道返回}
+    Gw -- succeeded<br/>(mock/支付宝) --> Sync["事务内翻转<br/>订单 refunded + 支付单 refunded<br/>+ 退款单 succeeded"]
+    Gw -- processing<br/>(微信) --> P[退款单 processing<br/>订单/支付单保持不动]
+    P --> Notify{退款通知<br/>REFUND.SUCCESS / ABNORMAL}
+    Notify -- SUCCESS --> S["退款单 succeeded<br/>+ 支付单 refunded<br/>+ 订单 refunded(已取消则跳过)"]
+    Notify -- ABNORMAL --> A[退款单 abnormal<br/>不翻转任何状态]
+```
+
+- 重复提交防护：`out_refund_no` 唯一（确定性派生 `rf-{paymentId}`），已存在退款单直接 409
+- 退款通知与支付通知共用 `/payments/notify/:channel` 入口，验签后由 `confirmByWebhookEvent` 分发到 `confirmRefundByWebhookEvent`
+- 幂等：退款单/支付单已终态直接返回；未知退款单确认消费（对账兜底）
 
 ## 状态机
 
@@ -100,4 +118,4 @@ stateDiagram-v2
 - **幂等**：重复发起复用 pending 单；重复回调/重复确认直接返回，不重复推进订单。
 - **金额防伪**：webhook 事件金额与支付单不符即拒绝（`AMOUNT_MISMATCH`）。
 - **事务边界**：`confirmByWebhookEvent` 的定位/校验在事务外（只读+单语句原子），状态推进复用 `confirmOrderPayment` 自带事务，避免嵌套 `withTransaction`。
-- **迁移**：`packages/database/src/migrations/0013_pretty_thena.sql` 加 `out_trade_no`（存量 backfill）、`provider_transaction_id` + 部分唯一索引、`payload jsonb`。
+- **迁移**：`0013_pretty_thena.sql` 加 `out_trade_no`（存量 backfill）、`provider_transaction_id` + 部分唯一索引、`payload jsonb`；`0016_refunds_table.sql` 加 `refunds` 退款单表（异步退款状态机，含 `out_refund_no` 唯一 + `payment_id` 索引）。
