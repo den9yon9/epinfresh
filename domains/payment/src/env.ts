@@ -8,10 +8,14 @@ import { createPaymentGateways, type PaymentChannel, type PaymentGateway } from 
 // 支付渠道配置的单一来源: storefront-api / admin-api / worker 三个进程都要建网关注册表,
 // 为避免三处重复解析/校验/读 PEM, 集中在此。应用侧 env.ts 只管各自业务字段。
 export const paymentEnvSchema = Type.Object({
-  // 渠道注册表开关: mock 是"无加密快速通道"(e2e 依赖); wechat 走 APIv3 网关
-  PAYMENT_GATEWAY: Type.Union([Type.Literal('mock'), Type.Literal('wechat')], {
-    default: 'mock',
-  }),
+  // 渠道注册表开关: mock 是"无加密快速通道"(e2e 依赖); wechat/alipay 走真实网关
+  PAYMENT_GATEWAY: Type.Union(
+    [Type.Literal('mock'), Type.Literal('wechat'), Type.Literal('alipay')],
+    {
+      default: 'mock',
+    },
+  ),
+  // --- 微信支付 APIv3(仅 PAYMENT_GATEWAY=wechat 时必需) ---
   // 渠道端点: 真实 https://api.mch.weixin.qq.com; 联调期指向本地 pay-mock-server
   WECHAT_API_BASE: Type.String({ default: 'https://api.mch.weixin.qq.com' }),
   WECHAT_MERCHANT_ID: Type.String({ default: '' }),
@@ -23,18 +27,32 @@ export const paymentEnvSchema = Type.Object({
   WECHAT_MERCHANT_PRIVATE_KEY_PATH: Type.String({ default: '' }),
   WECHAT_PLATFORM_PUBLIC_KEY_PATH: Type.String({ default: '' }),
   WECHAT_NOTIFY_URL: Type.String({ default: '' }),
+  // --- 支付宝(仅 PAYMENT_GATEWAY=alipay 时必需) ---
+  // 网关端点: 真实 https://openapi.alipay.com; 联调期指向本地 pay-mock-server
+  ALIPAY_API_BASE: Type.String({ default: 'https://openapi.alipay.com' }),
+  ALIPAY_APP_ID: Type.String({ default: '' }),
+  // 应用私钥 / 支付宝公钥 PEM 文件路径(网关按路径读入)
+  ALIPAY_APP_PRIVATE_KEY_PATH: Type.String({ default: '' }),
+  ALIPAY_PUBLIC_KEY_PATH: Type.String({ default: '' }),
+  ALIPAY_NOTIFY_URL: Type.String({ default: '' }),
 })
 
 export type PaymentEnv = StaticDecode<typeof paymentEnvSchema>
 
-// 从原始环境变量源构建网关注册表; PAYMENT_GATEWAY=wechat 时校验并读取 PEM。
-// 校验失败即抛错(进程启动即失败, 与 storefront-api 旧行为一致)。
+function requireAll(channel: string, values: readonly string[]) {
+  if (values.some((v) => !v)) {
+    throw new Error(`[ENV] PAYMENT_GATEWAY=${channel} requires all of its variables`)
+  }
+}
+
+// 从原始环境变量源构建网关注册表; PAYMENT_GATEWAY=wechat/alipay 时校验并读取 PEM。
+// 校验失败即抛错(进程启动即失败)。
 export function createPaymentGatewaysFromEnv(
   source: Record<string, string | undefined>,
 ): Record<PaymentChannel, PaymentGateway> {
   const env = parseEnv(paymentEnvSchema, source)
   if (env.PAYMENT_GATEWAY === 'wechat') {
-    const required = [
+    requireAll('wechat', [
       env.WECHAT_MERCHANT_ID,
       env.WECHAT_APP_ID,
       env.WECHAT_API_V3_KEY,
@@ -42,16 +60,10 @@ export function createPaymentGatewaysFromEnv(
       env.WECHAT_MERCHANT_PRIVATE_KEY_PATH,
       env.WECHAT_PLATFORM_PUBLIC_KEY_PATH,
       env.WECHAT_NOTIFY_URL,
-    ] as const
-    if (required.some((v) => !v)) {
-      throw new Error('[ENV] PAYMENT_GATEWAY=wechat requires all WECHAT_* variables')
-    }
+    ])
     if (env.WECHAT_API_V3_KEY.length !== 32) {
       throw new Error('[ENV] WECHAT_API_V3_KEY must be exactly 32 bytes')
     }
-  }
-
-  if (env.PAYMENT_GATEWAY === 'wechat') {
     return createPaymentGateways([
       {
         channel: 'wechat',
@@ -68,5 +80,27 @@ export function createPaymentGatewaysFromEnv(
       },
     ])
   }
+
+  if (env.PAYMENT_GATEWAY === 'alipay') {
+    requireAll('alipay', [
+      env.ALIPAY_APP_ID,
+      env.ALIPAY_APP_PRIVATE_KEY_PATH,
+      env.ALIPAY_PUBLIC_KEY_PATH,
+      env.ALIPAY_NOTIFY_URL,
+    ])
+    return createPaymentGateways([
+      {
+        channel: 'alipay',
+        config: {
+          baseUrl: env.ALIPAY_API_BASE,
+          appId: env.ALIPAY_APP_ID,
+          appPrivateKey: readFileSync(env.ALIPAY_APP_PRIVATE_KEY_PATH, 'utf8'),
+          alipayPublicKey: readFileSync(env.ALIPAY_PUBLIC_KEY_PATH, 'utf8'),
+          notifyUrl: env.ALIPAY_NOTIFY_URL,
+        },
+      },
+    ])
+  }
+
   return createPaymentGateways([{ channel: 'mock' }])
 }

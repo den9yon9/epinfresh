@@ -35,8 +35,8 @@ const PAYMENT_POLL_INTERVAL_MS = 3000
 // 自动轮询上限: 5 分钟未支付则停止轮询, 仅保留提示, 避免无限空转
 const PAYMENT_POLL_TIMEOUT_MS = 5 * 60 * 1000
 
-// 支付渠道由构建环境决定(VITE_PAYMENT_CHANNEL): mock=开发/联调走本地确认, wechat=真实/模拟器回调
-const PAYMENT_CHANNEL: 'mock' | 'wechat' = import.meta.env.VITE_PAYMENT_CHANNEL ?? 'mock'
+// 支付渠道由构建环境决定(VITE_PAYMENT_CHANNEL): mock=开发/联调走本地确认, wechat/alipay=真实/模拟器回调
+const PAYMENT_CHANNEL: 'mock' | 'wechat' | 'alipay' = import.meta.env.VITE_PAYMENT_CHANNEL ?? 'mock'
 
 // 与网关契约的 PaymentPayload 保持一致; 前端按 type 分支渲染
 type PayPayload =

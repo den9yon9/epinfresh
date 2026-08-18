@@ -16,6 +16,8 @@ export const payMockEnvSchema = Type.Object({
   PAY_MOCK_PLATFORM_SERIAL_NO: Type.String(),
   // 模拟支付完成时回调的目标(真实对接时指向 storefront-api 的 /payments/notify/wechat)
   PAY_MOCK_NOTIFY_URL: Type.String({ format: 'uri' }),
+  // 支付宝模拟器 AppID(与支付宝网关同 app 标识, 复用上述商户/平台密钥对)
+  PAY_MOCK_ALIPAY_APP_ID: Type.String({ default: 'mock-alipay-app' }),
 })
 
 export type PayMockEnv = StaticDecode<typeof payMockEnvSchema>
@@ -30,6 +32,8 @@ export interface PayMockServerConfig {
   platformPrivateKey: string
   platformSerialNo: string
   notifyUrl: string
+  // 支付宝模拟器 AppID
+  alipayAppId?: string
 }
 
 function loadConfig(env: PayMockEnv): PayMockServerConfig {
@@ -42,6 +46,7 @@ function loadConfig(env: PayMockEnv): PayMockServerConfig {
     platformPrivateKey: readFileSync(env.PAY_MOCK_PLATFORM_PRIVATE_KEY_PATH, 'utf8'),
     platformSerialNo: env.PAY_MOCK_PLATFORM_SERIAL_NO,
     notifyUrl: env.PAY_MOCK_NOTIFY_URL,
+    alipayAppId: env.PAY_MOCK_ALIPAY_APP_ID,
   }
 }
 
