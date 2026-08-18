@@ -28,6 +28,7 @@ export const table = {
     order: select(schema.orders),
     orderItem: select(schema.orderItems),
     payment: select(schema.payments),
+    refund: select(schema.refunds),
     checkoutIdempotencyKey: select(schema.checkoutIdempotencyKeys),
   },
   insert: {

@@ -6,6 +6,7 @@ import {
   createMockPaymentGateway,
   createPaymentGateways,
   initiatePayment,
+  insertRefund,
 } from '@epinfresh/payment'
 import { confirmOrderPayment } from '@epinfresh/payment-confirm'
 import { reduceProductStock } from '@epinfresh/product'
@@ -435,13 +436,24 @@ describe('admin payments', () => {
     return cookie
   }
 
-  test('lists payments for an order', async () => {
+  test('lists payments and refunds for an order', async () => {
     const cookie = await adminCookie()
     const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
     const payment = (
       await initiatePayment(order.id, createMockPaymentGateway(), db)
     )._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
+    await insertRefund(
+      {
+        paymentId: payment.id,
+        orderId: order.id,
+        outRefundNo: `rf-${payment.id}`,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: 'processing',
+      },
+      db,
+    )
 
     const res = await api.admin
       .orders({ id: order.id })
@@ -450,6 +462,11 @@ describe('admin payments', () => {
     if (res.error !== null) throw res.error
     expect(res.data.items).toHaveLength(1)
     expect(res.data.items[0].status).toBe('succeeded')
+    expect(res.data.refunds).toHaveLength(1)
+    expect(res.data.refunds[0]).toMatchObject({
+      outRefundNo: `rf-${payment.id}`,
+      status: 'processing',
+    })
   })
 
   test('returns 404 for unknown order payments', async () => {

@@ -181,13 +181,19 @@ export async function refundOrder(
   return ok(toPaymentRecord(refunded))
 }
 
+// 订单支付记录: 支付单 + 退款单(异步退款状态展示用)。refunds 按创建时间倒序。
 export async function listPaymentsByOrder(orderId: string, client: DbClient) {
   const items = await client
     .select()
     .from(schema.payments)
     .where(eq(schema.payments.orderId, orderId))
     .orderBy(schema.payments.createdAt)
-  return { items: items.map(toPaymentRecord) }
+  const refunds = await client
+    .select()
+    .from(schema.refunds)
+    .where(eq(schema.refunds.orderId, orderId))
+    .orderBy(desc(schema.refunds.createdAt))
+  return { items: items.map(toPaymentRecord), refunds }
 }
 
 // --- 退款单(refunds)事务原语: 真实渠道(微信)退款异步, 提交落 processing, 通知驱动终态 ---

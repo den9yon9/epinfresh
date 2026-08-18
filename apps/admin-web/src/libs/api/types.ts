@@ -11,6 +11,7 @@ type OrderDetailSub = ParamsResult<typeof api.admin.orders>
 
 export type OrderDetail = EdenApiData<OrderDetailSub['get']>
 export type Payment = EdenApiData<OrderDetailSub['payments']['get']>['items'][number]
+export type Refund = EdenApiData<OrderDetailSub['payments']['get']>['refunds'][number]
 export type ShipOrderBody = EdenApiBody<OrderDetailSub['ship']['post']>
 // ponytail: status.patch 的 body 类型在 eden 视图里坍缩为 never(admin-api 测试同款 workaround),
 // 页面调用时按需 `as never`; 后端仍会按 UpdateOrderStatusSchema 校验

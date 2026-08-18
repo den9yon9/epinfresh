@@ -3,7 +3,14 @@ import { useState } from 'react'
 
 import { OrderStatusBadge } from '../../../components/OrderStatusBadge'
 import { api } from '../../../libs/api/client'
-import type { Payment } from '../../../libs/api/types'
+import type { Payment, Refund } from '../../../libs/api/types'
+
+// 支付渠道显示名(与网关契约 PaymentChannel 对应)
+const CHANNEL_LABELS: Record<string, string> = {
+  mock: '模拟',
+  wechat: '微信',
+  alipay: '支付宝',
+}
 
 export const Route = createFileRoute('/_admin/orders/$id')({
   loader: async ({ params }) => {
@@ -13,14 +20,20 @@ export const Route = createFileRoute('/_admin/orders/$id')({
     ])
     if (detailRes.error) throw detailRes.error
     if (paymentsRes.error) throw paymentsRes.error
-    return { order: detailRes.data, payments: paymentsRes.data.items }
+    return {
+      order: detailRes.data,
+      payments: paymentsRes.data.items,
+      refunds: paymentsRes.data.refunds,
+    }
   },
   component: OrderDetailPage,
 })
 
 function OrderDetailPage() {
-  const { order, payments } = Route.useLoaderData()
+  const { order, payments, refunds } = Route.useLoaderData()
   const [error, setError] = useState<string | null>(null)
+  // 有处理中的退款单: 订单虽仍显示已支付, 但展示"退款中"
+  const refunding = refunds.some((r) => r.status === 'processing')
 
   if (error) {
     return (
@@ -38,9 +51,15 @@ function OrderDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold text-gray-900">订单详情</h1>
-          <OrderStatusBadge status={order.status} />
+          {refunding ? (
+            <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+              退款中
+            </span>
+          ) : (
+            <OrderStatusBadge status={order.status} />
+          )}
         </div>
-        <OrderActions status={order.status} onError={setError} />
+        <OrderActions status={order.status} refunding={refunding} onError={setError} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -105,10 +124,43 @@ function OrderDetailPage() {
                   <td className="px-2 py-2">
                     <PaymentStatusBadge status={p.status} />
                   </td>
-                  <td className="px-2 py-2">{p.provider}</td>
+                  <td className="px-2 py-2">{CHANNEL_LABELS[p.provider] ?? p.provider}</td>
                   <td className="px-2 py-2 text-gray-500">{p.providerRef ?? '-'}</td>
                   <td className="px-2 py-2 text-gray-500">
                     {new Date(p.createdAt).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </InfoCard>
+
+      <InfoCard title={`退款记录（${refunds.length}）`}>
+        {refunds.length === 0 ? (
+          <p className="py-4 text-center text-gray-400">暂无退款记录</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-left text-gray-500">
+                <th className="px-2 py-2 font-medium">金额</th>
+                <th className="px-2 py-2 font-medium">状态</th>
+                <th className="px-2 py-2 font-medium">退款单号</th>
+                <th className="px-2 py-2 font-medium">渠道退款号</th>
+                <th className="px-2 py-2 font-medium">时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              {refunds.map((r: Refund) => (
+                <tr key={r.id} className="border-b border-gray-100 last:border-0">
+                  <td className="px-2 py-2">¥{r.amount}</td>
+                  <td className="px-2 py-2">
+                    <RefundStatusBadge status={r.status} />
+                  </td>
+                  <td className="px-2 py-2 text-gray-500">{r.outRefundNo}</td>
+                  <td className="px-2 py-2 text-gray-500">{r.providerRefundId ?? '-'}</td>
+                  <td className="px-2 py-2 text-gray-500">
+                    {new Date(r.createdAt).toLocaleString()}
                   </td>
                 </tr>
               ))}
@@ -120,7 +172,15 @@ function OrderDetailPage() {
   )
 }
 
-function OrderActions({ status, onError }: { status: string; onError: (msg: string) => void }) {
+function OrderActions({
+  status,
+  refunding,
+  onError,
+}: {
+  status: string
+  refunding: boolean
+  onError: (msg: string) => void
+}) {
   const router = useRouter()
   const params = Route.useParams()
   const [busy, setBusy] = useState(false)
@@ -141,6 +201,11 @@ function OrderActions({ status, onError }: { status: string; onError: (msg: stri
       // ponytail: body 类型坍缩为 never, 与 admin-api 测试同款 workaround; 后端按 schema 校验
       api.admin.orders({ id: params.id }).status.patch({ status: s } as never),
     )
+
+  // 退款处理中: 不允许发货/再退款/取消, 避免与在途退款冲突(后端同样有防护)
+  if (refunding) {
+    return <span className="text-sm text-amber-600">退款处理中，暂不可操作</span>
+  }
 
   return (
     <div className="flex gap-2">
@@ -293,6 +358,26 @@ function PaymentStatusBadge({ status }: { status: string }) {
     failed: '失败',
     refunded: '已退款',
     cancelled: '已取消',
+  }
+  return (
+    <span
+      className={`inline-block rounded-full px-2 py-0.5 text-xs ${styles[status] ?? 'bg-gray-100 text-gray-600'}`}
+    >
+      {labels[status] ?? status}
+    </span>
+  )
+}
+
+function RefundStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    processing: 'bg-amber-100 text-amber-700',
+    succeeded: 'bg-green-100 text-green-700',
+    abnormal: 'bg-red-100 text-red-600',
+  }
+  const labels: Record<string, string> = {
+    processing: '退款中',
+    succeeded: '已退款',
+    abnormal: '退款异常',
   }
   return (
     <span

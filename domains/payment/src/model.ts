@@ -15,4 +15,5 @@ export const PaymentInitiateResponseSchema = Type.Object({
 
 export const PaymentListResponseSchema = Type.Object({
   items: Type.Array(PaymentResponseSchema),
+  refunds: Type.Array(Type.Omit(table.select.refund, ['paymentId'])),
 })
