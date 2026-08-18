@@ -102,6 +102,12 @@ export async function getPaymentById(
   return ok(toPaymentRecord(payment))
 }
 
+// 退款编号确定性派生自支付单 id: 同一支付单的重试使用相同 out_refund_no, 渠道侧幂等,
+// 避免网络重放/本地翻转失败后重试产生重复退款。退款编排(usecases)与订单取消共用。
+export function buildRefundNo(paymentId: string): string {
+  return `rf-${paymentId}`
+}
+
 // 事务原语: 不自己开事务, 在传入的 client 上执行(事务边界归 usecase 持有);
 // 单条 CAS update 自带原子性, 跨域原子性由 payment-confirm/refund 用例编排。
 export async function confirmPayment(

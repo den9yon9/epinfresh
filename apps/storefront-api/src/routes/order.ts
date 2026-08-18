@@ -11,6 +11,7 @@ import { Elysia, status, t } from 'elysia'
 import { type StorefrontPlugins } from '../plugins'
 
 export function createOrderRoutes(plugins: StorefrontPlugins) {
+  const { paymentGateways } = plugins
   return new Elysia({ name: 'order-storefront' })
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
@@ -113,7 +114,7 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         if (ownership.isErr()) {
           return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
         }
-        const result = await cancelOrder(params.id, db)
+        const result = await cancelOrder(params.id, paymentGateways, db)
         return result.match(
           (order) => order,
           (e) => {
@@ -122,6 +123,10 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
                 return status(404, { error: e, message: 'Order not found' })
               case 'INVALID_TRANSITION':
                 return status(409, { error: e, message: 'Order cannot be cancelled' })
+              case 'GATEWAY_ERROR':
+                return status(502, { error: e, message: 'Refund gateway error' })
+              case 'UNSUPPORTED_CHANNEL':
+                return status(400, { error: e, message: 'Channel does not support refunds' })
               default:
                 return assertNever(e)
             }
@@ -131,12 +136,18 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
       {
         isAuth: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
-        response: { 200: OrderModel.OrderResponseSchema, 404: ErrorResponse, 409: ErrorResponse },
+        response: {
+          200: OrderModel.OrderResponseSchema,
+          400: ErrorResponse,
+          404: ErrorResponse,
+          409: ErrorResponse,
+          502: ErrorResponse,
+        },
         detail: {
           tags: ['Orders'],
           summary: '取消订单',
           description:
-            '取消当前用户的待支付/已支付订单，回滚库存并触发退款。\n\n- 需要登录，且订单必须属于当前用户\n- 订单不存在返回 404\n- 状态不允许取消返回 409',
+            '取消当前用户的待支付/已支付订单。待支付: 回滚库存; 已支付(未发货): 先经渠道网关退款再回滚库存并取消。\n\n- 需要登录，且订单必须属于当前用户\n- 订单不存在返回 404\n- 状态不允许取消返回 409\n- 渠道退款失败返回 502',
         },
       },
     )

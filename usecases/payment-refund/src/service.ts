@@ -1,6 +1,7 @@
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { markOrderRefunded, type OrderDetail } from '@epinfresh/order'
 import {
+  buildRefundNo,
   type PaymentChannel,
   type PaymentGateway,
   type PaymentRecord,
@@ -16,11 +17,7 @@ export type RefundOrderError =
   | 'GATEWAY_ERROR'
   | 'UNSUPPORTED_CHANNEL'
 
-// 退款编号确定性派生自支付单 id: 同一支付单的重试使用相同 out_refund_no, 渠道侧幂等,
-// 避免网络重放/本地翻转失败后重试产生重复退款。
-export function buildRefundNo(paymentId: string): string {
-  return `rf-${paymentId}`
-}
+export { buildRefundNo }
 
 // 编排: 退款跨 payment + order 两域, 并先向渠道网关提交退款。
 // 顺序刻意"先外部后本地": 渠道退款成功后再事务内翻转本地(payment refunded + order refunded,

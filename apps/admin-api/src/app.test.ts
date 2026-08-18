@@ -289,10 +289,14 @@ describe('order status transitions', () => {
     expect(await skuStock(sku.id)).toBe(10)
   })
 
-  test('cancelling a paid order does not restore stock', async () => {
+  test('cancelling a paid order refunds via gateway and restores stock', async () => {
     const cookie = await adminCookie()
     const { order, sku } = await seedOrderWithStock('alice@example.com', 2, 10)
-    await updateOrderStatus(order.id, 'paid', db)
+    const payment = (
+      await initiatePayment(order.id, createMockPaymentGateway(), db)
+    )._unsafeUnwrap().payment
+    await confirmOrderPayment(payment.id, db)
+    expect(await skuStock(sku.id)).toBe(8)
 
     const res = await api.admin
       .orders({ id: order.id })
@@ -300,7 +304,13 @@ describe('order status transitions', () => {
     expect(res.status).toBe(200)
     if (res.error !== null) throw res.error
     expect(res.data.status).toBe('cancelled')
-    expect(await skuStock(sku.id)).toBe(8)
+    // 已支付(未发货)取消: 渠道退款 + 商品回库存
+    expect(await skuStock(sku.id)).toBe(10)
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('refunded')
   })
 
   test('rejects an invalid transition with 409', async () => {

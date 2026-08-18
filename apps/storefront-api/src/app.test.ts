@@ -6,7 +6,13 @@ import {
   type PayMockServer,
   startPayMockServer,
 } from '@epinfresh/pay-mock-server'
-import { createPaymentGateways, generateRsaKeyPair } from '@epinfresh/payment'
+import {
+  createMockPaymentGateway,
+  createPaymentGateways,
+  generateRsaKeyPair,
+  initiatePayment,
+} from '@epinfresh/payment'
+import { confirmOrderPayment } from '@epinfresh/payment-confirm'
 import { createQueue, type Queue } from '@epinfresh/queue'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { flushTestRedis } from '@epinfresh/redis/testing'
@@ -104,6 +110,11 @@ async function seedAddress(userId: string) {
     })
     .returning()
   return address
+}
+
+async function skuStock(skuId: string) {
+  const [sku] = await db.select().from(schema.productSkus).where(eq(schema.productSkus.id, skuId))
+  return Number(sku.stock)
 }
 
 function sessionCookie(res: { headers: unknown }): string {
@@ -622,6 +633,39 @@ describe('orders', () => {
     expect(res.status).toBe(409)
     if (res.error === null) throw new Error('expected error response')
     expect(res.error.value).toMatchObject({ error: 'INVALID_TRANSITION' })
+  })
+
+  test('cancelling a paid order refunds via gateway and restores stock', async () => {
+    const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const order = await api.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 2 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    if (order.error !== null) throw order.error
+    const payment = (
+      await initiatePayment(order.data.id, createMockPaymentGateway(), db)
+    )._unsafeUnwrap().payment
+    const confirmed = await confirmOrderPayment(payment.id, db)
+    if (confirmed.isErr()) throw new Error('seed confirm failed')
+    expect(await skuStock(sku.id)).toBe(8)
+
+    const res = await api
+      .orders({ id: order.data.id })
+      .cancel.post({}, { fetch: { headers: { cookie } } })
+    expect(res.status).toBe(200)
+    if (res.error !== null) throw res.error
+    expect(res.data.status).toBe('cancelled')
+    expect(await skuStock(sku.id)).toBe(10)
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('refunded')
   })
 
   test('same Idempotency-Key returns the same order twice', async () => {

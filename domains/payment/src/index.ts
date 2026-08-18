@@ -24,6 +24,7 @@ export {
   type WechatPaymentGateway,
 } from './gateways/wechat'
 export {
+  buildRefundNo,
   cancelPendingPayment,
   confirmPayment,
   getPaymentById,

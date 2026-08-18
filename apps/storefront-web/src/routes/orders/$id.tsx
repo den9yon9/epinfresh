@@ -5,6 +5,13 @@ import { OrderStatusBadge } from '../../components/OrderStatusBadge'
 import { api } from '../../libs/api/client'
 import { clearSessionCache, isUnauthorized } from '../../libs/api/session'
 
+// 支付渠道显示名(与网关契约 PaymentChannel 对应)
+const PAYMENT_CHANNEL_LABELS: Record<string, string> = {
+  mock: '模拟支付',
+  wechat: '微信支付',
+  alipay: '支付宝',
+}
+
 export const Route = createFileRoute('/orders/$id')({
   staticData: { title: '订单详情', showBack: true },
   loader: async ({ params }) => {
@@ -104,7 +111,9 @@ function OrderDetailPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900">
                     ¥{p.amount}
-                    <span className="ml-2 text-xs font-normal text-gray-400">{p.provider}</span>
+                    <span className="ml-2 text-xs font-normal text-gray-400">
+                      {PAYMENT_CHANNEL_LABELS[p.provider] ?? p.provider}
+                    </span>
                   </p>
                   <p className="text-xs text-gray-500">{new Date(p.createdAt).toLocaleString()}</p>
                 </div>

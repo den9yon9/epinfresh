@@ -72,7 +72,7 @@ export function createOrderRoutes(plugins: AdminPlugins) {
       async ({ params, body, db }) => {
         const result =
           body.status === 'cancelled'
-            ? await cancelOrder(params.id, db)
+            ? await cancelOrder(params.id, paymentGateways, db)
             : (await updateOrderStatus(params.id, body.status, db)).map(({ order }) => order)
         return result.match(
           (order) => order,
@@ -82,6 +82,10 @@ export function createOrderRoutes(plugins: AdminPlugins) {
                 return status(404, { error: e, message: 'Order not found' })
               case 'INVALID_TRANSITION':
                 return status(409, { error: e, message: 'Invalid status transition' })
+              case 'GATEWAY_ERROR':
+                return status(502, { error: e, message: 'Refund gateway error' })
+              case 'UNSUPPORTED_CHANNEL':
+                return status(400, { error: e, message: 'Channel does not support refunds' })
               default:
                 return assertNever(e)
             }
@@ -94,8 +98,10 @@ export function createOrderRoutes(plugins: AdminPlugins) {
         body: OrderModel.UpdateOrderStatusSchema,
         response: {
           200: OrderModel.OrderResponseSchema,
+          400: ErrorResponse,
           404: ErrorResponse,
           409: ErrorResponse,
+          502: ErrorResponse,
         },
         detail: {
           tags: ['Admin/Orders'],
