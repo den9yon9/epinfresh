@@ -20,20 +20,28 @@ export { createAlipayPaymentGateway } from './gateways/alipay'
 export { createMockPaymentGateway } from './gateways/mock'
 export {
   createWechatPaymentGateway,
+  fetchWechatPlatformCertificates,
   fetchWechatPlatformPublicKey,
   type WechatPaymentGateway,
+  type WechatPlatformCertificate,
 } from './gateways/wechat'
 export {
   buildRefundNo,
   cancelPendingPayment,
   confirmPayment,
   getPaymentById,
+  getRefundByOutRefundNo,
   initiatePayment,
+  insertRefund,
   listPaymentsByOrder,
+  listRefundsByPayment,
   listStalePendingPayments,
+  markRefundAbnormal,
+  markRefundSucceeded,
   type PaymentRecord,
   refundOrder,
   refundPayment,
+  type RefundRecord,
   toPaymentRecord,
 } from './service'
 export {

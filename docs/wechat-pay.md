@@ -76,15 +76,13 @@ curl -X POST http://localhost:8787/__simulate__/pay \
 
 ## 退款
 
-退款走渠道网关：admin-api 的 `POST /admin/orders/:id/refund` → `refundOrderWorkflow` **先向渠道提交退款**，成功后再事务内翻转本地（order refunded + payment refunded）。渠道提交失败返回 502 且不改本地，不存在"本地已退、渠道未退"的分叉。
+退款走渠道网关：admin-api 的 `POST /admin/orders/:id/refund` → `refundOrderWorkflow` **先向渠道提交退款**，再按渠道结果落地：
 
-- 退款编号确定性派生：`rf-{paymentId}` —— 同一支付单的重试复用相同 `out_refund_no`，渠道侧幂等，不会重复退款
-- mock 渠道退款即时成功（本地翻转即代表结果）；微信真实退款是**异步**的（提交后为 PROCESSING，结果走退款通知回调），当前按"提交成功即记退款成功"处理，退款结果 notify 跟进见 tech-debt
-- 联调模拟：`POST /v3/refund/domestic/refunds`（pay-mock-server 验商户签名后返回 `status: SUCCESS`）
-
-### tech-debt（异步退款跟进）
-
-- 真实微信退款结果为异步通知（`REFUND.SUCCESS`/`REFUND.ABNORMAL`），当前无退款状态机与退款 notify 路由；接入真实网关后需补：退款单状态（processing→succeeded）、退款通知验签入库、退款对账。异常分叉由对账兜底。
+- **同步渠道**（mock/支付宝，返回 succeeded）：事务内翻转本地（order refunded + payment refunded）+ 退款单 succeeded
+- **异步渠道**（微信，返回 processing）：落**退款单 processing**（`refunds` 表），订单/支付单保持现状；最终结果由**退款通知**驱动——`REFUND.SUCCESS` → 退款单 succeeded + 支付单 refunded + 订单 refunded（订单已取消则跳过订单翻转）；`REFUND.ABNORMAL` → 退款单 abnormal 不翻转
+- 退款编号确定性派生：`rf-{paymentId}` —— 同一支付单的重试复用相同 `out_refund_no`，渠道侧幂等；已存在退款单时重复提交返回 409
+- 退款通知走同一个 `/payments/notify/wechat` 入口（验签 → `confirmByWebhookEvent` 分发到退款状态机 `confirmRefundByWebhookEvent`）
+- 联调模拟：`POST /v3/refund/domestic/refunds`（pay-mock-server 验商户签名后返回 `status: SUCCESS`，走同步路径；异步路径由单元测试覆盖）
 
 ## 代码结构
 
@@ -93,23 +91,32 @@ domains/payment/src/
   wechat/crypto.ts        RSA 签名/验签、Authorization 头构造、防重放、AES-256-GCM 加解密
   config/wechat.ts        WechatGatewayConfig(密钥以 PEM 内容传入, 由调用方读文件)
   env.ts                  支付配置单一来源(PAYMENT_GATEWAY + WECHAT_* 解析/校验/读 PEM)
-  gateways/wechat.ts      统一下单、回调验签+解密→WebhookEvent、/v3/certificates 公钥拉取、queryPayment 对账查询
+  gateways/wechat.ts      统一下单、回调验签(平台证书按 serial 轮换)、queryPayment、退款、退款通知映射
+  service.ts              支付单/退款单事务原语(insertRefund/markRefundSucceeded/...)
 apps/pay-mock-server/
   src/wechat.ts           假微信服务端(验商户签名、模拟下单/证书/回调构造/交易登记查询/关闭)
   src/server.ts           Bun.serve 路由装配
   src/cli.ts              dev 入口
-usecases/payment-confirm/  确认编排 + reconcilePendingPayments(对账修复漂移)
+usecases/payment-confirm/  确认编排 + confirmRefundByWebhookEvent(退款状态机) + reconcilePendingPayments
+usecases/payment-refund/   退款编排(同步翻转 / 异步挂退款单)
 apps/worker/src/
   reconciliationWorker.ts 对账 repeatable job(每 5 分钟)
 ```
 
+## 平台证书轮换
+
+微信会不定期更换平台证书（验签公钥）。网关内置证书缓存：`verifyWebhook` 按回调头 `wechatpay-serial`
+从 `/v3/certificates` 拉取的证书列表中定位公钥（缓存未命中先拉取一次，间隔至少 1 分钟），
+仍无则退回 `WECHAT_PLATFORM_PUBLIC_KEY_PATH` 配置的公钥。轮换后无需改配置。
+
 ## 真实接入清单（商户号到位后）
 
 1. 商户号 + APIv3 密钥 + APIv3 证书（serial_no 与私钥）配置到 `.env`，`WECHAT_API_BASE` 切回 `https://api.mch.weixin.qq.com`
-2. 平台公钥：联调期从模拟器 `/v3/certificates` 拉取（`fetchWechatPlatformPublicKey`）；真实环境同样在商户初始化后拉取并做证书轮换
-3. `WECHAT_NOTIFY_URL` 指向公网可达的 `/payments/notify/wechat`（微信要求 HTTPS）
+2. 平台公钥：`WECHAT_PLATFORM_PUBLIC_KEY_PATH` 只需放一份（首次初始化）；运行期由 `/v3/certificates` 拉取 + serial 匹配实现轮换，无需人工维护
+3. `WECHAT_NOTIFY_URL` 指向公网可达的 `/payments/notify/wechat`（微信要求 HTTPS；支付结果与退款结果共用此入口）
 4. Native 需使用真实商户号绑定的小程序/公众号 appid 参与签名校验（simulate 的 appid 目前不校验）
-5. 验证金额字段、回调幂等、outbox worker 投递
+5. 退款为异步：admin 退款 → 微信处理 → `REFUND.SUCCESS` 通知 → 本地 refunds/payment/order 翻转（`refunds` 表）
+6. 验证清单：1 分钱真实支付 → 回调 → 订单 paid + outbox 投递；重复回调幂等；金额不符拒绝；对账修复（故意丢回调）；admin 退款 → 退款通知 → refunded；取消已支付订单 → 退款
 
 ## 密码学要点
 

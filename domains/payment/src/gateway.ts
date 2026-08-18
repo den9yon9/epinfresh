@@ -41,6 +41,9 @@ export interface WebhookEvent {
   providerTransactionId?: string
   amount: string
   status: 'succeeded' | 'failed' | 'refunded'
+  // 退款通知专用: 渠道退款单号 + 退款结果
+  refundNo?: string
+  refundStatus?: 'succeeded' | 'abnormal'
 }
 
 export interface VerifyWebhookContext {

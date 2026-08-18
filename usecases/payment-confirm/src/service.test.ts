@@ -1,11 +1,22 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
-import { createMockPaymentGateway, initiatePayment, type PaymentGateway } from '@epinfresh/payment'
+import {
+  buildRefundNo,
+  createMockPaymentGateway,
+  initiatePayment,
+  insertRefund,
+  type PaymentGateway,
+} from '@epinfresh/payment'
 import { err, ok } from '@epinfresh/shared'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
-import { confirmByWebhookEvent, confirmOrderPayment, reconcilePendingPayments } from './service'
+import {
+  confirmByWebhookEvent,
+  confirmOrderPayment,
+  confirmRefundByWebhookEvent,
+  reconcilePendingPayments,
+} from './service'
 
 let db: Db
 
@@ -405,5 +416,119 @@ describe('reconcilePendingPayments', () => {
       .from(schema.payments)
       .where(eq(schema.payments.id, payment.id))
     expect(afterPayment.status).toBe('pending')
+  })
+})
+
+describe('confirmRefundByWebhookEvent', () => {
+  async function seedPaidOrderWithRefundRow(status = 'processing') {
+    const order = await seedPendingOrder('25.00')
+    const payment = (
+      await initiatePayment(order.id, createMockPaymentGateway(), db)
+    )._unsafeUnwrap().payment
+    const confirmed = await confirmOrderPayment(payment.id, db)
+    if (confirmed.isErr()) throw new Error('seed confirm failed')
+    const refund = await insertRefund(
+      {
+        paymentId: payment.id,
+        orderId: order.id,
+        outRefundNo: buildRefundNo(payment.id),
+        amount: payment.amount,
+        currency: payment.currency,
+        status: status as 'processing' | 'succeeded',
+      },
+      db,
+    )
+    return { order, payment, refund }
+  }
+
+  function refundEvent(refundNo: string, refundStatus: 'succeeded' | 'abnormal') {
+    return {
+      channel: 'wechat' as const,
+      eventId: crypto.randomUUID(),
+      outTradeNo: 'trade-1',
+      providerTransactionId: 'wx-refund-1',
+      amount: '25.00',
+      status: 'refunded' as const,
+      refundNo,
+      refundStatus,
+    }
+  }
+
+  test('success notify flips refund, payment and order', async () => {
+    const { order, payment, refund } = await seedPaidOrderWithRefundRow()
+
+    const result = await confirmRefundByWebhookEvent(
+      refundEvent(refund.outRefundNo, 'succeeded'),
+      db,
+    )
+    expect(result.isOk()).toBe(true)
+
+    const [afterRefund] = await db
+      .select()
+      .from(schema.refunds)
+      .where(eq(schema.refunds.id, refund.id))
+    expect(afterRefund.status).toBe('succeeded')
+    expect(afterRefund.providerRefundId).toBe('wx-refund-1')
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('refunded')
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('refunded')
+  })
+
+  test('is idempotent on duplicate refund notifies', async () => {
+    const { refund } = await seedPaidOrderWithRefundRow()
+    const event = refundEvent(refund.outRefundNo, 'succeeded')
+
+    await confirmRefundByWebhookEvent(event, db)
+    const again = await confirmRefundByWebhookEvent(event, db)
+    expect(again.isOk()).toBe(true)
+  })
+
+  test('abnormal notify marks the refund abnormal without flipping state', async () => {
+    const { order, payment, refund } = await seedPaidOrderWithRefundRow()
+
+    const result = await confirmRefundByWebhookEvent(
+      refundEvent(refund.outRefundNo, 'abnormal'),
+      db,
+    )
+    expect(result.isOk()).toBe(true)
+
+    const [afterRefund] = await db
+      .select()
+      .from(schema.refunds)
+      .where(eq(schema.refunds.id, refund.id))
+    expect(afterRefund.status).toBe('abnormal')
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('succeeded')
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('paid')
+  })
+
+  test('unknown refund no is acknowledged without changes', async () => {
+    const result = await confirmRefundByWebhookEvent(refundEvent('rf-unknown', 'succeeded'), db)
+    expect(result.isOk()).toBe(true)
+    expect(await db.select().from(schema.refunds)).toHaveLength(0)
+  })
+
+  test('dispatch: confirmByWebhookEvent routes refund notifies to the refund state machine', async () => {
+    const { order, payment, refund } = await seedPaidOrderWithRefundRow()
+
+    const result = await confirmByWebhookEvent(refundEvent(refund.outRefundNo, 'succeeded'), db)
+    expect(result.isOk()).toBe(true)
+    expect(result._unsafeUnwrap()).toBeNull()
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('refunded')
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('refunded')
   })
 })

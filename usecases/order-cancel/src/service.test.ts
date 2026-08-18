@@ -4,7 +4,7 @@ import { createOrderRecord, updateOrderStatus } from '@epinfresh/order'
 import { createMockPaymentGateway, initiatePayment, type PaymentGateway } from '@epinfresh/payment'
 import { confirmOrderPayment } from '@epinfresh/payment-confirm'
 import { reduceProductStock } from '@epinfresh/product'
-import { err } from '@epinfresh/shared'
+import { err, ok } from '@epinfresh/shared'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
@@ -141,6 +141,59 @@ describe('cancelOrder', () => {
       .where(eq(schema.payments.id, payment.id))
     expect(afterPayment.status).toBe('succeeded')
     expect(await skuStock(sku.id)).toBe(8)
+  })
+
+  test('async refund (wechat processing): cancels order, restocks, records processing refund', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id, 2)
+    const payment = (
+      await initiatePayment(order.id, createMockPaymentGateway(), db)
+    )._unsafeUnwrap().payment
+    await confirmOrderPayment(payment.id, db)
+    const asyncGateway: PaymentGateway = {
+      ...createMockPaymentGateway(),
+      async refund() {
+        return ok({ refundId: 'wx-refund-1', status: 'processing' })
+      },
+    }
+
+    const result = await cancelOrder(order.id, { mock: asyncGateway }, db)
+    expect(result.isOk()).toBe(true)
+    expect(result._unsafeUnwrap().status).toBe('cancelled')
+    expect(await skuStock(sku.id)).toBe(10)
+
+    // 支付单保持 succeeded(等退款通知翻转), 退款单 processing
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('succeeded')
+    const refunds = await db.select().from(schema.refunds)
+    expect(refunds).toHaveLength(1)
+    expect(refunds[0].status).toBe('processing')
+    expect(refunds[0].outRefundNo).toBe(`rf-${payment.id}`)
+  })
+
+  test('rejects cancelling again once a refund record exists', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id, 2)
+    const payment = (
+      await initiatePayment(order.id, createMockPaymentGateway(), db)
+    )._unsafeUnwrap().payment
+    await confirmOrderPayment(payment.id, db)
+    const asyncGateway: PaymentGateway = {
+      ...createMockPaymentGateway(),
+      async refund() {
+        return ok({ refundId: 'wx-refund-1', status: 'processing' })
+      },
+    }
+
+    await cancelOrder(order.id, { mock: asyncGateway }, db)
+    const again = await cancelOrder(order.id, { mock: asyncGateway }, db)
+    expect(again.isErr()).toBe(true)
+    expect(again._unsafeUnwrapErr()).toBe('INVALID_TRANSITION')
   })
 
   test('rejects cancelling a shipped order', async () => {

@@ -30,6 +30,7 @@ function buildQueryPath(outTradeNo: string, merchantId: string): string {
 const TIMESTAMP_HEADER = 'wechatpay-timestamp'
 const NONCE_HEADER = 'wechatpay-nonce'
 const SIGNATURE_HEADER = 'wechatpay-signature'
+const SERIAL_HEADER = 'wechatpay-serial'
 
 // 微信通知体(resource 为加密串)与解密后的资源明文
 interface WechatNotification {
@@ -40,7 +41,11 @@ interface WechatResource {
   out_trade_no?: string
   transaction_id?: string
   trade_state?: string
-  amount?: { total?: number }
+  // 退款通知专用字段(REFUND.SUCCESS / REFUND.ABNORMAL)
+  out_refund_no?: string
+  refund_status?: string
+  refund_id?: string
+  amount?: { total?: number; refund?: number }
 }
 
 function getHeader(
@@ -65,12 +70,18 @@ export function extractPublicKeyFromPem(pem: string): string {
   return createPublicKey(pem).export({ type: 'spki', format: 'pem' }).toString()
 }
 
-// 运行时拉取平台公钥(GET /v3/certificates, 出站请求同样走商户签名)。
-// 真实微信在证书轮换/首次接入时使用; 联调期可从 pay-mock-server 拉取假平台证书。
-export async function fetchWechatPlatformPublicKey(
+export interface WechatPlatformCertificate {
+  serialNo: string
+  // SPKI 公钥 PEM
+  publicKey: string
+}
+
+// 拉取全部平台证书(GET /v3/certificates, 出站请求同样走商户签名)。
+// 微信会轮换平台证书, 验签须按回调头 wechatpay-serial 定位对应公钥, 不能只存单张。
+export async function fetchWechatPlatformCertificates(
   config: WechatGatewayConfig,
   fetchImpl: typeof fetch = fetch,
-): Promise<Result<string, 'GATEWAY_ERROR'>> {
+): Promise<Result<WechatPlatformCertificate[], 'GATEWAY_ERROR'>> {
   const path = '/v3/certificates'
   const authorization = buildAuthorizationHeader({
     merchantId: config.merchantId,
@@ -86,17 +97,32 @@ export async function fetchWechatPlatformPublicKey(
   if (!response.ok) return err('GATEWAY_ERROR')
   const payload = (await response.json()) as {
     data?: Array<{
+      serial_no?: string
       encrypt_certificate?: { ciphertext: string; nonce: string; associated_data: string }
     }>
   }
-  const first = payload.data?.[0]?.encrypt_certificate
-  if (!first) return err('GATEWAY_ERROR')
-  try {
-    const pem = aesGcmDecrypt(config.apiV3Key, first)
-    return ok(extractPublicKeyFromPem(pem))
-  } catch {
-    return err('GATEWAY_ERROR')
+  const certificates: WechatPlatformCertificate[] = []
+  for (const item of payload.data ?? []) {
+    const encrypted = item.encrypt_certificate
+    if (!item.serial_no || !encrypted?.ciphertext) continue
+    try {
+      const pem = aesGcmDecrypt(config.apiV3Key, encrypted)
+      certificates.push({ serialNo: item.serial_no, publicKey: extractPublicKeyFromPem(pem) })
+    } catch {
+      // 单张证书解析失败跳过, 不影响其余证书
+    }
   }
+  return certificates.length > 0 ? ok(certificates) : err('GATEWAY_ERROR')
+}
+
+// 兼容入口: 取第一张平台证书的公钥(联调/首次初始化用)
+export async function fetchWechatPlatformPublicKey(
+  config: WechatGatewayConfig,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Result<string, 'GATEWAY_ERROR'>> {
+  const result = await fetchWechatPlatformCertificates(config, fetchImpl)
+  if (result.isErr()) return err('GATEWAY_ERROR')
+  return ok(result.value[0].publicKey)
 }
 
 // 将回调通知映射为渠道无关事件; 仅支持支付结果通知(含 SUCCESS/REFUND/其他终态)
@@ -118,7 +144,23 @@ function mapWebhookEvent(
     return err('SIGNATURE_INVALID')
   }
   const data = JSON.parse(rawResource) as WechatResource
-  if (!data.out_trade_no || !data.trade_state) return err('UNSUPPORTED')
+  if (!data.out_trade_no) return err('UNSUPPORTED')
+
+  // 退款通知(REFUND.SUCCESS / REFUND.ABNORMAL): resource 无 trade_state, 有 refund_status/out_refund_no
+  if (data.refund_status) {
+    return ok({
+      channel: 'wechat',
+      eventId: (payload.id as string) ?? `${data.out_trade_no}:${data.out_refund_no ?? ''}`,
+      outTradeNo: data.out_trade_no,
+      providerTransactionId: data.refund_id,
+      amount: ((data.amount?.refund ?? data.amount?.total ?? 0) / 100).toFixed(2),
+      status: 'refunded',
+      refundNo: data.out_refund_no,
+      refundStatus: data.refund_status === 'SUCCESS' ? 'succeeded' : 'abnormal',
+    })
+  }
+
+  if (!data.trade_state) return err('UNSUPPORTED')
 
   const status: WebhookEvent['status'] =
     data.trade_state === 'SUCCESS'
@@ -138,6 +180,38 @@ function mapWebhookEvent(
 }
 
 export function createWechatPaymentGateway(config: WechatGatewayConfig): WechatPaymentGateway {
+  // 平台证书缓存: serial_no → 公钥 PEM(微信会轮换证书, 验签按回调头 serial 定位)
+  const certificates = new Map<string, string>()
+  let lastFetchAttempt = 0
+  // 拉取失败/未命中时至少间隔 1 分钟再尝试, 避免回调风暴下反复拉取
+  const MIN_CERT_REFRESH_MS = 60_000
+
+  async function ensureCertificates(): Promise<void> {
+    if (Date.now() - lastFetchAttempt < MIN_CERT_REFRESH_MS) return
+    lastFetchAttempt = Date.now()
+    try {
+      const result = await fetchWechatPlatformCertificates(config)
+      if (result.isErr()) return
+      for (const cert of result.value) certificates.set(cert.serialNo, cert.publicKey)
+    } catch {
+      // 拉取失败(网络/配置缺失)不阻断回调处理: 退回 config.platformPublicKey
+    }
+  }
+
+  // 按回调头 wechatpay-serial 选公钥; 缓存未命中先拉取一次, 仍无则退回 config 配置
+  async function resolvePlatformKey(serial: string | undefined): Promise<string> {
+    if (serial) {
+      const cached = certificates.get(serial)
+      if (cached) return cached
+    }
+    await ensureCertificates()
+    if (serial) {
+      const refreshed = certificates.get(serial)
+      if (refreshed) return refreshed
+    }
+    return config.platformPublicKey
+  }
+
   const gateway: WechatPaymentGateway = {
     channel: 'wechat',
     notifySuccessBody: 'SUCCESS',
@@ -181,8 +255,10 @@ export function createWechatPaymentGateway(config: WechatGatewayConfig): WechatP
       const signature = getHeader(ctx.headers, SIGNATURE_HEADER)
       if (!timestamp || !nonce || !signature) return err('SIGNATURE_INVALID')
 
+      const serial = getHeader(ctx.headers, SERIAL_HEADER)
+      const platformPublicKey = await resolvePlatformKey(serial)
       const verified = verifyPlatformSignature({
-        platformPublicKey: config.platformPublicKey,
+        platformPublicKey,
         timestamp,
         nonce,
         body: ctx.rawBody,

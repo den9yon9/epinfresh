@@ -1,6 +1,6 @@
-import { type DbClient, type PaymentStatus, schema } from '@epinfresh/database'
+import { type DbClient, type PaymentStatus, type RefundStatus, schema } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
-import { and, eq, lt } from 'drizzle-orm'
+import { and, desc, eq, lt } from 'drizzle-orm'
 
 import { type PaymentGateway, type PaymentPayload } from './gateway'
 
@@ -188,6 +188,99 @@ export async function listPaymentsByOrder(orderId: string, client: DbClient) {
     .where(eq(schema.payments.orderId, orderId))
     .orderBy(schema.payments.createdAt)
   return { items: items.map(toPaymentRecord) }
+}
+
+// --- 退款单(refunds)事务原语: 真实渠道(微信)退款异步, 提交落 processing, 通知驱动终态 ---
+
+export type RefundRecord = typeof schema.refunds.$inferSelect
+
+export async function insertRefund(
+  input: {
+    paymentId: string
+    orderId: string
+    outRefundNo: string
+    amount: string
+    currency: string
+    status?: RefundStatus
+    providerRefundId?: string
+  },
+  client: DbClient,
+): Promise<RefundRecord> {
+  const [row] = await client
+    .insert(schema.refunds)
+    .values({
+      paymentId: input.paymentId,
+      orderId: input.orderId,
+      outRefundNo: input.outRefundNo,
+      amount: input.amount,
+      currency: input.currency,
+      status: input.status ?? 'processing',
+      providerRefundId: input.providerRefundId,
+    })
+    .returning()
+  return row
+}
+
+// 退款单 CAS: processing → succeeded(退款通知成功 / 同步渠道直接落终态)
+export async function markRefundSucceeded(
+  outRefundNo: string,
+  providerRefundId: string | undefined,
+  client: DbClient,
+): Promise<Result<RefundRecord, 'REFUND_NOT_FOUND' | 'INVALID_REFUND_STATE'>> {
+  const [updated] = await client
+    .update(schema.refunds)
+    .set({ status: 'succeeded', providerRefundId })
+    .where(
+      and(eq(schema.refunds.outRefundNo, outRefundNo), eq(schema.refunds.status, 'processing')),
+    )
+    .returning()
+  if (!updated) {
+    const existing = await getRefundByOutRefundNo(outRefundNo, client)
+    if (existing.isErr()) return err('REFUND_NOT_FOUND')
+    return err('INVALID_REFUND_STATE')
+  }
+  return ok(updated)
+}
+
+// 退款单 CAS: processing → abnormal(渠道退款失败通知)
+export async function markRefundAbnormal(
+  outRefundNo: string,
+  client: DbClient,
+): Promise<Result<RefundRecord, 'REFUND_NOT_FOUND' | 'INVALID_REFUND_STATE'>> {
+  const [updated] = await client
+    .update(schema.refunds)
+    .set({ status: 'abnormal' })
+    .where(
+      and(eq(schema.refunds.outRefundNo, outRefundNo), eq(schema.refunds.status, 'processing')),
+    )
+    .returning()
+  if (!updated) {
+    const existing = await getRefundByOutRefundNo(outRefundNo, client)
+    if (existing.isErr()) return err('REFUND_NOT_FOUND')
+    return err('INVALID_REFUND_STATE')
+  }
+  return ok(updated)
+}
+
+export async function getRefundByOutRefundNo(
+  outRefundNo: string,
+  client: DbClient,
+): Promise<Result<RefundRecord, 'REFUND_NOT_FOUND'>> {
+  const [row] = await client
+    .select()
+    .from(schema.refunds)
+    .where(eq(schema.refunds.outRefundNo, outRefundNo))
+  if (!row) return err('REFUND_NOT_FOUND')
+  return ok(row)
+}
+
+export async function listRefundsByPayment(paymentId: string, client: DbClient) {
+  const items = await client
+    .select()
+    .from(schema.refunds)
+    .where(eq(schema.refunds.paymentId, paymentId))
+    .orderBy(desc(schema.refunds.createdAt))
+  return { items }
 }
 
 // 对账用: 列出创建时间早于 olderThan 仍 pending 的支付单(疑似漏回调/渠道已关闭)。

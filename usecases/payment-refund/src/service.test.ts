@@ -163,4 +163,68 @@ describe('refundOrderWorkflow', () => {
     expect(receivedRefundNo).toBe(buildRefundNo(payment.id))
     expect(receivedRefundNo).toBe(`rf-${payment.id}`)
   })
+
+  test('sync refund creates a succeeded refund record and flips local state', async () => {
+    const { order, payment } = await seedPaidOrderWithPayment()
+
+    const result = await refundOrderWorkflow(order.id, mockGateways, db)
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    expect(result.value.refund.status).toBe('succeeded')
+    expect(result.value.refund.outRefundNo).toBe(buildRefundNo(payment.id))
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('refunded')
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('refunded')
+  })
+
+  test('async refund (wechat processing) only records a processing refund, state untouched', async () => {
+    const { order, payment } = await seedPaidOrderWithPayment()
+    const asyncGateway: PaymentGateway = {
+      ...createMockPaymentGateway(),
+      async refund() {
+        return ok({ refundId: 'wx-refund-1', status: 'processing' })
+      },
+    }
+
+    const result = await refundOrderWorkflow(order.id, { mock: asyncGateway }, db)
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    expect(result.value.refund.status).toBe('processing')
+    expect(result.value.refund.providerRefundId).toBe('wx-refund-1')
+
+    // 订单/支付单保持原状, 等退款通知驱动
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('succeeded')
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('paid')
+
+    const refunds = await db.select().from(schema.refunds)
+    expect(refunds).toHaveLength(1)
+    expect(refunds[0].status).toBe('processing')
+  })
+
+  test('rejects a duplicate refund submission once a refund record exists', async () => {
+    const { order } = await seedPaidOrderWithPayment()
+    const asyncGateway: PaymentGateway = {
+      ...createMockPaymentGateway(),
+      async refund() {
+        return ok({ refundId: 'wx-refund-1', status: 'processing' })
+      },
+    }
+
+    const first = await refundOrderWorkflow(order.id, { mock: asyncGateway }, db)
+    expect(first.isOk()).toBe(true)
+
+    const second = await refundOrderWorkflow(order.id, { mock: asyncGateway }, db)
+    expect(second.isErr()).toBe(true)
+    expect(second._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
+  })
 })

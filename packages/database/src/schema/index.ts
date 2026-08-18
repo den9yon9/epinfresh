@@ -20,6 +20,7 @@ export {
 } from './outbox/outbox-events'
 // payment 域
 export { PAYMENT_STATUS, payments, type PaymentStatus, paymentStatus } from './payment/payments'
+export { REFUND_STATUS, refunds, type RefundStatus, refundStatus } from './payment/refunds'
 // product 域
 export { categories } from './product/categories'
 export { productSkus } from './product/product-skus'

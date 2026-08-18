@@ -1,13 +1,17 @@
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
-import { type OrderDetail, updateOrderStatus } from '@epinfresh/order'
+import { markOrderRefunded, type OrderDetail, updateOrderStatus } from '@epinfresh/order'
 import { insertOutboxEvent } from '@epinfresh/outbox'
 import {
   cancelPendingPayment,
   confirmPayment,
+  getRefundByOutRefundNo,
   listStalePendingPayments,
+  markRefundAbnormal,
+  markRefundSucceeded,
   type PaymentChannel,
   type PaymentGateway,
   type PaymentRecord,
+  refundPayment,
   toPaymentRecord,
   type WebhookEvent,
 } from '@epinfresh/payment'
@@ -66,7 +70,13 @@ export async function confirmByWebhookEvent(
   client: DbClient,
 ): Promise<Result<{ payment: PaymentRecord } | null, WebhookConfirmError>> {
   // M1 只处理成功事件; 退款等其它事件先确认消费, 不落状态
-  if (event.status !== 'succeeded') return ok(null)
+  if (event.status !== 'succeeded') {
+    // 退款通知: 走退款状态机
+    if (event.status === 'refunded' && event.refundNo) {
+      return confirmRefundByWebhookEvent(event, client)
+    }
+    return ok(null)
+  }
 
   // 定位支付单: 优先渠道交易号, 兜底商户订单号。
   // 真实渠道回调自带 transaction_id; mock 在确认时才回填, 首次回调靠 out_trade_no 命中。
@@ -110,6 +120,42 @@ export async function confirmByWebhookEvent(
     .where(eq(schema.payments.id, payment.id))
   if (current?.status === 'succeeded') return ok({ payment: toPaymentRecord(current) })
   return err(confirmed.error === 'ORDER_NOT_FOUND' ? 'ORDER_NOT_FOUND' : 'INVALID_PAYMENT_STATE')
+}
+
+// 退款通知处理: 定位退款单 → 更新终态 → 成功时联动支付单 refunded + 订单 refunded。
+// 幂等: 退款单/支付单已终态直接返回; 未知退款单确认消费(不阻塞渠道, 由对账兜底)。
+export async function confirmRefundByWebhookEvent(
+  event: WebhookEvent,
+  client: DbClient,
+): Promise<Result<null, never>> {
+  const refundNo = event.refundNo ?? ''
+  const located = await getRefundByOutRefundNo(refundNo, client)
+  if (located.isErr()) return ok(null)
+
+  const refund = located.value
+  if (refund.status !== 'processing') return ok(null)
+
+  if (event.refundStatus === 'abnormal') {
+    await markRefundAbnormal(refundNo, client)
+    return ok(null)
+  }
+
+  // 退款成功: 退款单 succeeded + 支付单 refunded + 订单 refunded(订单已取消等终态则跳过)
+  return withTransaction(client, async (tx) => {
+    const updated = await markRefundSucceeded(
+      refundNo,
+      event.providerTransactionId ?? undefined,
+      tx,
+    )
+    if (updated.isErr()) return ok(null)
+
+    const paymentResult = await refundPayment(updated.value.paymentId, tx)
+    if (paymentResult.isErr()) return ok(null)
+
+    // 订单已 cancelled 等终态时跳过订单翻转, 退款仍成立
+    await markOrderRefunded(updated.value.orderId, tx)
+    return ok(null)
+  })
 }
 
 export interface ReconcileOptions {

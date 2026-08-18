@@ -82,11 +82,45 @@ function buildCallback(input: {
 // 模拟微信统一下单服务端: 校验商户签名后返回 prepay_id + code_url
 function startFakeWechatServer(
   verifyKey: string,
-  opts: { tradeState?: string; totalFen?: number; transactionId?: string } = {},
+  opts: {
+    tradeState?: string
+    totalFen?: number
+    transactionId?: string
+    // 平台证书列表(serial → 公钥), 提供后 /v3/certificates 按 APIv3 加密返回
+    certificates?: Array<{ serialNo: string; publicKey: string }>
+  } = {},
 ) {
   const server = Bun.serve({
     port: 0,
     routes: {
+      '/v3/certificates': {
+        GET: async (req) => {
+          const path = '/v3/certificates'
+          const auth = req.headers.get('authorization') ?? ''
+          const nonce = /nonce_str="([^"]+)"/.exec(auth)?.[1]
+          const timestamp = /timestamp="([^"]+)"/.exec(auth)?.[1]
+          const signature = /signature="([^"]+)"/.exec(auth)?.[1]
+          const message = `GET\n${path}\n${timestamp}\n${nonce}\n\n`
+          if (!signature || !verifyMessage(verifyKey, message, signature)) {
+            return new Response('unauthorized', { status: 401 })
+          }
+          const data = (opts.certificates ?? []).map((cert) => {
+            const encrypted = aesGcmEncrypt(API_V3_KEY, cert.publicKey, '')
+            return {
+              serial_no: cert.serialNo,
+              effective_time: '2026-01-01T00:00:00+08:00',
+              expire_time: '2036-01-01T00:00:00+08:00',
+              encrypt_certificate: {
+                algorithm: 'AEAD_AES_256_GCM',
+                nonce: encrypted.nonce,
+                associated_data: encrypted.associated_data,
+                ciphertext: encrypted.ciphertext,
+              },
+            }
+          })
+          return Response.json({ data })
+        },
+      },
       '/v3/pay/transactions/native': {
         POST: async (req) => {
           const auth = req.headers.get('authorization') ?? ''
@@ -224,6 +258,56 @@ describe('wechat gateway', () => {
     expect(result.isOk()).toBe(true)
     if (result.isErr()) return
     expect(result.value.status).toBe('refunded')
+  })
+
+  test('verifyWebhook maps a refund notify (REFUND.SUCCESS) with refund fields', async () => {
+    const plaintext = JSON.stringify({
+      appid: 'wx-app-1',
+      mchid: 'mch-100',
+      out_trade_no: 'trade-001',
+      out_refund_no: 'rf-order-1',
+      refund_id: 'wx-refund-1',
+      refund_status: 'SUCCESS',
+      transaction_id: 'wx-txn-1',
+      amount: { refund: 2500, total: 2500, currency: 'CNY' },
+    })
+    const encrypted = aesGcmEncrypt(API_V3_KEY, plaintext, 'refund')
+    const body = JSON.stringify({
+      id: 'evt-refund-1',
+      create_time: '2026-08-18T10:00:01+08:00',
+      event_type: 'REFUND.SUCCESS',
+      resource_type: 'encrypt-resource',
+      resource: {
+        algorithm: 'AEAD_AES_256_GCM',
+        ciphertext: encrypted.ciphertext,
+        nonce: encrypted.nonce,
+        associated_data: encrypted.associated_data,
+      },
+    })
+    const timestamp = String(Math.floor(Date.now() / 1000))
+    const nonce = 'cb-nonce-refund'
+    const signature = signMessage(platform.privateKey, `${timestamp}\n${nonce}\n${body}\n`)
+    const result = await gateway.verifyWebhook({
+      headers: {
+        'wechatpay-timestamp': timestamp,
+        'wechatpay-nonce': nonce,
+        'wechatpay-signature': signature,
+        'wechatpay-serial': 'P-SERIAL-1',
+      },
+      rawBody: body,
+    })
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    expect(result.value).toEqual({
+      channel: 'wechat',
+      eventId: 'evt-refund-1',
+      outTradeNo: 'trade-001',
+      providerTransactionId: 'wx-refund-1',
+      amount: '25.00',
+      status: 'refunded',
+      refundNo: 'rf-order-1',
+      refundStatus: 'succeeded',
+    })
   })
 
   test('verifyWebhook rejects tampered body', async () => {
@@ -376,6 +460,83 @@ describe('wechat gateway queryPayment', () => {
     const result = await gateway.queryPayment!('trade-001')
     expect(result.isErr()).toBe(true)
     expect(result.isErr() && result.error).toBe('GATEWAY_ERROR')
+
+    server.stop(true)
+  })
+})
+
+describe('wechat gateway platform certificate rotation', () => {
+  // 模拟微信轮换后的新平台证书: 与回调签名使用的私钥匹配
+  const rotated = generateRsaKeyPair()
+
+  test('verifyWebhook fetches certificates by serial when the configured key is stale', async () => {
+    // 配置里是旧(失效)公钥, 模拟器 /v3/certificates 提供轮换后的新证书
+    const server = startFakeWechatServer(merchant.publicKey, {
+      certificates: [
+        { serialNo: 'P-SERIAL-ROTATED', publicKey: rotated.publicKey },
+        { serialNo: 'P-SERIAL-OLD', publicKey: platform.publicKey },
+      ],
+    })
+    const gateway = createWechatPaymentGateway({
+      ...baseConfig,
+      baseUrl: server.url.origin,
+      // 故意放错公钥: 只有走证书拉取+serial 匹配才能验签通过
+      platformPublicKey: generateRsaKeyPair().publicKey,
+    })
+
+    // 回调用轮换后的新私钥签名, 头带新 serial
+    const { headers, body } = buildCallback({
+      outTradeNo: 'trade-001',
+      transactionId: 'wx-txn-1',
+      totalFen: 2500,
+      signPrivateKey: rotated.privateKey,
+    })
+    headers['wechatpay-serial'] = 'P-SERIAL-ROTATED'
+
+    const result = await gateway.verifyWebhook({ headers, rawBody: body })
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) expect(result.value.status).toBe('succeeded')
+
+    server.stop(true)
+  })
+
+  test('verifyWebhook matches the legacy serial from the certificate list', async () => {
+    const server = startFakeWechatServer(merchant.publicKey, {
+      certificates: [
+        { serialNo: 'P-SERIAL-ROTATED', publicKey: rotated.publicKey },
+        { serialNo: 'P-SERIAL-1', publicKey: platform.publicKey },
+      ],
+    })
+    const gateway = createWechatPaymentGateway({
+      ...baseConfig,
+      baseUrl: server.url.origin,
+      platformPublicKey: generateRsaKeyPair().publicKey,
+    })
+
+    // 旧 serial(P-SERIAL-1)回调: 从拉取的证书列表命中旧公钥
+    const { headers, body } = buildCallback({
+      outTradeNo: 'trade-001',
+      transactionId: 'wx-txn-1',
+      totalFen: 2500,
+    })
+    const result = await gateway.verifyWebhook({ headers, rawBody: body })
+    expect(result.isOk()).toBe(true)
+
+    server.stop(true)
+  })
+
+  test('verifyWebhook falls back to the configured key when fetching fails', async () => {
+    // 模拟器不提供 /v3/certificates → 拉取失败 → 退回 config.platformPublicKey
+    const server = startFakeWechatServer(merchant.publicKey)
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const { headers, body } = buildCallback({
+      outTradeNo: 'trade-001',
+      transactionId: 'wx-txn-1',
+      totalFen: 2500,
+    })
+    const result = await gateway.verifyWebhook({ headers, rawBody: body })
+    expect(result.isOk()).toBe(true)
 
     server.stop(true)
   })
