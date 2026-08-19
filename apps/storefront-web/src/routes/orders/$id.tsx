@@ -29,16 +29,19 @@ export const Route = createFileRoute('/orders/$id')({
     return {
       order: orderRes.data,
       payments: paymentsRes.error === null ? paymentsRes.data.items : [],
+      refunds: paymentsRes.error === null ? paymentsRes.data.refunds : [],
     }
   },
   component: OrderDetailPage,
 })
 
 function OrderDetailPage() {
-  const { order, payments } = Route.useLoaderData()
+  const { order, payments, refunds } = Route.useLoaderData()
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 有处理中的退款单: 订单虽仍显示已支付, 但用户应看到"退款中"
+  const refunding = refunds.some((r) => r.status === 'processing')
 
   async function cancel() {
     if (!window.confirm('确认取消该订单？已支付的金额将原路退回')) return
@@ -55,13 +58,20 @@ function OrderDetailPage() {
   }
 
   const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0)
-  const cancellable = order.status === 'pending' || order.status === 'paid'
+  // 退款处理中: 不提供取消/去支付操作
+  const cancellable = !refunding && (order.status === 'pending' || order.status === 'paid')
 
   return (
     <div className="flex flex-col gap-4 pb-24">
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="mb-2 flex items-center justify-between">
-          <OrderStatusBadge status={order.status} />
+          {refunding ? (
+            <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+              退款中
+            </span>
+          ) : (
+            <OrderStatusBadge status={order.status} />
+          )}
           <span className="text-xs text-gray-400">
             下单于 {new Date(order.createdAt).toLocaleString()}
           </span>
@@ -124,6 +134,25 @@ function OrderDetailPage() {
         )}
       </section>
 
+      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-base font-semibold text-gray-900">退款记录</h2>
+        {refunds.length === 0 ? (
+          <p className="py-4 text-center text-gray-400">暂无退款记录</p>
+        ) : (
+          <div className="flex flex-col divide-y divide-gray-100">
+            {refunds.map((r) => (
+              <div key={r.id} className="flex items-center justify-between py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900">¥{r.amount}</p>
+                  <p className="text-xs text-gray-500">{new Date(r.createdAt).toLocaleString()}</p>
+                </div>
+                <RefundStatusBadge status={r.status} />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {cancellable && (
@@ -168,6 +197,26 @@ function PaymentStatusBadge({ status }: { status: string }) {
     failed: '失败',
     refunded: '已退款',
     cancelled: '已取消',
+  }
+  return (
+    <span
+      className={`inline-block shrink-0 rounded-full px-2 py-0.5 text-xs ${styles[status] ?? 'bg-gray-100 text-gray-600'}`}
+    >
+      {labels[status] ?? status}
+    </span>
+  )
+}
+
+function RefundStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    processing: 'bg-amber-100 text-amber-700',
+    succeeded: 'bg-green-100 text-green-700',
+    abnormal: 'bg-red-100 text-red-600',
+  }
+  const labels: Record<string, string> = {
+    processing: '退款中',
+    succeeded: '已退款',
+    abnormal: '退款异常',
   }
   return (
     <span
