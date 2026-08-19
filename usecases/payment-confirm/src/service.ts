@@ -4,8 +4,10 @@ import { insertOutboxEvent } from '@epinfresh/outbox'
 import {
   cancelPendingPayment,
   confirmPayment,
+  getPaymentById,
   getRefundByOutRefundNo,
   listStalePendingPayments,
+  listStaleProcessingRefunds,
   markRefundAbnormal,
   markRefundSucceeded,
   type PaymentChannel,
@@ -122,18 +124,22 @@ export async function confirmByWebhookEvent(
   return err(confirmed.error === 'ORDER_NOT_FOUND' ? 'ORDER_NOT_FOUND' : 'INVALID_PAYMENT_STATE')
 }
 
-// 退款通知处理: 定位退款单 → 更新终态 → 成功时联动支付单 refunded + 订单 refunded。
+// 退款通知处理: 定位退款单 → 金额比对(防伪) → 更新终态 → 成功时联动支付单 refunded + 订单 refunded。
 // 幂等: 退款单/支付单已终态直接返回; 未知退款单确认消费(不阻塞渠道, 由对账兜底)。
+// 金额不符返回 AMOUNT_MISMATCH: notify 路由回 400, 渠道稍后重试(与支付确认同一防伪原则)。
 export async function confirmRefundByWebhookEvent(
   event: WebhookEvent,
   client: DbClient,
-): Promise<Result<null, never>> {
+): Promise<Result<null, 'AMOUNT_MISMATCH'>> {
   const refundNo = event.refundNo ?? ''
   const located = await getRefundByOutRefundNo(refundNo, client)
   if (located.isErr()) return ok(null)
 
   const refund = located.value
   if (refund.status !== 'processing') return ok(null)
+
+  // 事件金额与退款单不符 = 通知异常/伪造, 拒绝驱动状态
+  if (event.amount !== refund.amount) return err('AMOUNT_MISMATCH')
 
   if (event.refundStatus === 'abnormal') {
     await markRefundAbnormal(refundNo, client)
@@ -220,6 +226,90 @@ export async function reconcilePendingPayments(
     if (state.status === 'closed') {
       const cancelled = await cancelPendingPayment(payment.id, client)
       if (cancelled.isOk()) result.closed += 1
+      else result.skipped += 1
+      continue
+    }
+
+    result.skipped += 1
+  }
+  return result
+}
+
+export interface ReconcileRefundsResult {
+  scanned: number
+  fixedSucceeded: number
+  fixedAbnormal: number
+  // 跳过: 渠道不支持退款查询/查询失败/渠道侧仍处理中/并发已终态
+  skipped: number
+}
+
+// 退款对账: 渠道退款通知丢失时, 本地 processing 退款单会永久停留。
+// 扫描超时仍 processing 的退款单 → refundQuery 渠道侧状态:
+// succeeded → 合成退款通知事件走 confirmRefundByWebhookEvent 翻转终态;
+// abnormal → 本地标 abnormal(可人工重试);
+// processing/查询失败 → 下一轮再扫(幂等)。
+export async function reconcilePendingRefunds(
+  gateways: Partial<Record<PaymentChannel, PaymentGateway>>,
+  client: DbClient,
+  opts: ReconcileOptions = {},
+): Promise<ReconcileRefundsResult> {
+  const staleAfterMs = opts.staleAfterMs ?? 30 * 60 * 1000
+  const olderThan = new Date(Date.now() - staleAfterMs)
+  const stale = await listStaleProcessingRefunds(client, {
+    olderThan,
+    limit: opts.limit ?? 100,
+  })
+  const result: ReconcileRefundsResult = {
+    scanned: 0,
+    fixedSucceeded: 0,
+    fixedAbnormal: 0,
+    skipped: 0,
+  }
+
+  for (const refund of stale) {
+    const payment = await getPaymentById(refund.paymentId, client)
+    if (payment.isErr()) {
+      result.skipped += 1
+      continue
+    }
+    const provider = payment.value.provider as PaymentChannel
+    const gateway = gateways[provider]
+    if (!gateway?.refundQuery) {
+      result.skipped += 1
+      continue
+    }
+    result.scanned += 1
+
+    const queried = await gateway.refundQuery({
+      refundNo: refund.outRefundNo,
+      outTradeNo: payment.value.outTradeNo,
+    })
+    if (queried.isErr()) {
+      result.skipped += 1
+      continue
+    }
+    const state = queried.value
+
+    if (state.status === 'succeeded') {
+      const event: WebhookEvent = {
+        channel: provider,
+        eventId: crypto.randomUUID(),
+        outTradeNo: payment.value.outTradeNo,
+        providerTransactionId: state.refundId,
+        amount: refund.amount,
+        status: 'refunded',
+        refundNo: refund.outRefundNo,
+        refundStatus: 'succeeded',
+      }
+      const confirmed = await confirmRefundByWebhookEvent(event, client)
+      if (confirmed.isOk()) result.fixedSucceeded += 1
+      else result.skipped += 1
+      continue
+    }
+
+    if (state.status === 'abnormal') {
+      const marked = await markRefundAbnormal(refund.outRefundNo, client)
+      if (marked.isOk()) result.fixedAbnormal += 1
       else result.skipped += 1
       continue
     }

@@ -341,6 +341,33 @@ export function createWechatPaymentGateway(config: WechatGatewayConfig): WechatP
       const status = data.status === 'SUCCESS' ? 'succeeded' : 'processing'
       return ok({ refundId: data.refund_id, status })
     },
+    async refundQuery(input) {
+      // 退款查询: GET /v3/refund/domestic/refunds/{out_refund_no}
+      const path = `${REFUND_PATH}/${encodeURIComponent(input.refundNo)}`
+      const authorization = buildAuthorizationHeader({
+        merchantId: config.merchantId,
+        merchantSerialNo: config.merchantSerialNo,
+        merchantPrivateKey: config.merchantPrivateKey,
+        method: 'GET',
+        canonicalUrl: path,
+        body: '',
+      })
+      const response = await fetch(`${config.baseUrl}${path}`, {
+        headers: { Authorization: authorization, Accept: 'application/json' },
+      })
+      if (!response.ok) return err('GATEWAY_ERROR')
+      const data = (await response.json()) as {
+        refund_status?: string
+        refund_id?: string
+      }
+      const status =
+        data.refund_status === 'SUCCESS'
+          ? 'succeeded'
+          : data.refund_status === 'ABNORMAL'
+            ? 'abnormal'
+            : 'processing'
+      return ok({ status, refundId: data.refund_id })
+    },
   }
   return gateway
 }

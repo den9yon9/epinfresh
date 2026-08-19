@@ -6,10 +6,11 @@ export {
   type ReconcileJobData,
 } from './jobs'
 export type { ConfirmPaymentError, WebhookConfirmError } from './service'
-export type { ReconcileOptions, ReconcileResult } from './service'
+export type { ReconcileOptions, ReconcileRefundsResult, ReconcileResult } from './service'
 export {
   confirmByWebhookEvent,
   confirmOrderPayment,
   confirmRefundByWebhookEvent,
   reconcilePendingPayments,
+  reconcilePendingRefunds,
 } from './service'

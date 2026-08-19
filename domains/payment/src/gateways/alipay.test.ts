@@ -51,7 +51,9 @@ function buildNotify(input: {
 function startFakeAlipayServer(
   verifyKey: string,
   transactions: Map<string, { tradeNo: string; totalAmount: string; tradeStatus: string }>,
+  opts: { refundStatus?: string } = {},
 ) {
+  const optsRefundStatus = opts.refundStatus ?? 'REFUND_SUCCESS'
   const server = Bun.serve({
     port: 0,
     routes: {
@@ -100,6 +102,18 @@ function startFakeAlipayServer(
                 msg: 'Success',
                 out_trade_no: biz.out_trade_no,
                 refund_fee: biz.refund_amount,
+              },
+            })
+          }
+          if (method === 'alipay.trade.refund.query') {
+            return Response.json({
+              alipay_trade_refund_query_response: {
+                code: '10000',
+                msg: 'Success',
+                out_trade_no: biz.out_trade_no,
+                out_request_no: biz.out_request_no,
+                refund_status: optsRefundStatus,
+                refund_id: 'mock-alipay-refund-q-1',
               },
             })
           }
@@ -226,5 +240,59 @@ describe('alipay gateway', () => {
     })
     expect(result.isOk()).toBe(true)
     if (result.isOk()) expect(result.value.status).toBe('succeeded')
+  })
+})
+
+describe('alipay gateway refundQuery', () => {
+  test('maps REFUND_SUCCESS to succeeded with refund id', async () => {
+    const server = startFakeAlipayServer(merchant.publicKey, new Map(), {
+      refundStatus: 'REFUND_SUCCESS',
+    })
+    const gateway = createAlipayPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.refundQuery!({
+      refundNo: 'rf-order-1',
+      outTradeNo: 'alipay-trade-1',
+    })
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    expect(result.value).toEqual({
+      status: 'succeeded',
+      refundId: 'mock-alipay-refund-q-1',
+    })
+
+    server.stop(true)
+  })
+
+  test('maps REFUND_FAIL to abnormal and PROCESSING to processing', async () => {
+    const failServer = startFakeAlipayServer(merchant.publicKey, new Map(), {
+      refundStatus: 'REFUND_FAIL',
+    })
+    const failGateway = createAlipayPaymentGateway({
+      ...baseConfig,
+      baseUrl: failServer.url.origin,
+    })
+    const failed = await failGateway.refundQuery!({
+      refundNo: 'rf-order-1',
+      outTradeNo: 'alipay-trade-1',
+    })
+    expect(failed.isOk()).toBe(true)
+    if (failed.isOk()) expect(failed.value.status).toBe('abnormal')
+    failServer.stop(true)
+
+    const processingServer = startFakeAlipayServer(merchant.publicKey, new Map(), {
+      refundStatus: 'PROCESSING',
+    })
+    const processingGateway = createAlipayPaymentGateway({
+      ...baseConfig,
+      baseUrl: processingServer.url.origin,
+    })
+    const processing = await processingGateway.refundQuery!({
+      refundNo: 'rf-order-1',
+      outTradeNo: 'alipay-trade-1',
+    })
+    expect(processing.isOk()).toBe(true)
+    if (processing.isOk()) expect(processing.value.status).toBe('processing')
+    processingServer.stop(true)
   })
 })

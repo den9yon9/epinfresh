@@ -6,6 +6,7 @@ import {
   RECONCILE_QUEUE_NAME,
   RECONCILE_STALE_AFTER_MS,
   reconcilePendingPayments,
+  reconcilePendingRefunds,
 } from '@epinfresh/payment-confirm'
 import { createDispatcher, createQueue, createWorker, type Worker } from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
@@ -39,10 +40,13 @@ export function registerReconciliationWorker(
   const processor = createDispatcher(
     {
       [RECONCILE_JOB_NAMES.RUN]: async (_data, logger) => {
-        const result = await reconcilePendingPayments(gateways, db, {
-          staleAfterMs: RECONCILE_STALE_AFTER_MS,
-        })
-        logger.info(result, 'payment reconciliation run finished')
+        const staleAfterMs = RECONCILE_STALE_AFTER_MS
+        // 支付单对账(漏回调/渠道关闭) + 退款单对账(退款通知丢失兜底)
+        const [payments, refunds] = await Promise.all([
+          reconcilePendingPayments(gateways, db, { staleAfterMs }),
+          reconcilePendingRefunds(gateways, db, { staleAfterMs }),
+        ])
+        logger.info({ payments, refunds }, 'payment reconciliation run finished')
       },
     },
     logger,

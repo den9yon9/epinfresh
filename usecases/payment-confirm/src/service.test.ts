@@ -16,6 +16,7 @@ import {
   confirmOrderPayment,
   confirmRefundByWebhookEvent,
   reconcilePendingPayments,
+  reconcilePendingRefunds,
 } from './service'
 
 let db: Db
@@ -510,6 +511,29 @@ describe('confirmRefundByWebhookEvent', () => {
     expect(afterOrder.status).toBe('paid')
   })
 
+  test('rejects a refund notify whose amount differs from the refund record', async () => {
+    const { order, payment, refund } = await seedPaidOrderWithRefundRow()
+    const event = { ...refundEvent(refund.outRefundNo, 'succeeded'), amount: '1.00' }
+
+    const result = await confirmRefundByWebhookEvent(event, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('AMOUNT_MISMATCH')
+
+    // 状态不动: 退款单/支付单/订单均保持原状
+    const [afterRefund] = await db
+      .select()
+      .from(schema.refunds)
+      .where(eq(schema.refunds.id, refund.id))
+    expect(afterRefund.status).toBe('processing')
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('succeeded')
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('paid')
+  })
+
   test('unknown refund no is acknowledged without changes', async () => {
     const result = await confirmRefundByWebhookEvent(refundEvent('rf-unknown', 'succeeded'), db)
     expect(result.isOk()).toBe(true)
@@ -530,5 +554,130 @@ describe('confirmRefundByWebhookEvent', () => {
     expect(afterPayment.status).toBe('refunded')
     const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
     expect(afterOrder.status).toBe('refunded')
+  })
+})
+
+describe('reconcilePendingRefunds', () => {
+  // 以 wechat provider 落库, 退款单 processing, 并让 created_at 过期进入对账窗口
+  async function seedProcessingRefund() {
+    const order = await seedPendingOrder('25.00')
+    const wechatGateway = { ...createMockPaymentGateway(), channel: 'wechat' as const }
+    const payment = (await initiatePayment(order.id, wechatGateway, db))._unsafeUnwrap().payment
+    const confirmed = await confirmOrderPayment(payment.id, db)
+    if (confirmed.isErr()) throw new Error('seed confirm failed')
+    const refund = await insertRefund(
+      {
+        paymentId: payment.id,
+        orderId: order.id,
+        outRefundNo: buildRefundNo(payment.id),
+        amount: payment.amount,
+        currency: payment.currency,
+      },
+      db,
+    )
+    await db
+      .update(schema.refunds)
+      .set({ createdAt: new Date(Date.now() - 60 * 60 * 1000) })
+      .where(eq(schema.refunds.id, refund.id))
+    return { order, payment, refund }
+  }
+
+  function fakeRefundGateway(
+    results: Record<string, { status: 'processing' | 'succeeded' | 'abnormal'; refundId?: string }>,
+  ): Record<'mock' | 'wechat', PaymentGateway> {
+    return {
+      mock: createMockPaymentGateway(),
+      wechat: {
+        channel: 'wechat',
+        notifySuccessBody: 'SUCCESS',
+        async createPayment() {
+          throw new Error('not used')
+        },
+        async verifyWebhook() {
+          throw new Error('not used')
+        },
+        async refundQuery(input) {
+          const state = results[input.refundNo]
+          if (!state) return err('GATEWAY_ERROR')
+          return ok(state)
+        },
+      },
+    }
+  }
+
+  test('fixes a lost refund notify: gateway succeeded → flips refund, payment and order', async () => {
+    const { order, payment, refund } = await seedProcessingRefund()
+    const gateways = fakeRefundGateway({
+      [refund.outRefundNo]: { status: 'succeeded', refundId: 'wx-refund-q' },
+    })
+
+    const result = await reconcilePendingRefunds(gateways, db)
+    expect(result.scanned).toBe(1)
+    expect(result.fixedSucceeded).toBe(1)
+
+    const [afterRefund] = await db
+      .select()
+      .from(schema.refunds)
+      .where(eq(schema.refunds.id, refund.id))
+    expect(afterRefund.status).toBe('succeeded')
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('refunded')
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('refunded')
+  })
+
+  test('marks the refund abnormal when the gateway reports ABNORMAL', async () => {
+    const { order, payment, refund } = await seedProcessingRefund()
+    const gateways = fakeRefundGateway({
+      [refund.outRefundNo]: { status: 'abnormal' },
+    })
+
+    const result = await reconcilePendingRefunds(gateways, db)
+    expect(result.fixedAbnormal).toBe(1)
+
+    const [afterRefund] = await db
+      .select()
+      .from(schema.refunds)
+      .where(eq(schema.refunds.id, refund.id))
+    expect(afterRefund.status).toBe('abnormal')
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('succeeded')
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('paid')
+  })
+
+  test('leaves processing state untouched when the gateway is still processing', async () => {
+    const { order, refund } = await seedProcessingRefund()
+    const gateways = fakeRefundGateway({
+      [refund.outRefundNo]: { status: 'processing' },
+    })
+
+    const result = await reconcilePendingRefunds(gateways, db)
+    expect(result.scanned).toBe(1)
+    expect(result.fixedSucceeded).toBe(0)
+    expect(result.fixedAbnormal).toBe(0)
+
+    const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    expect(afterOrder.status).toBe('paid')
+  })
+
+  test('skips refunds without a refundQuery gateway (mock)', async () => {
+    const { refund } = await seedProcessingRefund()
+
+    const result = await reconcilePendingRefunds({ mock: createMockPaymentGateway() }, db)
+    expect(result.scanned).toBe(0)
+    expect(result.skipped).toBe(1)
+
+    const [afterRefund] = await db
+      .select()
+      .from(schema.refunds)
+      .where(eq(schema.refunds.id, refund.id))
+    expect(afterRefund.status).toBe('processing')
   })
 })

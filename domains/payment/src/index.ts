@@ -36,6 +36,7 @@ export {
   listPaymentsByOrder,
   listRefundsByPayment,
   listStalePendingPayments,
+  listStaleProcessingRefunds,
   markRefundAbnormal,
   markRefundSucceeded,
   type PaymentRecord,

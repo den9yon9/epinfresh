@@ -130,5 +130,27 @@ export function createAlipayPaymentGateway(config: AlipayGatewayConfig): Payment
       if (result.isErr()) return err('GATEWAY_ERROR')
       return ok({ status: 'succeeded' })
     },
+    async refundQuery(input) {
+      // 退款查询: alipay.trade.refund.query, out_request_no 为退款单号
+      const result = await callGateway(config, {
+        ...baseParams(config, 'alipay.trade.refund.query'),
+        biz_content: JSON.stringify({
+          out_trade_no: input.outTradeNo,
+          out_request_no: input.refundNo,
+        }),
+      })
+      if (result.isErr()) return err('GATEWAY_ERROR')
+      const refundStatus = String(result.value.refund_status ?? '')
+      const status =
+        refundStatus === 'REFUND_SUCCESS' || refundStatus === 'REFUND_CLOSED'
+          ? 'succeeded'
+          : refundStatus === 'REFUND_FAIL'
+            ? 'abnormal'
+            : 'processing'
+      return ok({
+        status,
+        refundId: result.value.refund_id ? String(result.value.refund_id) : undefined,
+      })
+    },
   }
 }

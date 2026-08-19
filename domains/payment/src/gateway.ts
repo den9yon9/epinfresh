@@ -80,6 +80,13 @@ export interface PaymentGateway {
   // 提交退款(渠道调用先于本地状态翻转, 避免"本地已退、渠道未退"分叉)。
   // 渠道无退款能力(如纯本地 mock 之外的未知渠道)时不实现, 退款用例返回 UNSUPPORTED_CHANNEL。
   refund?(input: RefundInput): Promise<Result<RefundResult, 'GATEWAY_ERROR'>>
+  // 对账用: 查询退款单状态(退款通知丢失时兜底)。渠道无外部真值(如 mock)时不实现。
+  refundQuery?(input: {
+    refundNo: string
+    outTradeNo: string
+  }): Promise<
+    Result<{ status: 'processing' | 'succeeded' | 'abnormal'; refundId?: string }, 'GATEWAY_ERROR'>
+  >
   // 对账用: 拉取渠道侧交易状态。渠道无外部真值(如 mock)时不实现, 对账任务会跳过该渠道。
   // amount 为元字符串, 供确认管线做金额校验。
   queryPayment?(outTradeNo: string): Promise<

@@ -86,6 +86,8 @@ function startFakeWechatServer(
     tradeState?: string
     totalFen?: number
     transactionId?: string
+    // 退款查询返回的 refund_status
+    refundStatus?: string
     // 平台证书列表(serial → 公钥), 提供后 /v3/certificates 按 APIv3 加密返回
     certificates?: Array<{ serialNo: string; publicKey: string }>
   } = {},
@@ -157,6 +159,25 @@ function startFakeWechatServer(
             refund_id: 'mock-refund-1',
             out_refund_no: parsed.out_refund_no,
             status: 'SUCCESS',
+          })
+        },
+      },
+      '/v3/refund/domestic/refunds/:outRefundNo': {
+        GET: async (req) => {
+          const url = new URL(req.url)
+          const path = `${url.pathname}${url.search}`
+          const auth = req.headers.get('authorization') ?? ''
+          const nonce = /nonce_str="([^"]+)"/.exec(auth)?.[1]
+          const timestamp = /timestamp="([^"]+)"/.exec(auth)?.[1]
+          const signature = /signature="([^"]+)"/.exec(auth)?.[1]
+          const message = `GET\n${path}\n${timestamp}\n${nonce}\n\n`
+          if (!signature || !verifyMessage(verifyKey, message, signature)) {
+            return new Response('unauthorized', { status: 401 })
+          }
+          return Response.json({
+            out_refund_no: url.pathname.split('/').pop(),
+            refund_status: opts.refundStatus ?? 'SUCCESS',
+            refund_id: 'mock-refund-q-1',
           })
         },
       },
@@ -402,6 +423,54 @@ describe('wechat gateway refund', () => {
       total: '25.00',
       currency: 'CNY',
     })
+    expect(result.isErr()).toBe(true)
+    expect(result.isErr() && result.error).toBe('GATEWAY_ERROR')
+
+    server.stop(true)
+  })
+})
+
+describe('wechat gateway refundQuery', () => {
+  test('maps refund_status SUCCESS to succeeded with refund id', async () => {
+    const server = startFakeWechatServer(merchant.publicKey, { refundStatus: 'SUCCESS' })
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.refundQuery!({ refundNo: 'rf-order-1', outTradeNo: 'trade-001' })
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    expect(result.value).toEqual({ status: 'succeeded', refundId: 'mock-refund-q-1' })
+
+    server.stop(true)
+  })
+
+  test('maps ABNORMAL to abnormal', async () => {
+    const server = startFakeWechatServer(merchant.publicKey, { refundStatus: 'ABNORMAL' })
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.refundQuery!({ refundNo: 'rf-order-1', outTradeNo: 'trade-001' })
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) expect(result.value.status).toBe('abnormal')
+
+    server.stop(true)
+  })
+
+  test('maps PROCESSING to processing', async () => {
+    const server = startFakeWechatServer(merchant.publicKey, { refundStatus: 'PROCESSING' })
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.refundQuery!({ refundNo: 'rf-order-1', outTradeNo: 'trade-001' })
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) expect(result.value.status).toBe('processing')
+
+    server.stop(true)
+  })
+
+  test('returns GATEWAY_ERROR when the merchant signature is rejected', async () => {
+    const rogue = generateRsaKeyPair()
+    const server = startFakeWechatServer(rogue.publicKey)
+    const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+    const result = await gateway.refundQuery!({ refundNo: 'rf-order-1', outTradeNo: 'trade-001' })
     expect(result.isErr()).toBe(true)
     expect(result.isErr() && result.error).toBe('GATEWAY_ERROR')
 

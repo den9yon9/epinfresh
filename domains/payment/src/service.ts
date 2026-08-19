@@ -289,6 +289,22 @@ export async function listRefundsByPayment(paymentId: string, client: DbClient) 
   return { items }
 }
 
+// 对账用: 列出创建超时仍 processing 的退款单(通知丢失兜底)
+export async function listStaleProcessingRefunds(
+  client: DbClient,
+  opts: { olderThan: Date; limit?: number },
+): Promise<RefundRecord[]> {
+  const rows = await client
+    .select()
+    .from(schema.refunds)
+    .where(
+      and(eq(schema.refunds.status, 'processing'), lt(schema.refunds.createdAt, opts.olderThan)),
+    )
+    .orderBy(schema.refunds.createdAt)
+    .limit(opts.limit ?? 100)
+  return rows
+}
+
 // 对账用: 列出创建时间早于 olderThan 仍 pending 的支付单(疑似漏回调/渠道已关闭)。
 // 只关心这批, 已终态的不再扫描。
 export async function listStalePendingPayments(
