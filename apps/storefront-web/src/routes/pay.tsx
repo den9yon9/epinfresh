@@ -35,8 +35,40 @@ const PAYMENT_POLL_INTERVAL_MS = 3000
 // 自动轮询上限: 5 分钟未支付则停止轮询, 仅保留提示, 避免无限空转
 const PAYMENT_POLL_TIMEOUT_MS = 5 * 60 * 1000
 
-// 支付渠道由构建环境决定(VITE_PAYMENT_CHANNEL): mock=开发/联调走本地确认, wechat/alipay=真实/模拟器回调
-const PAYMENT_CHANNEL: 'mock' | 'wechat' | 'alipay' = import.meta.env.VITE_PAYMENT_CHANNEL ?? 'mock'
+// 支付渠道: 由构建环境 VITE_PAYMENT_CHANNEL 决定(逗号分隔多值, 默认 mock);
+// 结合运行环境(微信/支付宝内置浏览器)过滤: 微信内不展示支付宝, 支付宝内不展示微信
+type PaymentChannel = 'mock' | 'wechat' | 'alipay'
+
+const CHANNEL_LABELS: Record<PaymentChannel, string> = {
+  mock: '模拟支付',
+  wechat: '微信支付',
+  alipay: '支付宝',
+}
+
+function parseChannels(raw: string | undefined): PaymentChannel[] {
+  const configured = (raw ?? 'mock')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s): s is PaymentChannel => s === 'mock' || s === 'wechat' || s === 'alipay')
+  return configured.length > 0 ? configured : ['mock']
+}
+
+function isInWeChatBrowser(ua = navigator.userAgent): boolean {
+  return /MicroMessenger/i.test(ua)
+}
+
+function isInAlipayBrowser(ua = navigator.userAgent): boolean {
+  return /AlipayClient/i.test(ua)
+}
+
+// 运行环境渠道过滤: 微信内置浏览器只保留微信, 支付宝内置浏览器只保留支付宝
+function filterByEnvironment(channels: PaymentChannel[]): PaymentChannel[] {
+  if (isInWeChatBrowser()) return channels.filter((c) => c === 'wechat')
+  if (isInAlipayBrowser()) return channels.filter((c) => c === 'alipay')
+  return channels
+}
+
+const PAYMENT_CHANNELS = filterByEnvironment(parseChannels(import.meta.env.VITE_PAYMENT_CHANNEL))
 
 // 与网关契约的 PaymentPayload 保持一致; 前端按 type 分支渲染
 type PayPayload =
@@ -58,6 +90,11 @@ function PayPage() {
     payload: PayPayload
   } | null>(null)
   const [pollStopped, setPollStopped] = useState(false)
+  const [selectedChannel, setSelectedChannel] = useState<PaymentChannel | null>(
+    PAYMENT_CHANNELS[0] ?? null,
+  )
+  // 环境过滤后无可用渠道(如支付宝内配置只有微信)时的提示
+  const noAvailableChannel = PAYMENT_CHANNELS.length === 0
 
   // 发起支付后轮询订单状态: 支付成功/取消/退款都能即时反映到页面
   useEffect(() => {
@@ -82,10 +119,11 @@ function PayPage() {
   }, [pending, status, orderId, pollStopped])
 
   async function pay() {
+    if (!selectedChannel) return
     setError(null)
     setBusy(true)
-    // 渠道由 VITE_PAYMENT_CHANNEL 决定; 前端不做渠道选择
-    const initiated = await api.orders({ id: orderId }).pay.post({ channel: PAYMENT_CHANNEL })
+    // 渠道由用户选择(VITE_PAYMENT_CHANNEL 提供候选 + 环境过滤)
+    const initiated = await api.orders({ id: orderId }).pay.post({ channel: selectedChannel })
     if (initiated.error) {
       setBusy(false)
       const code = 'error' in initiated.error.value ? initiated.error.value.error : undefined
@@ -178,20 +216,49 @@ function PayPage() {
             <div className="text-sm text-gray-500">
               合计 <span className="text-lg font-bold text-gray-900">¥{order.totalAmount}</span>
             </div>
-            <button
-              onClick={pay}
-              disabled={busy}
-              className="rounded-lg bg-brand-600 px-8 py-2.5 text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              {busy ? '支付中…' : '确认支付'}
-            </button>
+            {noAvailableChannel ? (
+              <p className="text-sm text-gray-400">当前环境暂不支持在线支付</p>
+            ) : (
+              <div className="flex items-center gap-3">
+                {PAYMENT_CHANNELS.length > 1 && (
+                  <div className="flex overflow-hidden rounded-lg border border-gray-300 text-sm">
+                    {PAYMENT_CHANNELS.map((channel) => (
+                      <button
+                        key={channel}
+                        onClick={() => setSelectedChannel(channel)}
+                        className={`px-3 py-2 ${
+                          selectedChannel === channel
+                            ? 'bg-brand-600 text-white'
+                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {CHANNEL_LABELS[channel]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={pay}
+                  disabled={busy || !selectedChannel}
+                  className="rounded-lg bg-brand-600 px-8 py-2.5 text-white hover:bg-brand-700 disabled:opacity-50"
+                >
+                  {busy ? '支付中…' : '确认支付'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : pending.payload.type === 'qr' ? (
         <section className="flex flex-col items-center gap-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-semibold text-gray-900">扫码支付</h2>
           <PaymentQrCode codeUrl={pending.payload.codeUrl} />
-          <p className="text-sm text-gray-500">请使用微信或支付宝扫码完成支付</p>
+          <p className="text-sm text-gray-500">
+            {pending.provider === 'wechat'
+              ? '请使用微信扫码完成支付'
+              : pending.provider === 'alipay'
+                ? '请使用支付宝扫码完成支付'
+                : '请使用微信或支付宝扫码完成支付'}
+          </p>
           {pollStopped && (
             <p className="text-sm text-amber-600">订单仍待支付；若已支付请刷新页面查看结果</p>
           )}
