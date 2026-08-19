@@ -108,6 +108,14 @@ export function buildRefundNo(paymentId: string): string {
   return `rf-${paymentId}`
 }
 
+// 计算下一个可用退款号: 存在 abnormal 退款单时用新号重试(rf-{id}-{n}),
+// 否则回到基础号(rf-{id})。abnormal 是渠道退款失败, 换号重试不会重复扣款。
+export async function nextRefundNo(paymentId: string, client: DbClient): Promise<string> {
+  const { items } = await listRefundsByPayment(paymentId, client)
+  const attempt = items.filter((r) => r.status === 'abnormal').length + 1
+  return attempt === 1 ? buildRefundNo(paymentId) : `${buildRefundNo(paymentId)}-${attempt}`
+}
+
 // 事务原语: 不自己开事务, 在传入的 client 上执行(事务边界归 usecase 持有);
 // 单条 CAS update 自带原子性, 跨域原子性由 payment-confirm/refund 用例编排。
 export async function confirmPayment(

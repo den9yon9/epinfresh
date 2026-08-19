@@ -39,6 +39,7 @@ export {
   listStaleProcessingRefunds,
   markRefundAbnormal,
   markRefundSucceeded,
+  nextRefundNo,
   type PaymentRecord,
   refundOrder,
   refundPayment,

@@ -1,9 +1,9 @@
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { markOrderRefunded, type OrderDetail } from '@epinfresh/order'
 import {
-  buildRefundNo,
   getRefundByOutRefundNo,
   insertRefund,
+  nextRefundNo,
   type PaymentChannel,
   type PaymentGateway,
   type PaymentRecord,
@@ -21,7 +21,7 @@ export type RefundOrderError =
   | 'GATEWAY_ERROR'
   | 'UNSUPPORTED_CHANNEL'
 
-export { buildRefundNo }
+export { buildRefundNo } from '@epinfresh/payment'
 
 export type RefundOrderResult = { payment: PaymentRecord; order: OrderDetail; refund: RefundRecord }
 
@@ -50,8 +50,9 @@ export async function refundOrderWorkflow(
     .limit(1)
   if (!payment) return err('NO_REFUNDABLE_PAYMENT')
 
-  const refundNo = buildRefundNo(payment.id)
-  // 重复提交防护: 已有退款单(处理中/终态)直接拒绝, 避免渠道侧重复扣款
+  const refundNo = await nextRefundNo(payment.id, client)
+  // 重复提交防护: 计算出的退款号已存在且非 abnormal(即非换号重试场景) → 拒绝
+  // (存在 abnormal 旧单时 nextRefundNo 会换新号, 自动放行重试)
   const existing = await getRefundByOutRefundNo(refundNo, client)
   if (existing.isOk()) return err('INVALID_PAYMENT_STATE')
 

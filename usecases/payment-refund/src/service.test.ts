@@ -227,4 +227,43 @@ describe('refundOrderWorkflow', () => {
     expect(second.isErr()).toBe(true)
     expect(second._unsafeUnwrapErr()).toBe('INVALID_PAYMENT_STATE')
   })
+
+  test('auto-retries with a new refund number after an abnormal refund', async () => {
+    const { order, payment } = await seedPaidOrderWithPayment()
+    const asyncGateway: PaymentGateway = {
+      ...createMockPaymentGateway(),
+      async refund(input) {
+        return ok({ refundId: `wx-${input.refundNo}`, status: 'processing' })
+      },
+    }
+
+    // 第一次提交 → processing
+    const first = await refundOrderWorkflow(order.id, { mock: asyncGateway }, db)
+    expect(first.isOk()).toBe(true)
+    if (first.isErr()) return
+
+    // 退款通知失败 → 标 abnormal
+    const [refundRow] = await db
+      .select()
+      .from(schema.refunds)
+      .where(eq(schema.refunds.id, first.value.refund.id))
+    await db
+      .update(schema.refunds)
+      .set({ status: 'abnormal' })
+      .where(eq(schema.refunds.id, refundRow.id))
+
+    // 再次退款: 自动换新号重试
+    const retry = await refundOrderWorkflow(order.id, { mock: asyncGateway }, db)
+    expect(retry.isOk()).toBe(true)
+    if (retry.isErr()) return
+    expect(retry.value.refund.outRefundNo).toBe(`rf-${payment.id}-2`)
+    expect(retry.value.refund.status).toBe('processing')
+
+    const refunds = await db.select().from(schema.refunds)
+    expect(refunds).toHaveLength(2)
+    expect(refunds.map((r) => r.outRefundNo).sort()).toEqual([
+      `rf-${payment.id}`,
+      `rf-${payment.id}-2`,
+    ])
+  })
 })

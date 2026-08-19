@@ -1,10 +1,10 @@
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { type OrderDetail, updateOrderStatus } from '@epinfresh/order'
 import {
-  buildRefundNo,
   getRefundByOutRefundNo,
   insertRefund,
   listPaymentsByOrder,
+  nextRefundNo,
   type PaymentChannel,
   type PaymentGateway,
   refundPayment,
@@ -36,8 +36,8 @@ export async function cancelOrder(
     const succeeded = payments.find((p) => p.status === 'succeeded')
     if (!succeeded) return err('INVALID_TRANSITION')
 
-    const refundNo = buildRefundNo(succeeded.id)
-    // 重复取消防护: 已有退款单(此前已提交过退款)直接拒绝, 避免渠道重复退款
+    const refundNo = await nextRefundNo(succeeded.id, client)
+    // 重复取消防护: 计算出的退款号已存在且非 abnormal(即非换号重试场景) → 拒绝
     const existing = await getRefundByOutRefundNo(refundNo, client)
     if (existing.isOk()) return err('INVALID_TRANSITION')
 
