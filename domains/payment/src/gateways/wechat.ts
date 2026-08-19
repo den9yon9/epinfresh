@@ -183,20 +183,33 @@ export function createWechatPaymentGateway(config: WechatGatewayConfig): WechatP
   // 平台证书缓存: serial_no → 公钥 PEM(微信会轮换证书, 验签按回调头 serial 定位)
   const certificates = new Map<string, string>()
   let lastFetchAttempt = 0
+  let inFlightFetch: Promise<void> | null = null
   // 拉取失败/未命中时至少间隔 1 分钟再尝试, 避免回调风暴下反复拉取
   const MIN_CERT_REFRESH_MS = 60_000
 
+  // 并发安全: 共享在途请求, 创建时预拉与回调触发共用同一 Promise;
+  // lastFetchAttempt 在请求真正结束后才更新, 避免预拉进行中把回调触发的拉取挡掉
   async function ensureCertificates(): Promise<void> {
     if (Date.now() - lastFetchAttempt < MIN_CERT_REFRESH_MS) return
-    lastFetchAttempt = Date.now()
-    try {
-      const result = await fetchWechatPlatformCertificates(config)
-      if (result.isErr()) return
-      for (const cert of result.value) certificates.set(cert.serialNo, cert.publicKey)
-    } catch {
-      // 拉取失败(网络/配置缺失)不阻断回调处理: 退回 config.platformPublicKey
-    }
+    if (inFlightFetch) return inFlightFetch
+    inFlightFetch = (async () => {
+      try {
+        const result = await fetchWechatPlatformCertificates(config)
+        if (result.isOk()) {
+          for (const cert of result.value) certificates.set(cert.serialNo, cert.publicKey)
+        }
+      } catch {
+        // 拉取失败(网络/配置缺失)不阻断回调处理: 退回 config.platformPublicKey
+      } finally {
+        lastFetchAttempt = Date.now()
+        inFlightFetch = null
+      }
+    })()
+    return inFlightFetch
   }
+
+  // 创建时后台预拉一次, 消除证书轮换后首笔回调的拉取延迟; 失败静默(触发式刷新兜底)
+  void ensureCertificates()
 
   // 按回调头 wechatpay-serial 选公钥; 缓存未命中先拉取一次, 仍无则退回 config 配置
   async function resolvePlatformKey(serial: string | undefined): Promise<string> {
