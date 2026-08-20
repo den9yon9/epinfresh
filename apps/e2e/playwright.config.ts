@@ -4,6 +4,10 @@ export default defineConfig({
   testDir: './tests',
   // 60s: 覆盖 CI 冷启动首次注册/下单的余量(此前 30s 偶发超时 flake)
   timeout: 60_000,
+  expect: {
+    // expect 断言默认 5s, 并行项目叠加注册/登录压力时偶发超时, 放宽到 10s
+    timeout: 10_000,
+  },
   fullyParallel: true,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
@@ -14,7 +18,8 @@ export default defineConfig({
     {
       name: 'mobile',
       use: { ...devices['iPhone 13'], browserName: 'chromium' },
-      testIgnore: /admin\.spec\.ts/,
+      // payment.spec 走完整支付链路(含 admin 登录), 只在 desktop 跑一次, 降低共享认证限流压力
+      testIgnore: [/admin\.spec\.ts/, /payment\.spec\.ts/],
     },
     { name: 'desktop', use: { ...devices['Desktop Chrome'] }, testIgnore: /admin\.spec\.ts/ },
     // admin 前后端: 独立 baseURL + 独立 spec
