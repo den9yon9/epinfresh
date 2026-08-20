@@ -73,10 +73,14 @@ export async function login(
 }
 
 export async function logout(): Promise<void> {
-  await api.auth.logout.post()
-  current = null
-  persist(current)
-  notify()
+  // 服务端销毁失败(网络抖动等)也要清本地会话: 退出是本地优先动作, 残余 cookie 由后续 401 兜底
+  try {
+    await api.auth.logout.post()
+  } finally {
+    current = null
+    persist(current)
+    notify()
+  }
 }
 
 // 统一 401 处理: 清本地会话缓存 + 通知订阅者, 返回是否确为 401
