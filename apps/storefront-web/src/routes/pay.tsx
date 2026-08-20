@@ -96,6 +96,18 @@ function PayPage() {
   // 环境过滤后无可用渠道(如支付宝内配置只有微信)时的提示
   const noAvailableChannel = PAYMENT_CHANNELS.length === 0
 
+  // 单次刷新订单状态(轮询/「我已支付」按钮共用)
+  async function refreshStatus(): Promise<void> {
+    const res = await api.orders({ id: orderId }).get()
+    if (isUnauthorized(res.error)) {
+      clearSessionCache()
+      window.location.assign(`/login?redirectTo=${encodeURIComponent(`/pay?orderId=${orderId}`)}`)
+      return
+    }
+    if (res.error) return // 瞬时失败, 下一轮重试
+    setStatus(res.data.status)
+  }
+
   // 发起支付后轮询订单状态: 支付成功/取消/退款都能即时反映到页面
   useEffect(() => {
     if (pending === null || status !== 'pending' || pollStopped) return
@@ -106,14 +118,7 @@ function PayPage() {
         setPollStopped(true)
         return
       }
-      const res = await api.orders({ id: orderId }).get()
-      if (isUnauthorized(res.error)) {
-        clearSessionCache()
-        window.location.assign(`/login?redirectTo=${encodeURIComponent(`/pay?orderId=${orderId}`)}`)
-        return
-      }
-      if (res.error) return // 瞬时失败, 下一轮重试
-      setStatus(res.data.status)
+      await refreshStatus()
     }, PAYMENT_POLL_INTERVAL_MS)
     return () => clearInterval(timer)
   }, [pending, status, orderId, pollStopped])
@@ -260,7 +265,7 @@ function PayPage() {
                 : '请使用微信或支付宝扫码完成支付'}
           </p>
           {pollStopped && (
-            <p className="text-sm text-amber-600">订单仍待支付；若已支付请刷新页面查看结果</p>
+            <p className="text-sm text-amber-600">自动轮询已停止；已支付请点下方按钮刷新结果</p>
           )}
           {pending.provider === 'mock' && (
             <button
@@ -269,6 +274,14 @@ function PayPage() {
               className="rounded-lg bg-brand-600 px-8 py-2.5 text-white hover:bg-brand-700 disabled:opacity-50"
             >
               {busy ? '处理中…' : '模拟支付完成'}
+            </button>
+          )}
+          {pending.provider !== 'mock' && (
+            <button
+              onClick={() => void refreshStatus()}
+              className="rounded-lg border border-brand-600 px-8 py-2.5 text-brand-600 hover:bg-brand-50"
+            >
+              我已支付，刷新
             </button>
           )}
         </section>
