@@ -11,7 +11,7 @@
 - `GET /v3/pay/transactions/out-trade-no/:no`（验商户签名后按内存登记返回 trade_state，供对账）
 - `POST /__simulate__/close`（把已登记交易置为 CLOSED，模拟用户超时未支付）
 
-与真实微信的差异仅在于密钥来源：接受本地生成的商户签名、用本地假平台密钥签发回调。将来支付宝 mock 复用同一套"假平台签名"模式（`src/alipay.ts`）。
+与真实微信的差异仅在于密钥来源：接受本地生成的商户签名、用本地假平台密钥签发回调。支付宝 mock 同样已实现，见 `docs/alipay-pay.md`。
 
 ## 双轴配置
 
