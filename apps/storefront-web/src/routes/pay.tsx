@@ -61,6 +61,17 @@ function isInAlipayBrowser(ua = navigator.userAgent): boolean {
   return /AlipayClient/i.test(ua)
 }
 
+// 手机普通浏览器(非微信/支付宝内置): 微信 H5 支付走收银台跳转
+function isMobileWebBrowser(ua = navigator.userAgent): boolean {
+  return /Mobi|Android|iPhone/i.test(ua) && !isInWeChatBrowser(ua) && !isInAlipayBrowser(ua)
+}
+
+// 渠道上下文(网关消费, 核心不解析): H5 支付标记; JSAPI 的 openid 见 buildWechatContext
+function buildChannelContext(channel: PaymentChannel): Record<string, unknown> | undefined {
+  if (channel === 'wechat' && isMobileWebBrowser()) return { product: 'h5' }
+  return undefined
+}
+
 // 运行环境渠道过滤: 微信内置浏览器只保留微信, 支付宝内置浏览器只保留支付宝
 function filterByEnvironment(channels: PaymentChannel[]): PaymentChannel[] {
   if (isInWeChatBrowser()) return channels.filter((c) => c === 'wechat')
@@ -127,8 +138,11 @@ function PayPage() {
     if (!selectedChannel) return
     setError(null)
     setBusy(true)
-    // 渠道由用户选择(VITE_PAYMENT_CHANNEL 提供候选 + 环境过滤)
-    const initiated = await api.orders({ id: orderId }).pay.post({ channel: selectedChannel })
+    // 渠道由用户选择(VITE_PAYMENT_CHANNEL 提供候选 + 环境过滤); 上下文(如 H5 标记/openid)透传给网关
+    const initiated = await api.orders({ id: orderId }).pay.post({
+      channel: selectedChannel,
+      channelContext: buildChannelContext(selectedChannel),
+    })
     if (initiated.error) {
       setBusy(false)
       const code = 'error' in initiated.error.value ? initiated.error.value.error : undefined

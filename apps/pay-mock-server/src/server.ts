@@ -8,6 +8,8 @@ import { type PayMockServerConfig } from './config'
 import {
   closeTransaction,
   handleCertificates,
+  handleH5Order,
+  handleJsapiOrder,
   handleNativeOrder,
   handleQueryTransaction,
   handleRefund,
@@ -58,6 +60,12 @@ export function startPayMockServer(config: PayMockServerConfig): PayMockServer {
       // 微信 APIv3 端点(与真实微信响应结构一致)
       '/v3/pay/transactions/native': {
         POST: (req) => handleNativeOrder(ctx, req),
+      },
+      '/v3/pay/transactions/h5': {
+        POST: (req) => handleH5Order(ctx, req),
+      },
+      '/v3/pay/transactions/jsapi': {
+        POST: (req) => handleJsapiOrder(ctx, req),
       },
       '/v3/refund/domestic/refunds': {
         POST: (req) => handleRefund(ctx, req),

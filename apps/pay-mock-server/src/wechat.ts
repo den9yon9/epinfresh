@@ -137,6 +137,45 @@ export async function handleNativeOrder(ctx: WechatMockContext, req: Request): P
   return Response.json({ prepay_id: prepayId, code_url: codeUrl })
 }
 
+// 模拟 H5 下单: 校验商户签名后返回收银台 URL(真实微信返回 h5_url, 前端跳转)
+export async function handleH5Order(ctx: WechatMockContext, req: Request): Promise<Response> {
+  const authorization = req.headers.get('authorization') ?? ''
+  const body = await req.text()
+  const valid = verifyMerchantRequest({
+    merchantPublicKey: merchantPublicKey(ctx.merchantPrivateKey),
+    method: 'POST',
+    path: '/v3/pay/transactions/h5',
+    authorization,
+    body,
+  })
+  if (!valid) {
+    return Response.json({ code: 'SIGN_ERROR', message: '验签失败(模拟)' }, { status: 401 })
+  }
+  const input = JSON.parse(body) as { out_trade_no?: string }
+  const origin = new URL(req.url).origin
+  return Response.json({
+    h5_url: `${origin}/__h5__/pay?out_trade_no=${input.out_trade_no ?? ''}`,
+  })
+}
+
+// 模拟 JSAPI 下单: 校验商户签名(含 payer.openid)后返回 prepay_id
+export async function handleJsapiOrder(ctx: WechatMockContext, req: Request): Promise<Response> {
+  const authorization = req.headers.get('authorization') ?? ''
+  const body = await req.text()
+  const valid = verifyMerchantRequest({
+    merchantPublicKey: merchantPublicKey(ctx.merchantPrivateKey),
+    method: 'POST',
+    path: '/v3/pay/transactions/jsapi',
+    authorization,
+    body,
+  })
+  if (!valid) {
+    return Response.json({ code: 'SIGN_ERROR', message: '验签失败(模拟)' }, { status: 401 })
+  }
+  const prepayId = `mock-prepay-jsapi-${randomUUID().replace(/-/g, '')}`
+  return Response.json({ prepay_id: prepayId })
+}
+
 // 模拟退款申请: 校验商户签名后登记并返回(与真实微信响应结构一致)。
 // mock 按同步成功返回; 真实微信此处通常为 PROCESSING(异步结果走退款通知)。
 export async function handleRefund(ctx: WechatMockContext, req: Request): Promise<Response> {

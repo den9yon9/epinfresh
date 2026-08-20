@@ -1,4 +1,4 @@
-import { createPublicKey } from 'node:crypto'
+import { createPublicKey, randomBytes } from 'node:crypto'
 
 import { err, ok, type Result } from '@epinfresh/shared'
 
@@ -10,9 +10,16 @@ import {
   type VerifyWebhookError,
   type WebhookEvent,
 } from '../gateway'
-import { aesGcmDecrypt, buildAuthorizationHeader, verifyPlatformSignature } from '../wechat/crypto'
+import {
+  aesGcmDecrypt,
+  buildAuthorizationHeader,
+  signMessage,
+  verifyPlatformSignature,
+} from '../wechat/crypto'
 
 const NATIVE_ORDER_PATH = '/v3/pay/transactions/native'
+const H5_ORDER_PATH = '/v3/pay/transactions/h5'
+const JSAPI_ORDER_PATH = '/v3/pay/transactions/jsapi'
 const REFUND_PATH = '/v3/refund/domestic/refunds'
 
 function toFen(amount: string): number {
@@ -24,6 +31,29 @@ function toFen(amount: string): number {
 // 按 out_trade_no 查询交易状态; canonical URL 含查询串, 出站签名须逐字一致
 function buildQueryPath(outTradeNo: string, merchantId: string): string {
   return `/v3/pay/transactions/out-trade-no/${outTradeNo}?mchid=${merchantId}`
+}
+
+// JSAPI 拉起参数(payload.type='params'): 前端在微信内调 wx.chooseWXPay。
+// paySign = RSA-SHA256 over "appId\ntimeStamp\nnonceStr\npackage\n", 商户私钥签, base64。
+function buildJsapiPayload(config: WechatGatewayConfig, prepayId: string): PaymentPayload {
+  const timeStamp = String(Math.floor(Date.now() / 1000))
+  const nonceStr = randomBytes(16).toString('hex')
+  const packageValue = `prepay_id=${prepayId}`
+  const paySign = signMessage(
+    config.merchantPrivateKey,
+    `${config.appId}\n${timeStamp}\n${nonceStr}\n${packageValue}\n`,
+  )
+  return {
+    type: 'params',
+    params: {
+      appId: config.appId,
+      timeStamp,
+      nonceStr,
+      package: packageValue,
+      signType: 'RSA',
+      paySign,
+    },
+  }
 }
 
 // 微信回调头字段(统一按小写匹配)
@@ -230,7 +260,13 @@ export function createWechatPaymentGateway(config: WechatGatewayConfig): WechatP
     notifySuccessBody: 'SUCCESS',
     config,
     async createPayment(input) {
-      const path = NATIVE_ORDER_PATH
+      // 渠道上下文由网关消费(核心不解析): product=h5 走 H5 下单, openid 存在走 JSAPI 下单,
+      // 否则 Native 扫码。三种产品返回不同 payload 类型, 前端按 type 渲染。
+      const isH5 = input.channelContext?.product === 'h5'
+      const openid =
+        typeof input.channelContext?.openid === 'string' ? input.channelContext.openid : undefined
+
+      const path = isH5 ? H5_ORDER_PATH : openid ? JSAPI_ORDER_PATH : NATIVE_ORDER_PATH
       const body = JSON.stringify({
         appid: config.appId,
         mchid: config.merchantId,
@@ -238,6 +274,15 @@ export function createWechatPaymentGateway(config: WechatGatewayConfig): WechatP
         out_trade_no: input.outTradeNo,
         notify_url: config.notifyUrl,
         amount: { total: toFen(input.amount), currency: input.currency },
+        ...(openid ? { payer: { openid } } : {}),
+        ...(isH5
+          ? {
+              scene_info: {
+                payer_client_ip: '127.0.0.1',
+                h5_info: { type: 'Wap' },
+              },
+            }
+          : {}),
       })
       const authorization = buildAuthorizationHeader({
         merchantId: config.merchantId,
@@ -257,7 +302,28 @@ export function createWechatPaymentGateway(config: WechatGatewayConfig): WechatP
         body,
       })
       if (!response.ok) return err('GATEWAY_ERROR')
-      const data = (await response.json()) as { prepay_id?: string; code_url?: string }
+      const data = (await response.json()) as {
+        prepay_id?: string
+        code_url?: string
+        h5_url?: string
+      }
+
+      if (isH5) {
+        // H5: 返回收银台 URL, 前端跳转
+        if (!data.h5_url) return err('GATEWAY_ERROR')
+        const payload: PaymentPayload = { type: 'redirect', url: data.h5_url }
+        return ok({ providerRef: data.h5_url, payload })
+      }
+
+      if (openid) {
+        // JSAPI: 返回拉起参数, 前端在微信内 wx.chooseWXPay
+        if (!data.prepay_id) return err('GATEWAY_ERROR')
+        return ok({
+          providerRef: data.prepay_id,
+          payload: buildJsapiPayload(config, data.prepay_id),
+        })
+      }
+
       if (!data.prepay_id || !data.code_url) return err('GATEWAY_ERROR')
       const payload: PaymentPayload = { type: 'qr', codeUrl: data.code_url }
       return ok({ providerRef: data.prepay_id, payload })

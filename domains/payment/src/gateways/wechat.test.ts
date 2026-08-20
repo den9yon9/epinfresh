@@ -142,6 +142,36 @@ function startFakeWechatServer(
           })
         },
       },
+      '/v3/pay/transactions/h5': {
+        POST: async (req) => {
+          const path = '/v3/pay/transactions/h5'
+          const body = await req.text()
+          const auth = req.headers.get('authorization') ?? ''
+          const nonce = /nonce_str="([^"]+)"/.exec(auth)?.[1]
+          const timestamp = /timestamp="([^"]+)"/.exec(auth)?.[1]
+          const signature = /signature="([^"]+)"/.exec(auth)?.[1]
+          const message = `POST\n${path}\n${timestamp}\n${nonce}\n${body}\n`
+          if (!signature || !verifyMessage(verifyKey, message, signature)) {
+            return new Response('unauthorized', { status: 401 })
+          }
+          return Response.json({ h5_url: 'https://wxpay.example/h5?out_trade_no=1' })
+        },
+      },
+      '/v3/pay/transactions/jsapi': {
+        POST: async (req) => {
+          const path = '/v3/pay/transactions/jsapi'
+          const body = await req.text()
+          const auth = req.headers.get('authorization') ?? ''
+          const nonce = /nonce_str="([^"]+)"/.exec(auth)?.[1]
+          const timestamp = /timestamp="([^"]+)"/.exec(auth)?.[1]
+          const signature = /signature="([^"]+)"/.exec(auth)?.[1]
+          const message = `POST\n${path}\n${timestamp}\n${nonce}\n${body}\n`
+          if (!signature || !verifyMessage(verifyKey, message, signature)) {
+            return new Response('unauthorized', { status: 401 })
+          }
+          return Response.json({ prepay_id: 'prepay-jsapi-1' })
+        },
+      },
       '/v3/refund/domestic/refunds': {
         POST: async (req) => {
           const path = '/v3/refund/domestic/refunds'
@@ -608,5 +638,69 @@ describe('wechat gateway platform certificate rotation', () => {
     expect(result.isOk()).toBe(true)
 
     server.stop(true)
+  })
+})
+
+describe('wechat gateway H5 and JSAPI ordering', () => {
+  const server = startFakeWechatServer(merchant.publicKey)
+  const gateway = createWechatPaymentGateway({ ...baseConfig, baseUrl: server.url.origin })
+
+  afterAll(() => {
+    server.stop(true)
+  })
+
+  test('createPayment with product=h5 returns a redirect payload', async () => {
+    const result = await gateway.createPayment({
+      outTradeNo: 'trade-h5-1',
+      orderId: 'order-1',
+      amount: '25.00',
+      currency: 'CNY',
+      description: 'd',
+      channelContext: { product: 'h5' },
+    })
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    expect(result.value.payload).toEqual({
+      type: 'redirect',
+      url: 'https://wxpay.example/h5?out_trade_no=1',
+    })
+  })
+
+  test('createPayment with openid returns JSAPI pay params signed with RSA', async () => {
+    const result = await gateway.createPayment({
+      outTradeNo: 'trade-jsapi-1',
+      orderId: 'order-1',
+      amount: '25.00',
+      currency: 'CNY',
+      description: 'd',
+      channelContext: { openid: 'o-test-jsapi' },
+    })
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    const params = result.value.payload
+    expect(params.type).toBe('params')
+    if (params.type !== 'params') return
+    expect(params.params.appId).toBe(baseConfig.appId)
+    expect(params.params.signType).toBe('RSA')
+    expect(params.params.package).toBe('prepay_id=prepay-jsapi-1')
+    // paySign 应能由商户公钥验证 "appId\ntimeStamp\nnonceStr\npackage\n"
+    const content = `${params.params.appId}\n${params.params.timeStamp}\n${params.params.nonceStr}\n${params.params.package}\n`
+    expect(verifyMessage(merchant.publicKey, content, params.params.paySign)).toBe(true)
+  })
+
+  test('createPayment without context stays on Native qr', async () => {
+    const result = await gateway.createPayment({
+      outTradeNo: 'trade-native-1',
+      orderId: 'order-1',
+      amount: '25.00',
+      currency: 'CNY',
+      description: 'd',
+    })
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    expect(result.value.payload).toEqual({
+      type: 'qr',
+      codeUrl: 'weixin://wxpay/bizpayurl?pr=TEST',
+    })
   })
 })

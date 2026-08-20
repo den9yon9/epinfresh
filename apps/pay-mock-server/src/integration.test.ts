@@ -280,3 +280,39 @@ describe('pay-mock-server wechat pipeline', () => {
     expect(refunded.value.refundId).toMatch(/^mock-refund-/)
   })
 })
+
+describe('pay-mock-server wechat H5 and JSAPI ordering', () => {
+  test('H5 order returns a redirect payload pointing at the mock cashier', async () => {
+    const harness = createHarness()
+    const order = await seedPendingOrder('25.00')
+
+    const initiated = await initiatePayment(order.id, harness.gateway, db, {
+      product: 'h5',
+    })
+    expect(initiated.isOk()).toBe(true)
+    if (initiated.isErr()) return
+    const { payment, payload } = initiated.value
+    expect(payment.provider).toBe('wechat')
+    expect(payload.type).toBe('redirect')
+    if (payload.type === 'redirect') {
+      expect(payload.url).toContain('/__h5__/pay?out_trade_no=')
+    }
+  })
+
+  test('JSAPI order with openid returns pay params', async () => {
+    const harness = createHarness()
+    const order = await seedPendingOrder('25.00')
+
+    const initiated = await initiatePayment(order.id, harness.gateway, db, {
+      openid: 'o-test-openid',
+    })
+    expect(initiated.isOk()).toBe(true)
+    if (initiated.isErr()) return
+    const { payload } = initiated.value
+    expect(payload.type).toBe('params')
+    if (payload.type === 'params') {
+      expect(payload.params.package).toContain('prepay_id=mock-prepay-jsapi-')
+      expect(payload.params.signType).toBe('RSA')
+    }
+  })
+})
