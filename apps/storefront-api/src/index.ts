@@ -42,7 +42,7 @@ export function buildApp(options: StorefrontAppOptions) {
     .use(createProductRoutes(plugins))
     .use(createOrderRoutes(plugins))
     .use(createPaymentRoutes(plugins))
-    .use(createWechatRoutes(plugins))
+    .use(createWechatRoutes(plugins, options.corsOrigin))
     .get('/health', ({ db, redis }) => healthCheck({ db, redis }))
 }
 

@@ -1082,6 +1082,8 @@ describe('wechat oauth + jssdk', () => {
         appId: 'mock-app-1',
         appSecret: 'mock-secret',
       },
+      // 限定 origin 以验证 jssdk url 校验
+      corsOrigin: 'http://localhost',
     })
     await oauthApp.listen(0)
     oauthApi = treaty<typeof oauthApp>(oauthApp)
@@ -1131,5 +1133,14 @@ describe('wechat oauth + jssdk', () => {
   test('jssdk returns 400 when oauth is disabled', async () => {
     const res = await api.wechat.jssdk.get({ query: { url: 'http://localhost/pay' } })
     expect(res.status).toBe(400)
+  })
+
+  test('jssdk rejects a url from a foreign origin', async () => {
+    const res = await oauthApi.wechat.jssdk.get({
+      query: { url: 'https://evil.example.com/pay?orderId=abc' },
+    })
+    expect(res.status).toBe(400)
+    if (res.error === null) throw new Error('expected error response')
+    expect(res.error.value).toMatchObject({ error: 'JSSDK_URL_DENIED' })
   })
 })

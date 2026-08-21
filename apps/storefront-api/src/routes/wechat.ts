@@ -19,7 +19,17 @@ function oauthDisabled(enabled: boolean) {
   return status(400, { error: 'WECHAT_OAUTH_DISABLED', message: 'WeChat OAuth not configured' })
 }
 
-export function createWechatRoutes(plugins: StorefrontPlugins) {
+// JS-SDK 签名只允许本站 origin(防签名滥用); dev 下 corsOrigin=true 放行
+function isAllowedOrigin(origin: string, corsOrigin: true | string | string[]): boolean {
+  if (corsOrigin === true) return true
+  const allowed = Array.isArray(corsOrigin) ? corsOrigin : [corsOrigin]
+  return allowed.includes(origin)
+}
+
+export function createWechatRoutes(
+  plugins: StorefrontPlugins,
+  corsOrigin: true | string | string[],
+) {
   const { wechatOauth, isProduction, logger } = plugins
 
   // 回跳地址基于请求头(生产 nginx 注入 X-Forwarded-*)
@@ -138,6 +148,16 @@ export function createWechatRoutes(plugins: StorefrontPlugins) {
       async ({ query }) => {
         const disabled = oauthDisabled(wechatOauth.enabled)
         if (disabled) return disabled
+        // url 必须属于本站 origin, 否则拒绝签名
+        let origin: string
+        try {
+          origin = new URL(query.url).origin
+        } catch {
+          return status(400, { error: 'JSSDK_URL_DENIED', message: 'Invalid url' })
+        }
+        if (!isAllowedOrigin(origin, corsOrigin)) {
+          return status(400, { error: 'JSSDK_URL_DENIED', message: 'Origin not allowed' })
+        }
         try {
           const jsapiTicket = await fetchJsapiTicket()
           const timestamp = String(Math.floor(Date.now() / 1000))
