@@ -59,6 +59,21 @@ curl -X POST http://localhost:8787/__simulate__/pay \
 
 `out_trade_no` 可从 storefront-api 的支付单列表接口拿到（`/orders/:id/payments`）。
 
+## 支付形态（Native / H5 / JSAPI）
+
+网关 `createPayment` 按 `channelContext` 选择产品，返回不同 `payload.type`：
+
+| 形态        | 触发(channelContext)                | 下单接口                      | payload                                      | 前端                           |
+| ----------- | ----------------------------------- | ----------------------------- | -------------------------------------------- | ------------------------------ |
+| Native 扫码 | 无上下文                            | `/v3/pay/transactions/native` | `qr`(codeUrl)                                | 展示二维码                     |
+| H5          | `{ product: 'h5' }`(手机普通浏览器) | `/v3/pay/transactions/h5`     | `redirect`(h5_url)                           | `window.location` 跳收银台     |
+| JSAPI       | `{ openid }`(微信内置浏览器)        | `/v3/pay/transactions/jsapi`  | `params`(timeStamp/nonceStr/package/paySign) | `wx.config` + `wx.chooseWXPay` |
+
+- **openid 注入**：前端在微信内先走 `/auth/wechat/authorize` 授权，回调把 openid 写入签名 cookie `wechat_openid`；支付路由（`POST /orders/:id/pay`）对 wechat 渠道自动把 cookie 里的 openid 合并进 channelContext（前端无需读 httpOnly cookie）。
+- **JS-SDK 签名**：`GET /wechat/jssdk?url=` 用 jsapi_ticket + SHA1 生成 `wx.config` 所需签名（前端调 `wx.chooseWXPay` 前置）。
+- **前端环境检测**：微信内置浏览器（`MicroMessenger`）只展示微信；支付宝内置（`AlipayClient`）只展示支付宝；手机普通浏览器走 H5。
+- 联调：pay-mock-server 已提供 `/v3/pay/transactions/h5`、`/v3/pay/transactions/jsapi`、`/connect/oauth2/authorize`、`/sns/oauth2/access_token`、`/cgi-bin/token`、`/cgi-bin/ticket/getticket` 模拟端点（`WECHAT_OAUTH_BASE`/`WECHAT_OAUTH_API_BASE` 指向 mock）。
+
 ## 前端支付结果感知（轮询）
 
 支付页发起支付拿到二维码后，前端每 3s 轮询订单详情（`GET /orders/:id`），直到订单离开 `pending` 态：
@@ -125,7 +140,8 @@ apps/worker/src/
 3. `WECHAT_NOTIFY_URL` 指向公网可达的 `/payments/notify/wechat`（微信要求 HTTPS；支付结果与退款结果共用此入口）
 4. Native 需使用真实商户号绑定的小程序/公众号 appid 参与签名校验（simulate 的 appid 目前不校验）
 5. 退款为异步：admin 退款 → 微信处理 → `REFUND.SUCCESS` 通知 → 本地 refunds/payment/order 翻转（`refunds` 表）
-6. 验证清单：1 分钱真实支付 → 回调 → 订单 paid + outbox 投递；重复回调幂等；金额不符拒绝；对账修复（故意丢回调）；admin 退款 → 退款通知 → refunded；取消已支付订单 → 退款
+6. **H5/JSAPI（按需）**：H5 需在商户平台开通 H5 支付产品 + 配置支付授权目录；JSAPI 需公众号绑定 + `WECHAT_APP_SECRET` + 公众号「JS 接口安全域名」配置 + OAuth 网页授权域名；`WECHAT_OAUTH_BASE`/`WECHAT_OAUTH_API_BASE` 切回 `https://open.weixin.qq.com` / `https://api.weixin.qq.com`
+7. 验证清单：1 分钱真实支付 → 回调 → 订单 paid + outbox 投递；重复回调幂等；金额不符拒绝；对账修复（故意丢回调）；admin 退款 → 退款通知 → refunded；取消已支付订单 → 退款；H5 跳转支付；微信内 JSAPI 拉起
 
 ## 密码学要点
 

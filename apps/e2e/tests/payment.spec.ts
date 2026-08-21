@@ -83,3 +83,11 @@ test('下单支付 → admin 退款 → 订单与退款记录联动', async ({ p
   expect(pageErrors).toEqual([])
   expect(errors).toEqual([])
 })
+
+test('wechat oauth routes are wired in the storefront api', async ({ request }) => {
+  // mock 环境下未授权: openid 为 null(端点存在即验证路由已注册)
+  const res = await request.get('http://localhost:3000/auth/wechat/openid')
+  expect(res.status()).toBe(200)
+  const data = await res.json()
+  expect(data.openid).toBeNull()
+})
