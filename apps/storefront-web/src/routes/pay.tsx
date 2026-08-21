@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { PaymentQrCode } from '../components/PaymentQrCode'
 import { api } from '../libs/api/client'
 import { clearSessionCache, isUnauthorized } from '../libs/api/session'
+import { loadWechatJssdk, type WeChatSDK } from '../libs/wechatSdk'
 
 const PaySearchSchema = v.object({
   orderId: v.string(),
@@ -80,36 +81,6 @@ function filterByEnvironment(channels: PaymentChannel[]): PaymentChannel[] {
 }
 
 const PAYMENT_CHANNELS = filterByEnvironment(parseChannels(import.meta.env.VITE_PAYMENT_CHANNEL))
-
-// 微信 JS-SDK 最小类型(真实引入 jweixin 脚本后挂到 window.wx)
-type WeChatSDK = {
-  config: (cfg: {
-    debug?: boolean
-    appId: string
-    timestamp: string
-    nonceStr: string
-    signature: string
-    jsApiList: string[]
-  }) => void
-  ready: (cb: () => void) => void
-  error: (cb: (err: unknown) => void) => void
-  chooseWXPay: (opts: {
-    timestamp: string
-    nonceStr: string
-    package: string
-    signType: string
-    paySign: string
-    success: () => void
-    fail: (err: unknown) => void
-    cancel: () => void
-  }) => void
-}
-
-declare global {
-  interface Window {
-    wx?: WeChatSDK
-  }
-}
 
 // 与网关契约的 PaymentPayload 保持一致; 前端按 type 分支渲染
 type PayPayload =
@@ -238,8 +209,10 @@ function PayPage() {
       setError('微信支付初始化失败，请重试')
       return
     }
-    const wx = window.wx
-    if (!wx) {
+    let wx: WeChatSDK
+    try {
+      wx = await loadWechatJssdk()
+    } catch {
       setError('请在微信浏览器中完成支付')
       return
     }
