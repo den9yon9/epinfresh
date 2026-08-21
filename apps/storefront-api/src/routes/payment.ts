@@ -23,7 +23,7 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
     .use(sessionPlugin)
     .post(
       '/orders/:id/pay',
-      async ({ params, session, body, db }) => {
+      async ({ params, session, body, db, cookie }) => {
         const ownership = await getOrderForUser(session.userId, params.id, db)
         if (ownership.isErr()) {
           return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
@@ -35,7 +35,13 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
             message: 'Payment channel not configured',
           })
         }
-        const result = await initiatePayment(params.id, gateway, db, body.channelContext)
+        // 微信 JSAPI: 授权 cookie 里的 openid 由服务端注入 channelContext(前端无需读 httpOnly cookie)
+        const openid = cookie.wechat_openid?.value
+        const channelContext =
+          body.channel === 'wechat' && typeof openid === 'string' && openid.length > 0
+            ? { ...body.channelContext, openid }
+            : body.channelContext
+        const result = await initiatePayment(params.id, gateway, db, channelContext)
         return result.match(
           (value) => status(201, value),
           (e) => {

@@ -81,6 +81,36 @@ function filterByEnvironment(channels: PaymentChannel[]): PaymentChannel[] {
 
 const PAYMENT_CHANNELS = filterByEnvironment(parseChannels(import.meta.env.VITE_PAYMENT_CHANNEL))
 
+// 微信 JS-SDK 最小类型(真实引入 jweixin 脚本后挂到 window.wx)
+type WeChatSDK = {
+  config: (cfg: {
+    debug?: boolean
+    appId: string
+    timestamp: string
+    nonceStr: string
+    signature: string
+    jsApiList: string[]
+  }) => void
+  ready: (cb: () => void) => void
+  error: (cb: (err: unknown) => void) => void
+  chooseWXPay: (opts: {
+    timestamp: string
+    nonceStr: string
+    package: string
+    signType: string
+    paySign: string
+    success: () => void
+    fail: (err: unknown) => void
+    cancel: () => void
+  }) => void
+}
+
+declare global {
+  interface Window {
+    wx?: WeChatSDK
+  }
+}
+
 // 与网关契约的 PaymentPayload 保持一致; 前端按 type 分支渲染
 type PayPayload =
   | { type: 'qr'; codeUrl: string }
@@ -118,6 +148,25 @@ function PayPage() {
     if (res.error) return // 瞬时失败, 下一轮重试
     setStatus(res.data.status)
   }
+
+  // 微信内置浏览器: 进入支付页确保已 OAuth 拿到 openid, 否则先走授权跳转
+  useEffect(() => {
+    if (status !== 'pending') return
+    if (!isInWeChatBrowser() || !PAYMENT_CHANNELS.includes('wechat')) return
+    let cancelled = false
+    void (async () => {
+      const res = await api.auth.wechat.openid.get()
+      if (cancelled) return
+      if (res.error || !res.data.openid) {
+        window.location.assign(
+          `/auth/wechat/authorize?redirectTo=${encodeURIComponent(`/pay?orderId=${orderId}`)}`,
+        )
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [status, orderId])
 
   // 发起支付后轮询订单状态: 支付成功/取消/退款都能即时反映到页面
   useEffect(() => {
@@ -159,6 +208,12 @@ function PayPage() {
       window.location.assign(payload.url)
       return
     }
+    // params: 微信 JSAPI, 用 JS-SDK 拉起收银台
+    if (payload.type === 'params') {
+      setBusy(false)
+      await handleJsapiParams(payload.params)
+      return
+    }
     setPending({ paymentId: payment.id, provider: payment.provider, payload })
     setBusy(false)
   }
@@ -174,6 +229,41 @@ function PayPage() {
       return
     }
     setStatus('paid')
+  }
+
+  // JSAPI: 微信内用 JS-SDK 拉起收银台(wx.config 签名 + wx.chooseWXPay)
+  async function handleJsapiParams(params: Record<string, string>) {
+    const jssdk = await api.wechat.jssdk.get({ query: { url: window.location.href } })
+    if (jssdk.error) {
+      setError('微信支付初始化失败，请重试')
+      return
+    }
+    const wx = window.wx
+    if (!wx) {
+      setError('请在微信浏览器中完成支付')
+      return
+    }
+    wx.config({
+      debug: false,
+      appId: jssdk.data.appId,
+      timestamp: jssdk.data.timestamp,
+      nonceStr: jssdk.data.nonceStr,
+      signature: jssdk.data.signature,
+      jsApiList: ['chooseWXPay'],
+    })
+    wx.ready(() => {
+      wx.chooseWXPay({
+        timestamp: params.timeStamp,
+        nonceStr: params.nonceStr,
+        package: params.package,
+        signType: params.signType,
+        paySign: params.paySign,
+        success: () => void refreshStatus(),
+        fail: () => setError('支付失败，请重试'),
+        cancel: () => setError('已取消支付'),
+      })
+    })
+    wx.error(() => setError('微信初始化失败，请刷新重试'))
   }
 
   if (paid) {

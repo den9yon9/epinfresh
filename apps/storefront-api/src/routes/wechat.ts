@@ -118,6 +118,22 @@ export function createWechatRoutes(plugins: StorefrontPlugins) {
       },
     )
     .get(
+      '/auth/wechat/openid',
+      ({ cookie }) => {
+        // 返回已授权的 openid(签名 cookie); 未授权返回 null, 前端据此触发授权跳转
+        const openid = cookie[OPENID_COOKIE].value
+        return { openid: typeof openid === 'string' && openid.length > 0 ? openid : null }
+      },
+      {
+        response: { 200: t.Object({ openid: t.Union([t.String(), t.Null()]) }) },
+        detail: {
+          tags: ['WeChat'],
+          summary: '查询微信 openid',
+          description: '返回当前浏览器的微信 openid(来自授权 cookie); 未授权为 null。',
+        },
+      },
+    )
+    .get(
       '/wechat/jssdk',
       async ({ query }) => {
         const disabled = oauthDisabled(wechatOauth.enabled)
