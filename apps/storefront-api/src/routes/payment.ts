@@ -16,6 +16,13 @@ const payBodySchema = t.Object({
   channelContext: t.Optional(t.Record(t.String(), t.Unknown())),
 })
 
+// 从请求头取客户端 IP(生产 nginx 注入 X-Forwarded-For; 取首段真实 IP)
+function getClientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) return forwarded.split(',')[0].trim()
+  return '127.0.0.1'
+}
+
 export function createPaymentRoutes(plugins: StorefrontPlugins) {
   const { dbPlugin, sessionPlugin, paymentGateways } = plugins
   return new Elysia({ name: 'payment-storefront' })
@@ -23,7 +30,7 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
     .use(sessionPlugin)
     .post(
       '/orders/:id/pay',
-      async ({ params, session, body, db, cookie }) => {
+      async ({ params, session, body, db, cookie, request }) => {
         const ownership = await getOrderForUser(session.userId, params.id, db)
         if (ownership.isErr()) {
           return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
@@ -35,11 +42,16 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
             message: 'Payment channel not configured',
           })
         }
-        // 微信 JSAPI: 授权 cookie 里的 openid 由服务端注入 channelContext(前端无需读 httpOnly cookie)
+        // 微信渠道上下文由服务端注入: JSAPI 的 openid(授权 cookie) + H5 的真实客户端 IP
         const openid = cookie.wechat_openid?.value
+        const clientIp = getClientIp(request)
+        const wechatContext = {
+          ...(typeof openid === 'string' && openid.length > 0 ? { openid } : {}),
+          ...(clientIp ? { clientIp } : {}),
+        }
         const channelContext =
-          body.channel === 'wechat' && typeof openid === 'string' && openid.length > 0
-            ? { ...body.channelContext, openid }
+          body.channel === 'wechat' && Object.keys(wechatContext).length > 0
+            ? { ...body.channelContext, ...wechatContext }
             : body.channelContext
         const result = await initiatePayment(params.id, gateway, db, channelContext)
         return result.match(

@@ -278,7 +278,10 @@ export function createWechatPaymentGateway(config: WechatGatewayConfig): WechatP
         ...(isH5
           ? {
               scene_info: {
-                payer_client_ip: '127.0.0.1',
+                payer_client_ip:
+                  typeof input.channelContext?.clientIp === 'string'
+                    ? input.channelContext.clientIp
+                    : '127.0.0.1',
                 h5_info: { type: 'Wap' },
               },
             }

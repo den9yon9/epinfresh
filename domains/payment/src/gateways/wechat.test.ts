@@ -80,6 +80,7 @@ function buildCallback(input: {
 }
 
 // 模拟微信统一下单服务端: 校验商户签名后返回 prepay_id + code_url
+let lastH5Body = ''
 function startFakeWechatServer(
   verifyKey: string,
   opts: {
@@ -154,6 +155,7 @@ function startFakeWechatServer(
           if (!signature || !verifyMessage(verifyKey, message, signature)) {
             return new Response('unauthorized', { status: 401 })
           }
+          lastH5Body = body
           return Response.json({ h5_url: 'https://wxpay.example/h5?out_trade_no=1' })
         },
       },
@@ -664,6 +666,22 @@ describe('wechat gateway H5 and JSAPI ordering', () => {
       type: 'redirect',
       url: 'https://wxpay.example/h5?out_trade_no=1',
     })
+    // 未传 clientIp 时 H5 下单 scene_info 用默认 127.0.0.1
+    expect(JSON.parse(lastH5Body).scene_info.payer_client_ip).toBe('127.0.0.1')
+  })
+
+  test('H5 ordering passes the real client ip from channelContext', async () => {
+    const result = await gateway.createPayment({
+      outTradeNo: 'trade-h5-2',
+      orderId: 'order-1',
+      amount: '25.00',
+      currency: 'CNY',
+      description: 'd',
+      channelContext: { product: 'h5', clientIp: '203.0.113.7' },
+    })
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+    expect(JSON.parse(lastH5Body).scene_info.payer_client_ip).toBe('203.0.113.7')
   })
 
   test('createPayment with openid returns JSAPI pay params signed with RSA', async () => {

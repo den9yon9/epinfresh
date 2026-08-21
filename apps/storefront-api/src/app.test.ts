@@ -1013,6 +1013,34 @@ describe('wechat payment through the real notify route', () => {
     expect(afterPayment.status).toBe('succeeded')
     expect(afterPayment.providerTransactionId).toMatch(/^mock-txn-/)
   })
+
+  test('H5 order through the real route returns a redirect payload', async () => {
+    const user = await seedUser('wechat-h5@example.com')
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('pear', '25.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const orderRes = await wechatApi.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    if (orderRes.error !== null) throw orderRes.error
+    const orderId = orderRes.data.id
+
+    // 带 X-Forwarded-For + product=h5: 路由注入 clientIp 并走 H5 下单
+    const payRes = await wechatApi
+      .orders({ id: orderId })
+      .pay.post(
+        { channel: 'wechat', channelContext: { product: 'h5' } },
+        { fetch: { headers: { cookie, 'x-forwarded-for': '203.0.113.9' } } },
+      )
+    expect(payRes.status).toBe(201)
+    if (payRes.error !== null) throw payRes.error
+    expect(payRes.data.payload).toMatchObject({
+      type: 'redirect',
+      url: expect.stringContaining('/__h5__/pay'),
+    })
+  })
 })
 
 describe('products', () => {
