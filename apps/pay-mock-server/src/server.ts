@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto'
+
 import {
   type AlipayMockContext,
   closeAlipayTransaction,
@@ -126,6 +128,40 @@ export function startPayMockServer(config: PayMockServerConfig): PayMockServer {
           }
           return Response.json(closeAlipayTransaction(alipayCtx, body))
         },
+      },
+      // 公众号网页授权 + JS-SDK 模拟端点(与真实 open/api.weixin.qq.com 结构一致)
+      '/connect/oauth2/authorize': {
+        GET: (req) => {
+          const url = new URL(req.url)
+          const redirectUri = url.searchParams.get('redirect_uri') ?? ''
+          const state = url.searchParams.get('state') ?? ''
+          const callback = new URL(redirectUri)
+          callback.searchParams.set('code', `mock-oauth-code-${randomBytes(8).toString('hex')}`)
+          if (state) callback.searchParams.set('state', state)
+          return new Response(null, { status: 302, headers: { Location: callback.toString() } })
+        },
+      },
+      '/sns/oauth2/access_token': {
+        GET: () =>
+          Response.json({
+            access_token: 'mock-access-token',
+            expires_in: 7200,
+            refresh_token: 'mock-refresh-token',
+            openid: 'mock-openid-oauth-1',
+            scope: 'snsapi_base',
+          }),
+      },
+      '/cgi-bin/token': {
+        GET: () => Response.json({ access_token: 'mock-jsapi-access-token', expires_in: 7200 }),
+      },
+      '/cgi-bin/ticket/getticket': {
+        GET: () =>
+          Response.json({
+            errcode: 0,
+            errmsg: 'ok',
+            ticket: 'mock-jsapi-ticket',
+            expires_in: 7200,
+          }),
       },
     },
   })

@@ -41,6 +41,13 @@ function createTestDeps(deps: {
   return {
     ...deps,
     paymentGateways: createPaymentGateways([{ channel: 'mock' }]),
+    wechatOauth: {
+      enabled: false,
+      baseUrl: '',
+      apiBase: '',
+      appId: '',
+      appSecret: '',
+    },
     sessionSecret: env.TESTING_SESSION_SECRET,
     corsOrigin: true,
     trustProxy: false,
@@ -1018,5 +1025,83 @@ describe('products', () => {
     if (res.error !== null) throw res.error
     expect(res.data.total).toBe(1)
     expect(res.data.items[0].slug).toBe('apple')
+  })
+})
+
+describe('wechat oauth + jssdk', () => {
+  let oauthMock: PayMockServer
+  let oauthApp: App
+  let oauthApi: ReturnType<typeof treaty<typeof oauthApp>>
+
+  beforeAll(async () => {
+    const keys = generateRsaKeyPair()
+    oauthMock = startPayMockServer({
+      port: 0,
+      merchantId: 'mock-merchant-1',
+      appId: 'mock-app-1',
+      apiV3Key: '0123456789abcdef0123456789abcdef',
+      merchantPrivateKey: keys.privateKey,
+      platformPrivateKey: keys.privateKey,
+      platformSerialNo: 'P-SERIAL-MOCK',
+      notifyUrl: 'http://localhost:1/unused',
+    })
+    oauthApp = buildApp({
+      ...createTestDeps({ db, redis, emailQueue }),
+      wechatOauth: {
+        enabled: true,
+        baseUrl: oauthMock.url,
+        apiBase: oauthMock.url,
+        appId: 'mock-app-1',
+        appSecret: 'mock-secret',
+      },
+    })
+    await oauthApp.listen(0)
+    oauthApi = treaty<typeof oauthApp>(oauthApp)
+  })
+
+  afterAll(async () => {
+    oauthMock.stop()
+    oauthApp.server?.stop(true)
+  })
+
+  test('authorize → callback 302 with openid cookie → jssdk signature', async () => {
+    // 用 127.0.0.1 直连, 保证回调 URL 命中同一监听地址
+    const port = oauthApp.server?.port
+    if (!port) throw new Error('oauth app did not bind')
+
+    // 1. 授权入口 302 到 oauth base(redirect_uri 指向本应用回调)
+    const auth = await fetch(
+      `http://127.0.0.1:${port}/auth/wechat/authorize?redirectTo=${encodeURIComponent('/pay?orderId=abc')}`,
+      { redirect: 'manual' },
+    )
+    expect(auth.status).toBe(302)
+    const authLoc = auth.headers.get('location') ?? ''
+    expect(authLoc).toContain('/connect/oauth2/authorize')
+    expect(authLoc).toContain('redirect_uri=')
+
+    // 2. 模拟微信授权页: 302 回跳本应用回调(code 换 openid), 再取回调响应的 set-cookie
+    const oauthRedirect = await fetch(authLoc, { redirect: 'manual' })
+    expect(oauthRedirect.status).toBe(302)
+    const callbackLoc = oauthRedirect.headers.get('location') ?? ''
+    expect(callbackLoc).toContain('/auth/wechat/callback')
+
+    const callback = await fetch(callbackLoc, { redirect: 'manual' })
+    expect(callback.status).toBe(302)
+    const cookieHeader = callback.headers.get('set-cookie') ?? ''
+    expect(cookieHeader).toContain('wechat_openid=')
+
+    // 3. JS-SDK 签名
+    const js = await oauthApi.wechat.jssdk.get({
+      query: { url: 'http://localhost/pay?orderId=abc' },
+    })
+    expect(js.status).toBe(200)
+    if (js.error !== null) throw js.error
+    expect(js.data.appId).toBe('mock-app-1')
+    expect(js.data.signature).toMatch(/^[0-9a-f]{40}$/)
+  })
+
+  test('jssdk returns 400 when oauth is disabled', async () => {
+    const res = await api.wechat.jssdk.get({ query: { url: 'http://localhost/pay' } })
+    expect(res.status).toBe(400)
   })
 })

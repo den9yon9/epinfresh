@@ -12,11 +12,14 @@ import { createOrderRoutes } from './routes/order'
 import { createPaymentRoutes } from './routes/payment'
 import { createProductRoutes } from './routes/product'
 import { createUserRoutes } from './routes/user'
+import { createWechatRoutes } from './routes/wechat'
 
 export function buildApp(options: StorefrontAppOptions) {
   const plugins = createPlugins(options)
   const enableDocs = !options.isProduction
-  return new Elysia({ cookie: { secrets: options.sessionSecret, sign: ['session_id'] } })
+  return new Elysia({
+    cookie: { secrets: options.sessionSecret, sign: ['session_id', 'wechat_openid'] },
+  })
     .use(requestLogger(options.logger))
     .use(securityHeaders(options.isProduction))
     .use(plugins.redisPlugin)
@@ -39,6 +42,7 @@ export function buildApp(options: StorefrontAppOptions) {
     .use(createProductRoutes(plugins))
     .use(createOrderRoutes(plugins))
     .use(createPaymentRoutes(plugins))
+    .use(createWechatRoutes(plugins))
     .get('/health', ({ db, redis }) => healthCheck({ db, redis }))
 }
 

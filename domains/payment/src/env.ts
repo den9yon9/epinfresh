@@ -45,6 +45,11 @@ export const paymentEnvSchema = Type.Object({
   WECHAT_MERCHANT_PRIVATE_KEY_PATH: Type.String({ default: '' }),
   WECHAT_PLATFORM_PUBLIC_KEY_PATH: Type.String({ default: '' }),
   WECHAT_NOTIFY_URL: Type.String({ default: '' }),
+  // 公众号网页授权 + JS-SDK(仅含 wechat 且走 JSAPI 时必需); WECHAT_APP_ID 复用为 appid
+  // authorize 走 open.weixin.qq.com; token/ticket/sns 走 api.weixin.qq.com(联调都指向 mock)
+  WECHAT_OAUTH_BASE: Type.String({ default: 'https://open.weixin.qq.com' }),
+  WECHAT_OAUTH_API_BASE: Type.String({ default: 'https://api.weixin.qq.com' }),
+  WECHAT_APP_SECRET: Type.String({ default: '' }),
   // --- 支付宝(仅含 alipay 时必需) ---
   // 网关端点: 真实 https://openapi.alipay.com; 联调期指向本地 pay-mock-server
   ALIPAY_API_BASE: Type.String({ default: 'https://openapi.alipay.com' }),

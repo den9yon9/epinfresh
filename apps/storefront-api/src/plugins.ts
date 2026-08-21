@@ -6,7 +6,7 @@ import { type Logger } from '@epinfresh/shared'
 import { type SendEmailJobData } from '@epinfresh/user/jobs'
 import { Elysia } from 'elysia'
 
-import { type StorefrontAppOptions } from './deps'
+import { type StorefrontAppOptions, type WechatOauthConfig } from './deps'
 
 export interface StorefrontPlugins {
   dbPlugin: ReturnType<typeof dbPlugin>
@@ -15,6 +15,7 @@ export interface StorefrontPlugins {
   emailQueuePlugin: ReturnType<typeof createEmailQueuePlugin>
   authRateLimit: ReturnType<typeof authRateLimit>
   paymentGateways: Record<PaymentChannel, PaymentGateway>
+  wechatOauth: WechatOauthConfig
   isProduction: boolean
   logger: Logger
 }
@@ -35,6 +36,7 @@ export function createPlugins(
     redis,
     emailQueue,
     paymentGateways,
+    wechatOauth,
     sessionSecret,
     trustProxy,
     isProduction,
@@ -56,6 +58,7 @@ export function createPlugins(
       trustProxy,
     }),
     paymentGateways,
+    wechatOauth,
     isProduction,
     logger,
   }

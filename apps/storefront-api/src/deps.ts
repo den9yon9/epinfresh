@@ -2,20 +2,33 @@ import { createDb, type Db } from '@epinfresh/database'
 import {
   createPaymentGatewaysFromEnv,
   type PaymentChannel,
+  paymentEnvSchema,
   type PaymentGateway,
 } from '@epinfresh/payment'
 import { createQueue, type Queue } from '@epinfresh/queue'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
-import { createLogger, type Logger } from '@epinfresh/shared'
+import { createLogger, type Logger, parseEnv } from '@epinfresh/shared'
 import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 
 import { type StorefrontEnv } from './env'
+
+export interface WechatOauthConfig {
+  // 是否启用(PAYMENT_GATEWAY 含 wechat 且有 appSecret)
+  enabled: boolean
+  // 授权页(open.weixin.qq.com)
+  baseUrl: string
+  // 公众号 API(token/ticket/sns, api.weixin.qq.com)
+  apiBase: string
+  appId: string
+  appSecret: string
+}
 
 export interface StorefrontAppOptions {
   db: Db
   redis: Redis
   emailQueue: Queue<SendEmailJobData>
   paymentGateways: Record<PaymentChannel, PaymentGateway>
+  wechatOauth: WechatOauthConfig
   sessionSecret: string
   corsOrigin: true | string | string[]
   trustProxy: boolean
@@ -27,12 +40,22 @@ export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
   // 单条 Redis 连接全进程共享: session/rateLimit 直接用, BullMQ(生产者)复用同一实例
   // (bullmq v5 传实例即自动共享, close() 不会释放, 由 redisPlugin.onStop 统一 quit)
   const redis = createRedisClient(env.REDIS_URL)
+  // 共享支付 env: 渠道注册表 + 公众号 OAuth/JS-SDK 配置(同一来源, 避免二次定义)
+  const paymentEnv = parseEnv(paymentEnvSchema, process.env)
   return {
     db: createDb(env.DATABASE_URL),
     redis,
     emailQueue: createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { connection: redis }),
     // 渠道注册表由共享支付 env 助手构建(storefront/admin/worker 三进程同一来源)
     paymentGateways: createPaymentGatewaysFromEnv(process.env),
+    wechatOauth: {
+      enabled:
+        paymentEnv.PAYMENT_GATEWAY.includes('wechat') && paymentEnv.WECHAT_APP_SECRET.length > 0,
+      baseUrl: paymentEnv.WECHAT_OAUTH_BASE,
+      apiBase: paymentEnv.WECHAT_OAUTH_API_BASE,
+      appId: paymentEnv.WECHAT_APP_ID,
+      appSecret: paymentEnv.WECHAT_APP_SECRET,
+    },
     sessionSecret: env.SESSION_SECRET,
     corsOrigin: env.CORS_ORIGIN,
     trustProxy: env.TRUST_PROXY,
