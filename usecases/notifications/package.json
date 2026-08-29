@@ -1,0 +1,23 @@
+{
+  "name": "@epinfresh/notifications",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "bun --env-file=../../.env test --parallel=1"
+  },
+  "dependencies": {
+    "@epinfresh/database": "workspace:*",
+    "@epinfresh/shared": "workspace:*",
+    "@epinfresh/user": "workspace:*"
+  },
+  "devDependencies": {
+    "drizzle-orm": "^0.40.0"
+  }
+}

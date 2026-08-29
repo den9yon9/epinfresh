@@ -18,6 +18,18 @@ export const workerEnvSchema = Type.Object({
   ),
   REDIS_URL: Type.String({ format: 'uri' }),
   DATABASE_URL: Type.String({ format: 'uri' }),
+
+  // 邮件传输: console 只打日志(开发/测试默认), smtp 走 nodemailer(生产)
+  MAIL_TRANSPORT: Type.Union([Type.Literal('console'), Type.Literal('smtp')], {
+    default: 'console',
+  }),
+  SMTP_HOST: Type.Optional(Type.String()),
+  SMTP_PORT: Type.Optional(Type.Number()),
+  SMTP_USER: Type.Optional(Type.String()),
+  SMTP_PASS: Type.Optional(Type.String()),
+  MAIL_FROM: Type.Optional(Type.String()),
+  // 找回密码邮件的重置链接指向 storefront-web
+  STOREFRONT_WEB_URL: Type.String({ format: 'uri', default: 'http://localhost:5173' }),
 })
 
 export type WorkerEnv = StaticDecode<typeof workerEnvSchema>

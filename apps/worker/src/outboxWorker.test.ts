@@ -1,7 +1,10 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
+import { sendPaymentSucceededEmail } from '@epinfresh/notifications'
+import type { OutboxEventHandler } from '@epinfresh/outbox'
 import { insertOutboxEvent, OUTBOX_MAX_ATTEMPTS } from '@epinfresh/outbox'
 import { createLogger } from '@epinfresh/shared'
+import type { SendEmailJobData } from '@epinfresh/user/jobs'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
@@ -34,12 +37,19 @@ async function seedEvent(eventType = 'payment.succeeded') {
 describe('dispatchOutbox', () => {
   test('dispatches a registered event and marks it completed', async () => {
     await seedEvent()
+    const seen: unknown[] = []
+    const handlers: Record<string, OutboxEventHandler> = {
+      'payment.succeeded': (event) => {
+        seen.push(event)
+      },
+    }
 
-    await dispatchOutbox(db, logger)
+    await dispatchOutbox(db, logger, handlers)
 
     const [row] = await db.select().from(schema.outboxEvents)
     expect(row.status).toBe('completed')
     expect(row.processedAt).not.toBeNull()
+    expect(seen).toHaveLength(1)
   })
 
   test('does not lose an event with no registered handler; it enters retry backoff', async () => {
@@ -76,5 +86,54 @@ describe('dispatchOutbox', () => {
         expect(row.status).toBe('failed')
       }
     }
+  })
+
+  test('payment.succeeded bridge enqueues an email job via the notifications usecase', async () => {
+    const [user] = await db
+      .insert(schema.users)
+      .values({ name: 'Alice', email: 'alice@example.com', passwordHash: 'not-a-real-hash' })
+      .returning()
+    const [order] = await db
+      .insert(schema.orders)
+      .values({ userId: user.id, status: 'paid', totalAmount: '25.00' })
+      .returning()
+    const paymentId = crypto.randomUUID()
+    await insertOutboxEvent(db, {
+      eventType: 'payment.succeeded',
+      aggregateType: 'payment',
+      aggregateId: paymentId,
+      payload: {
+        orderId: order.id,
+        paymentId,
+        amount: '25.00',
+        currency: 'CNY',
+        provider: 'mock',
+        paidAt: new Date().toISOString(),
+      },
+    })
+
+    const jobs: { name: string; data: SendEmailJobData; jobId?: string }[] = []
+    // 与 outboxWorker.ts 中注册的桥接 handler 同构(生产者替换为测试桩)
+    const handlers: Record<string, OutboxEventHandler> = {
+      'payment.succeeded': (event) =>
+        sendPaymentSucceededEmail(event, {
+          client: db,
+          emailQueue: {
+            async add(name, data, opts) {
+              jobs.push({ name, data, jobId: opts?.jobId })
+            },
+          },
+        }),
+    }
+
+    await dispatchOutbox(db, logger, handlers)
+
+    const [row] = await db.select().from(schema.outboxEvents)
+    expect(row.status).toBe('completed')
+    expect(jobs).toHaveLength(1)
+    expect(jobs[0].name).toBe('payment-succeeded')
+    expect(jobs[0].jobId).toBe(`payment-succeeded-${paymentId}`)
+    expect(jobs[0].data.to).toBe('alice@example.com')
+    expect(jobs[0].data.payload).toMatchObject({ name: 'Alice', orderId: order.id })
   })
 })

@@ -138,9 +138,14 @@ createEnv() → createDeps(env) → buildApp(options) → createPlugins(options)
 ### 5. 队列
 
 - 队列名 / job 名 / payload 类型定义在领域内 `jobs.ts`（纯契约，零依赖）
-- handler 只消费纯数据 `(data, logger)`，放在领域内（如 `domains/user/src/handlers.ts`）
+- handler 只消费纯数据 `(data, logger)`，放在领域内（如 `domains/user/src/handlers.ts`）；
+  依赖传输实现时用工厂注入（如 `createEmailHandlers(sender, opts)`，sender 接口定义在 jobs.ts）
 - BullMQ 适配（createWorker/createDispatcher/Redis 连接）在 apps/worker；
   消费者在 `registry.ts` 注册；生产方在 app 侧 `createQueue`（默认 3 次重试 + 指数退避）
+- **outbox 事件消费映射在 app 层组装**（`apps/worker/src/outboxWorker.ts` 注入 `dispatchOutbox`）：
+  跨域桥接（如 `payment.succeeded` → 查订单/用户 → 投邮件队列）放 usecases/*（`usecases/notifications`），
+  邮件模板渲染集中在 `apps/worker/src/templates.ts` + `mailer.ts`（`MAIL_TRANSPORT=console|smtp`）。
+  事件投递语义为 at-least-once：下游需幂等（邮件用确定性 jobId 去重）
 
 ### 6. 数据库变更
 

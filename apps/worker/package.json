@@ -12,6 +12,7 @@
   "dependencies": {
     "@epinfresh/checkout": "workspace:*",
     "@epinfresh/database": "workspace:*",
+    "@epinfresh/notifications": "workspace:*",
     "@epinfresh/outbox": "workspace:*",
     "@epinfresh/payment": "workspace:*",
     "@epinfresh/payment-confirm": "workspace:*",
@@ -19,6 +20,10 @@
     "@epinfresh/shared": "workspace:*",
     "@epinfresh/user": "workspace:*",
     "@sinclair/typebox": "^0.34.0",
-    "drizzle-orm": "^0.40.0"
+    "drizzle-orm": "^0.40.0",
+    "nodemailer": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^7.0.0"
   }
 }

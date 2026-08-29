@@ -1,4 +1,5 @@
 import { closeDb, createDb, type Db, withTransaction } from '@epinfresh/database'
+import { sendPaymentSucceededEmail } from '@epinfresh/notifications'
 import {
   claimOutboxBatch,
   completeOutboxEvent,
@@ -14,6 +15,7 @@ import {
 } from '@epinfresh/outbox/jobs'
 import { createDispatcher, createQueue, createWorker, type Worker } from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
+import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 
 export interface OutboxWorker {
   worker: Worker
@@ -26,6 +28,9 @@ export function registerOutboxWorker(
   logger: Logger,
 ): OutboxWorker {
   const db = createDb(databaseUrl, { logger })
+
+  // 邮件队列生产者: outbox 事件桥接到 email worker 的投递出口
+  const emailQueue = createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { redisUrl })
 
   // repeatable job: 每 OUTBOX_POLL_INTERVAL_MS 触发一次 dispatch 扫描。
   // upsertJobScheduler 幂等: 重复启动不会重复注册(以 id 覆盖)。
@@ -40,10 +45,16 @@ export function registerOutboxWorker(
       logger.error({ err }, 'failed to register outbox dispatch scheduler')
     })
 
+  // 事件映射在 app 层组装(见 domains/outbox/src/handlers.ts 的分层说明);
+  // handler 抛错(含收件人缺失等数据异常)由 dispatchOutbox 捕获 → 退避重试/死信。
+  const handlers: Record<string, OutboxEventHandler> = {
+    'payment.succeeded': (event) => sendPaymentSucceededEmail(event, { client: db, emailQueue }),
+  }
+
   const processor = createDispatcher(
     {
       [OUTBOX_JOB_NAMES.DISPATCH]: async (_data, logger) => {
-        await dispatchOutbox(db, logger)
+        await dispatchOutbox(db, logger, handlers)
       },
     },
     logger,
@@ -55,6 +66,7 @@ export function registerOutboxWorker(
     worker,
     close: async () => {
       await queue.close()
+      await emailQueue.close()
       await closeDb(db)
     },
   }
