@@ -111,6 +111,18 @@ describe('cancelOrder', () => {
       .from(schema.payments)
       .where(eq(schema.payments.id, payment.id))
     expect(afterPayment.status).toBe('refunded')
+
+    // 同步退款成功事件与取消/翻转同事务落 outbox
+    const [event] = await db
+      .select()
+      .from(schema.outboxEvents)
+      .where(eq(schema.outboxEvents.eventType, 'refund.succeeded'))
+    expect(event).toBeDefined()
+    expect(event.payload).toMatchObject({
+      paymentId: payment.id,
+      orderId: order.id,
+      amount: '10.00',
+    })
   })
 
   test('does not cancel when the gateway refund is rejected', async () => {
@@ -173,6 +185,13 @@ describe('cancelOrder', () => {
     expect(refunds).toHaveLength(1)
     expect(refunds[0].status).toBe('processing')
     expect(refunds[0].outRefundNo).toBe(`rf-${payment.id}`)
+
+    // 异步退款状态未定, 此处不写 refund.succeeded 事件(成功时由退款通知漏斗补发)
+    const events = await db
+      .select()
+      .from(schema.outboxEvents)
+      .where(eq(schema.outboxEvents.eventType, 'refund.succeeded'))
+    expect(events).toHaveLength(0)
   })
 
   test('rejects cancelling again once a refund record exists', async () => {

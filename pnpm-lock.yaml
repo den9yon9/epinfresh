@@ -71,6 +71,9 @@ importers:
       '@epinfresh/order-cancel':
         specifier: workspace:*
         version: link:../../usecases/order-cancel
+      '@epinfresh/outbox':
+        specifier: workspace:*
+        version: link:../../domains/outbox
       '@epinfresh/payment':
         specifier: workspace:*
         version: link:../../domains/payment
@@ -605,6 +608,9 @@ importers:
       '@epinfresh/order':
         specifier: workspace:*
         version: link:../../domains/order
+      '@epinfresh/outbox':
+        specifier: workspace:*
+        version: link:../../domains/outbox
       '@epinfresh/payment':
         specifier: workspace:*
         version: link:../../domains/payment
@@ -654,6 +660,9 @@ importers:
       '@epinfresh/order':
         specifier: workspace:*
         version: link:../../domains/order
+      '@epinfresh/outbox':
+        specifier: workspace:*
+        version: link:../../domains/outbox
       '@epinfresh/payment':
         specifier: workspace:*
         version: link:../../domains/payment

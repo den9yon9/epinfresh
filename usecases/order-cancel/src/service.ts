@@ -1,5 +1,6 @@
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { type OrderDetail, updateOrderStatus } from '@epinfresh/order'
+import { insertOutboxEvent } from '@epinfresh/outbox'
 import {
   getRefundByOutRefundNo,
   insertRefund,
@@ -63,7 +64,8 @@ export async function cancelOrder(
         }
       }
       if (asyncRefund) {
-        // 异步退款: 只挂退款单, 支付单保持 succeeded, 等退款通知翻转
+        // 异步退款: 只挂退款单, 支付单保持 succeeded, 等退款通知翻转;
+        // 此处不写 refund.succeeded 事件(状态未定), 成功时由退款通知漏斗统一补发
         await insertRefund(
           {
             paymentId: succeeded.id,
@@ -86,7 +88,7 @@ export async function cancelOrder(
           }
         }
       }
-      await insertRefund(
+      const refund = await insertRefund(
         {
           paymentId: succeeded.id,
           orderId,
@@ -98,6 +100,20 @@ export async function cancelOrder(
         },
         tx,
       )
+      // 同步渠道(mock/支付宝)退款成功事件与取消/翻转同事务
+      await insertOutboxEvent(tx, {
+        eventType: 'refund.succeeded',
+        aggregateType: 'refund',
+        aggregateId: refund.id,
+        payload: {
+          refundNo: refund.outRefundNo,
+          paymentId: succeeded.id,
+          orderId,
+          amount: succeeded.amount,
+          currency: succeeded.currency,
+          refundedAt: new Date().toISOString(),
+        },
+      })
       return ok(cancelled.value.order)
     })
   }

@@ -53,6 +53,32 @@ describe('renderEmail', () => {
     expect(email.html).toContain('order-1')
   })
 
+  test('renders refund-succeeded email with refund vars', () => {
+    const email = renderEmail('refund-succeeded', {
+      name: '小明',
+      orderId: 'order-1',
+      refundNo: 'rf-1',
+      amount: '25.00',
+      currency: 'CNY',
+    })
+    expect(email.subject).toContain('退款')
+    expect(email.html).toContain('¥25.00')
+    expect(email.html).toContain('rf-1')
+  })
+
+  test('renders order-shipped email; trackingNumber is optional', () => {
+    const withTracking = renderEmail('order-shipped', {
+      name: '小明',
+      orderId: 'order-1',
+      trackingNumber: 'SF123',
+    })
+    expect(withTracking.subject).toContain('发货')
+    expect(withTracking.html).toContain('SF123')
+
+    const withoutTracking = renderEmail('order-shipped', { name: '小明', orderId: 'order-1' })
+    expect(withoutTracking.html).not.toContain('运单号')
+  })
+
   test('throws on unknown template', () => {
     expect(() => renderEmail('nope' as never, {})).toThrow(/unknown email template/)
   })

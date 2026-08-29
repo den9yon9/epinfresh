@@ -62,6 +62,21 @@ describe('refundOrderWorkflow', () => {
     expect(afterPayment.status).toBe('refunded')
     const [afterOrder] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
     expect(afterOrder.status).toBe('refunded')
+
+    // 同步渠道退款成功事件与状态翻转同事务落 outbox
+    const refundNo = result._unsafeUnwrap().refund.outRefundNo
+    const [event] = await db
+      .select()
+      .from(schema.outboxEvents)
+      .where(eq(schema.outboxEvents.eventType, 'refund.succeeded'))
+    expect(event).toBeDefined()
+    expect(event.payload).toMatchObject({
+      refundNo,
+      paymentId: payment.id,
+      orderId: order.id,
+      amount: '25.00',
+      currency: 'CNY',
+    })
   })
 
   test('rejects refunding a pending order', async () => {

@@ -21,6 +21,7 @@
     "@epinfresh/http": "workspace:*",
     "@epinfresh/order": "workspace:*",
     "@epinfresh/order-cancel": "workspace:*",
+    "@epinfresh/outbox": "workspace:*",
     "@epinfresh/payment": "workspace:*",
     "@epinfresh/payment-confirm": "workspace:*",
     "@epinfresh/payment-refund": "workspace:*",

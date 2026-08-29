@@ -14,7 +14,7 @@
 | 退款     | 异步两段式状态机（refunds 表），abnormal 自动换号重试                                                                  |
 | 对账     | worker 周期扫描超时支付单/退款单，拉渠道侧真值兜底修复                                                                 |
 | 管理后台 | Dashboard、订单发货、商品/分类/用户 CRUD、全额退款                                                                     |
-| 邮件通知 | outbox 事件 → 邮件队列 → SMTP：欢迎 / 找回密码 / 支付成功（`MAIL_TRANSPORT=console\|smtp`）                            |
+| 邮件通知 | outbox 事件 → 邮件队列 → SMTP：欢迎 / 找回密码 / 支付成功 / 退款成功 / 发货（`MAIL_TRANSPORT=console\|smtp`）          |
 | 用户     | 注册登录（argon2）/ 找回密码 / Redis 会话 / 路由级限流 / 微信公众号 OAuth                                              |
 
 ## 架构

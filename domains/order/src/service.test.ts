@@ -248,6 +248,61 @@ describe('shipOrder', () => {
     expect(shipped.items).toHaveLength(1)
   })
 
+  test('onShipped fires once on the paid → shipped transition inside the transaction', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(order.id, 'paid', db)
+    const seen: { orderId: string; trackingNumber: string | null; shippedAt: string }[] = []
+
+    const result = await shipOrder(order.id, 'SF123', db, {
+      onShipped: async (tx, event) => {
+        // 回调持有事务客户端: 事件写入与状态翻转同事务(此处仅记录, 实际由 app 层写 outbox)
+        expect(tx).toBeDefined()
+        seen.push(event)
+      },
+    })
+
+    expect(result.isOk()).toBe(true)
+    expect(seen).toHaveLength(1)
+    expect(seen[0].orderId).toBe(order.id)
+    expect(seen[0].trackingNumber).toBe('SF123')
+    expect(seen[0].shippedAt).toBe((result._unsafeUnwrap().shippedAt ?? new Date()).toISOString())
+  })
+
+  test('onShipped does not fire on tracking-number re-ship (idempotent)', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(order.id, 'paid', db)
+    let calls = 0
+
+    await shipOrder(order.id, 'SF123', db, {
+      onShipped: async () => {
+        calls += 1
+      },
+    })
+    const reShip = await shipOrder(order.id, 'SF456', db, {
+      onShipped: async () => {
+        calls += 1
+      },
+    })
+
+    expect(reShip.isOk()).toBe(true)
+    expect(reShip._unsafeUnwrap().trackingNumber).toBe('SF456')
+    expect(calls).toBe(1)
+  })
+
+  test('works without onShipped (backward compatible)', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(order.id, 'paid', db)
+
+    const result = await shipOrder(order.id, 'SF123', db)
+    expect(result.isOk()).toBe(true)
+  })
+
   test('re-shipping is idempotent and only updates the tracking number', async () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)

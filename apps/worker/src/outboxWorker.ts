@@ -1,5 +1,9 @@
 import { closeDb, createDb, type Db, withTransaction } from '@epinfresh/database'
-import { sendPaymentSucceededEmail } from '@epinfresh/notifications'
+import {
+  sendOrderShippedEmail,
+  sendPaymentSucceededEmail,
+  sendRefundSucceededEmail,
+} from '@epinfresh/notifications'
 import {
   claimOutboxBatch,
   completeOutboxEvent,
@@ -49,8 +53,9 @@ export function registerOutboxWorker(
   // handler 抛错(含收件人缺失等数据异常)由 dispatchOutbox 捕获 → 退避重试/死信。
   const handlers: Record<string, OutboxEventHandler> = {
     'payment.succeeded': (event) => sendPaymentSucceededEmail(event, { client: db, emailQueue }),
+    'refund.succeeded': (event) => sendRefundSucceededEmail(event, { client: db, emailQueue }),
+    'order.shipped': (event) => sendOrderShippedEmail(event, { client: db, emailQueue }),
   }
-
   const processor = createDispatcher(
     {
       [OUTBOX_JOB_NAMES.DISPATCH]: async (_data, logger) => {

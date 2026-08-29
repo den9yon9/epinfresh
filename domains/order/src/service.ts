@@ -213,10 +213,23 @@ export async function markOrderRefunded(
 
 // 发货: 只有 paid 可发货; 已 shipped 时重复调用仅补/更运单号(幂等)。CAS 防并发双发货,
 // 状态流转 + 运单号 + shippedAt 在同一事务内原子提交, 不会出现"已发货但无运单号"的半态。
+// onShipped 由调用方(app 层)注入(域不依赖 outbox): 仅 paid → shipped 真实转变时在
+// 同一事务内回调写 order.shipped 事件; 已 shipped 的运单号补录不触发(不重发邮件)。
+export interface OrderShippedEvent {
+  orderId: string
+  trackingNumber: string | null
+  shippedAt: string
+}
+
+export interface ShipOrderOptions {
+  onShipped?: (client: DbClient, event: OrderShippedEvent) => Promise<void>
+}
+
 export async function shipOrder(
   orderId: string,
   trackingNumber: string | undefined,
   client: DbClient,
+  opts: ShipOrderOptions = {},
 ): Promise<Result<OrderDetail, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'>> {
   return withTransaction(client, async (tx) => {
     const [order] = await tx.select().from(schema.orders).where(eq(schema.orders.id, orderId))
@@ -224,6 +237,7 @@ export async function shipOrder(
     if (order.status !== 'paid' && order.status !== 'shipped') {
       return err('INVALID_TRANSITION')
     }
+    const firstShipment = order.status === 'paid'
     const [updated] = await tx
       .update(schema.orders)
       .set({
@@ -238,6 +252,14 @@ export async function shipOrder(
       .select()
       .from(schema.orderItems)
       .where(eq(schema.orderItems.orderId, orderId))
+    if (firstShipment && opts.onShipped) {
+      await opts.onShipped(tx, {
+        orderId,
+        trackingNumber: updated.trackingNumber,
+        // 本事务内刚写入, 运行时必非空; 类型上列可空故兜底
+        shippedAt: (updated.shippedAt ?? new Date()).toISOString(),
+      })
+    }
     return ok({ ...updated, items })
   })
 }

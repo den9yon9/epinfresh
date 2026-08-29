@@ -30,5 +30,9 @@ export function createEmailHandlers(
     },
     [EMAIL_JOB_NAMES.PAYMENT_SUCCEEDED]: (data) =>
       sender.send(EMAIL_JOB_NAMES.PAYMENT_SUCCEEDED, data.to, data.payload),
+    [EMAIL_JOB_NAMES.REFUND_SUCCEEDED]: (data) =>
+      sender.send(EMAIL_JOB_NAMES.REFUND_SUCCEEDED, data.to, data.payload),
+    [EMAIL_JOB_NAMES.ORDER_SHIPPED]: (data) =>
+      sender.send(EMAIL_JOB_NAMES.ORDER_SHIPPED, data.to, data.payload),
   }
 }

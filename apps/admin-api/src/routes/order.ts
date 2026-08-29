@@ -7,6 +7,7 @@ import {
 } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { cancelOrder } from '@epinfresh/order-cancel'
+import { insertOutboxEvent } from '@epinfresh/outbox'
 import { listPaymentsByOrder } from '@epinfresh/payment'
 import * as PaymentModel from '@epinfresh/payment/model'
 import { refundOrderWorkflow } from '@epinfresh/payment-refund'
@@ -114,7 +115,20 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     .post(
       '/orders/:id/ship',
       async ({ params, body, db }) => {
-        const result = await shipOrder(params.id, body.trackingNumber, db)
+        // app 层注入 outbox 事件写入(order 域不依赖 outbox): 仅 paid → shipped 转变时触发
+        const result = await shipOrder(params.id, body.trackingNumber, db, {
+          onShipped: (tx, event) =>
+            insertOutboxEvent(tx, {
+              eventType: 'order.shipped',
+              aggregateType: 'order',
+              aggregateId: event.orderId,
+              payload: {
+                orderId: event.orderId,
+                trackingNumber: event.trackingNumber,
+                shippedAt: event.shippedAt,
+              },
+            }),
+        })
         return result.match(
           (order) => order,
           (e) => {

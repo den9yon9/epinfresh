@@ -93,6 +93,59 @@ export function renderEmail(template: EmailTemplate, vars: Record<string, unknow
         text: `你好，${name}！你的订单已支付成功：金额 ¥${amount}（${currency}），渠道 ${channel}，订单编号 ${orderId}。我们将尽快为你安排发货。`,
       }
     }
+    case 'refund-succeeded': {
+      const name = String(vars.name ?? '')
+      const orderId = String(vars.orderId ?? '')
+      const refundNo = String(vars.refundNo ?? '')
+      const amount = String(vars.amount ?? '')
+      const currency = String(vars.currency ?? '')
+      if (!name || !orderId || !refundNo || !amount || !currency) {
+        throw new Error(
+          'refund-succeeded email requires name/orderId/refundNo/amount/currency vars',
+        )
+      }
+      return {
+        subject: '退款成功通知',
+        html: layout(
+          '退款成功通知',
+          paragraphs([
+            `你好，${name}！`,
+            `你的退款已成功：¥${amount}（${currency}）将原路退回。`,
+            `订单编号：${orderId} · 退款单号：${refundNo}`,
+            '到账时间以支付渠道为准，通常 1-3 个工作日内。',
+          ]),
+        ),
+        text: `你好，${name}！你的退款已成功：¥${amount}（${currency}）将原路退回，订单编号 ${orderId}，退款单号 ${refundNo}。到账时间以支付渠道为准。`,
+      }
+    }
+    case 'order-shipped': {
+      const name = String(vars.name ?? '')
+      const orderId = String(vars.orderId ?? '')
+      const trackingNumber =
+        typeof vars.trackingNumber === 'string' && vars.trackingNumber.length > 0
+          ? vars.trackingNumber
+          : undefined
+      if (!name || !orderId) {
+        throw new Error('order-shipped email requires name/orderId vars')
+      }
+      const lines = [
+        `你好，${name}！`,
+        '你的订单已发货，正在奔向你的餐桌。',
+        `订单编号：${orderId}`,
+      ]
+      if (trackingNumber) lines.push(`运单号：${trackingNumber}`)
+      lines.push('可在「我的订单」中查看物流进度。')
+      const text = [
+        `你好，${name}！你的订单已发货（订单编号 ${orderId}）`,
+        trackingNumber ? `，运单号 ${trackingNumber}` : '',
+        '，可在「我的订单」中查看物流进度。',
+      ].join('')
+      return {
+        subject: '订单已发货',
+        html: layout('订单已发货', paragraphs(lines)),
+        text,
+      }
+    }
     default: {
       // EmailTemplate 联合已穷举, 运行时仅防未知字符串 (job 名与模板漂移)
       throw new Error(`unknown email template: ${template}`)

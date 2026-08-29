@@ -4,6 +4,8 @@ export const EMAIL_JOB_NAMES = {
   WELCOME: 'welcome',
   RESET_PASSWORD: 'reset-password',
   PAYMENT_SUCCEEDED: 'payment-succeeded',
+  REFUND_SUCCEEDED: 'refund-succeeded',
+  ORDER_SHIPPED: 'order-shipped',
 } as const
 
 // job 名即模板名: 消费端 (worker mailer) 按 template 渲染, 生产端只传业务 vars

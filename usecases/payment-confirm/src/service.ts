@@ -160,6 +160,21 @@ export async function confirmRefundByWebhookEvent(
 
     // 订单已 cancelled 等终态时跳过订单翻转, 退款仍成立
     await markOrderRefunded(updated.value.orderId, tx)
+
+    // 退款成功事件与状态翻转同事务; 退款通知与对账兜底(合成事件)共用此漏斗, 只此一处写事件
+    await insertOutboxEvent(tx, {
+      eventType: 'refund.succeeded',
+      aggregateType: 'refund',
+      aggregateId: updated.value.id,
+      payload: {
+        refundNo: updated.value.outRefundNo,
+        paymentId: updated.value.paymentId,
+        orderId: updated.value.orderId,
+        amount: updated.value.amount,
+        currency: updated.value.currency,
+        refundedAt: new Date().toISOString(),
+      },
+    })
     return ok(null)
   })
 }

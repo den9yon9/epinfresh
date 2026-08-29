@@ -1,5 +1,6 @@
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { markOrderRefunded, type OrderDetail } from '@epinfresh/order'
+import { insertOutboxEvent } from '@epinfresh/outbox'
 import {
   getRefundByOutRefundNo,
   insertRefund,
@@ -112,6 +113,20 @@ export async function refundOrderWorkflow(
       },
       tx,
     )
+    // 同步渠道(mock/支付宝)退款成功事件与状态翻转同事务
+    await insertOutboxEvent(tx, {
+      eventType: 'refund.succeeded',
+      aggregateType: 'refund',
+      aggregateId: refund.id,
+      payload: {
+        refundNo: refund.outRefundNo,
+        paymentId: payment.id,
+        orderId,
+        amount: payment.amount,
+        currency: payment.currency,
+        refundedAt: new Date().toISOString(),
+      },
+    })
     return ok({ payment: paymentResult.value, order: orderResult.value.order, refund })
   })
 }
