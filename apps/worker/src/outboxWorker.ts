@@ -9,8 +9,10 @@ import {
   completeOutboxEvent,
   failOutboxEvent,
   OUTBOX_BATCH_SIZE,
+  OUTBOX_STALE_THRESHOLD_MS,
   type OutboxEventHandler,
   outboxHandlers,
+  resetStaleOutboxEvents,
 } from '@epinfresh/outbox'
 import {
   OUTBOX_JOB_NAMES,
@@ -77,13 +79,23 @@ export function registerOutboxWorker(
   }
 }
 
-// 单次扫描: 原子抢占一批 → 按 event_type 分发 → 成功标记 / 失败退避或死信。
+// 单次扫描: 先回收卡死的 processing 事件(claim 方崩溃自愈) → 原子抢占一批 →
+// 按 event_type 分发 → 成功标记 / 失败退避或死信。
 // handlers 可注入以便测试; 默认用域注册表。
 export async function dispatchOutbox(
   db: Db,
   logger: Logger,
   handlers: Record<string, OutboxEventHandler> = outboxHandlers,
 ): Promise<void> {
+  const staleBefore = new Date(Date.now() - OUTBOX_STALE_THRESHOLD_MS)
+  const reset = await resetStaleOutboxEvents(db, staleBefore)
+  if (reset > 0) {
+    logger.warn(
+      { reset, staleBefore },
+      'reset stale outbox events stuck in processing back to pending',
+    )
+  }
+
   const claimed = await withTransaction(db, (tx) => claimOutboxBatch(tx, OUTBOX_BATCH_SIZE))
   for (const event of claimed) {
     const handler = handlers[event.eventType]

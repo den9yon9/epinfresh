@@ -2,7 +2,12 @@ import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { sendPaymentSucceededEmail } from '@epinfresh/notifications'
 import type { OutboxEventHandler } from '@epinfresh/outbox'
-import { insertOutboxEvent, OUTBOX_MAX_ATTEMPTS } from '@epinfresh/outbox'
+import {
+  claimOutboxBatch,
+  insertOutboxEvent,
+  OUTBOX_MAX_ATTEMPTS,
+  OUTBOX_STALE_THRESHOLD_MS,
+} from '@epinfresh/outbox'
 import { createLogger } from '@epinfresh/shared'
 import type { SendEmailJobData } from '@epinfresh/user/jobs'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
@@ -86,6 +91,32 @@ describe('dispatchOutbox', () => {
         expect(row.status).toBe('failed')
       }
     }
+  })
+
+  test('reclaims an event left processing by a crashed worker and dispatches it', async () => {
+    await seedEvent()
+    const seen: unknown[] = []
+    const handlers: Record<string, OutboxEventHandler> = {
+      'payment.succeeded': (event) => {
+        seen.push(event)
+      },
+    }
+
+    // 模拟崩溃: claim 后进程死亡, updated_at 停留在阈值之前
+    const [crashed] = await claimOutboxBatch(db)
+    await db
+      .update(schema.outboxEvents)
+      .set({ updatedAt: new Date(Date.now() - OUTBOX_STALE_THRESHOLD_MS - 1000) })
+      .where(eq(schema.outboxEvents.id, crashed.id))
+
+    await dispatchOutbox(db, logger, handlers)
+
+    const [row] = await db.select().from(schema.outboxEvents)
+    expect(row.status).toBe('completed')
+    expect(row.processedAt).not.toBeNull()
+    // 崩溃那次 claim 已计一次, 回收重投递增到 2
+    expect(row.attempts).toBe(2)
+    expect(seen).toHaveLength(1)
   })
 
   test('payment.succeeded bridge enqueues an email job via the notifications usecase', async () => {

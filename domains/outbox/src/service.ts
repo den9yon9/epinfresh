@@ -1,5 +1,5 @@
 import { type DbClient, type OutboxEventStatus, schema } from '@epinfresh/database'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, lt, sql } from 'drizzle-orm'
 
 export interface OutboxEventInput {
   eventType: string
@@ -14,6 +14,9 @@ export type OutboxEventRecord = typeof schema.outboxEvents.$inferSelect
 export const OUTBOX_BATCH_SIZE = 20
 // 超过次数进死信(failed), 由人工/告警介入
 export const OUTBOX_MAX_ATTEMPTS = 5
+// processing 卡死判定阈值: claim 后进程崩溃的事件永远停在 processing(claim 只捞 pending),
+// 超过该时长视为 claim 方已死, 回收重投。正常 handler 为毫秒级(入队出站), 余量充足。
+export const OUTBOX_STALE_THRESHOLD_MS = 5 * 60 * 1000
 const RETRY_BASE_DELAY_MS = 1000
 const RETRY_MAX_DELAY_MS = 60000
 
@@ -81,4 +84,24 @@ export async function failOutboxEvent(
       nextRetryAt: deadLettered ? null : new Date(Date.now() + retryDelayMs(attempts)),
     })
     .where(and(eq(schema.outboxEvents.id, id), eq(schema.outboxEvents.status, 'processing')))
+}
+
+// 回收卡死的 processing 事件: claim 后 claim 方崩溃则无人 complete/fail,
+// 行永久停在 processing(claim 只捞 pending)。对 processing 行而言 updated_at
+// 即 claim 时刻(claim 后无任何 UPDATE 触碰该行), 故以 updated_at < staleBefore
+// 判定 claim 方已死。复位 pending 且 next_retry_at=now(本轮 claim 即可重投);
+// attempts 不动——崩溃那次已计入, 反复崩溃自然收敛到死信, 不会无限回收。
+// 返回重置行数, >0 即发生过崩溃/误回收, 调用方应记 warn。
+export async function resetStaleOutboxEvents(client: DbClient, staleBefore: Date): Promise<number> {
+  const rows = await client
+    .update(schema.outboxEvents)
+    .set({ status: 'pending', nextRetryAt: new Date() })
+    .where(
+      and(
+        eq(schema.outboxEvents.status, 'processing'),
+        lt(schema.outboxEvents.updatedAt, staleBefore),
+      ),
+    )
+    .returning({ id: schema.outboxEvents.id })
+  return rows.length
 }
