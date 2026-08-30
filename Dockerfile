@@ -18,7 +18,8 @@ WORKDIR /app
 # 1. 仅子图依赖清单(含 pruned lockfile)先行, 命中 Docker 缓存层
 COPY --from=pruner /app/out/json/ .
 
-RUN bun add -g pnpm && pnpm install --frozen-lockfile --prod --ignore-scripts
+# pnpm 钉在与 packageManager 一致的版本: pnpm 11+ 依赖 node:sqlite, Bun 1.2 无此模块
+RUN bun add -g pnpm@10.7.0 && pnpm install --frozen-lockfile --prod --ignore-scripts
 
 # 2. 复制子图实际源码
 COPY --from=pruner /app/out/full/ .
