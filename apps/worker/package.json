@@ -12,6 +12,8 @@
   "dependencies": {
     "@epinfresh/checkout": "workspace:*",
     "@epinfresh/database": "workspace:*",
+    "@epinfresh/logistics": "workspace:*",
+    "@epinfresh/logistics-sync": "workspace:*",
     "@epinfresh/notifications": "workspace:*",
     "@epinfresh/order": "workspace:*",
     "@epinfresh/outbox": "workspace:*",

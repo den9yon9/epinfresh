@@ -10,6 +10,13 @@ export { cartItems } from './cart/cart-items'
 export { checkoutIdempotencyKeys } from './checkout/checkout-idempotency-keys'
 // order 域
 export { orderItems } from './order/order-items'
+// logistics 域(轨迹快照, worker 轮询承运商拉取)
+export {
+  LOGISTICS_TRACK_STATUS,
+  logisticsTracks,
+  type LogisticsTrackStatus,
+  logisticsTrackStatus,
+} from './logistics/logistics-tracks'
 // outbox 域(领域事件持久化, 事务内写入, worker 异步投递)
 export { ORDER_STATUS, orders, type OrderStatus, orderStatus } from './order/orders'
 export {

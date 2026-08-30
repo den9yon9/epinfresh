@@ -12,6 +12,11 @@ import * as schema from './schema'
 
 export { schema }
 export { emailSchema, table } from './model'
+export {
+  LOGISTICS_TRACK_STATUS,
+  type LogisticsTrackEventData,
+  type LogisticsTrackStatus,
+} from './schema/logistics/logistics-tracks'
 export { ORDER_STATUS, type OrderStatus } from './schema/order/orders'
 export { OUTBOX_EVENT_STATUS, type OutboxEventStatus } from './schema/outbox/outbox-events'
 export { PAYMENT_STATUS, type PaymentStatus } from './schema/payment/payments'

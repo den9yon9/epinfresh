@@ -10,6 +10,16 @@ logger.info('Worker application starting...')
 
 const { workers, close } = registerWorkers(env, logger)
 
+// 可选健康端点: 容器健康检查与 e2e 就绪探测(未设 HEALTH_PORT 则不起)
+if (env.HEALTH_PORT) {
+  const port = Number(env.HEALTH_PORT)
+  Bun.serve({
+    port,
+    fetch: () => new Response('ok'),
+  })
+  logger.info({ port }, 'worker health endpoint listening')
+}
+
 async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down worker...')
   const results = await Promise.allSettled(workers.map((worker) => worker.close()))

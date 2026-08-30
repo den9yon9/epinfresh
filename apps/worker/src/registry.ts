@@ -3,6 +3,7 @@ import type { Worker } from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
 
 import type { WorkerEnv } from './env'
+import { registerLogisticsWorker } from './logisticsWorker'
 import { createMailer } from './mailer'
 import { registerMaintenanceWorker } from './maintenanceWorker'
 import { registerOutboxWorker } from './outboxWorker'
@@ -28,12 +29,19 @@ export function registerWorkers(env: WorkerEnv, logger: Logger): WorkerRegistrat
     gateways,
     logger,
   )
+  const logistics = registerLogisticsWorker(
+    env.REDIS_URL,
+    env.DATABASE_URL,
+    Number(env.LOGISTICS_POLL_INTERVAL_MS),
+    logger,
+  )
   return {
-    workers: [email, maintenance.worker, outbox.worker, reconciliation.worker],
+    workers: [email, maintenance.worker, outbox.worker, reconciliation.worker, logistics.worker],
     close: async () => {
       await maintenance.close()
       await outbox.close()
       await reconciliation.close()
+      await logistics.close()
     },
   }
 }

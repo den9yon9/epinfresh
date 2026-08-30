@@ -1,6 +1,10 @@
-import { checkout } from '@epinfresh/checkout'
-import { centsToYuan } from '@epinfresh/checkout'
+import { centsToYuan, checkout } from '@epinfresh/checkout'
 import { CheckoutErrorResponseSchema, CreateOrderInputSchema } from '@epinfresh/checkout/model'
+import {
+  getTrackByOrderId,
+  LogisticsTrackResponseSchema,
+  toTrackResponse,
+} from '@epinfresh/logistics'
 import { completeOrder, getOrderForUser, listOrdersByUser } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { cancelOrder } from '@epinfresh/order-cancel'
@@ -208,6 +212,31 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           summary: '确认收货',
           description:
             '将当前用户的已发货订单标记为已完成。\n\n- 需要登录，且订单必须属于当前用户\n- 订单不存在返回 404\n- 非 shipped 状态返回 409',
+        },
+      },
+    )
+    .get(
+      '/orders/:id/track',
+      async ({ params, session, db }) => {
+        const ownership = await getOrderForUser(session.userId, params.id, db)
+        if (ownership.isErr()) {
+          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+        }
+        const track = await getTrackByOrderId(params.id, db)
+        return { track: track ? toTrackResponse(track) : null }
+      },
+      {
+        isAuth: true,
+        params: t.Object({ id: t.String({ format: 'uuid' }) }),
+        response: {
+          200: t.Object({ track: t.Union([LogisticsTrackResponseSchema, t.Null()]) }),
+          404: ErrorResponse,
+        },
+        detail: {
+          tags: ['Orders'],
+          summary: '订单物流轨迹',
+          description:
+            '获取当前用户订单的物流轨迹快照（worker 轮询承运商落库），无轨迹时返回 null。\n\n- 需要登录，且订单必须属于当前用户\n- 订单不存在或不属于当前用户返回 404',
         },
       },
     )

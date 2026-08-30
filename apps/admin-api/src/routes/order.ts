@@ -1,4 +1,10 @@
 import {
+  COURIER_COMPANIES,
+  getTrackByOrderId,
+  LogisticsTrackResponseSchema,
+  toTrackResponse,
+} from '@epinfresh/logistics'
+import {
   completeOrder,
   getOrderById,
   getOrderStatusCounts,
@@ -121,7 +127,7 @@ export function createOrderRoutes(plugins: AdminPlugins) {
       '/orders/:id/ship',
       async ({ params, body, db }) => {
         // app 层注入 outbox 事件写入(order 域不依赖 outbox): 仅 paid → shipped 转变时触发
-        const result = await shipOrder(params.id, body.trackingNumber, db, {
+        const result = await shipOrder(params.id, body.trackingNumber, body.courierCompany, db, {
           onShipped: (tx, event) =>
             insertOutboxEvent(tx, {
               eventType: 'order.shipped',
@@ -151,7 +157,10 @@ export function createOrderRoutes(plugins: AdminPlugins) {
       {
         isAdmin: true,
         params: t.Object({ id: t.String({ format: 'uuid' }) }),
-        body: t.Object({ trackingNumber: t.Optional(t.String({ maxLength: 100 })) }),
+        body: t.Object({
+          trackingNumber: t.Optional(t.String({ maxLength: 100 })),
+          courierCompany: t.Optional(t.Union(COURIER_COMPANIES.map((c) => t.Literal(c)))),
+        }),
         response: {
           200: OrderModel.OrderResponseSchema,
           404: ErrorResponse,
@@ -161,7 +170,32 @@ export function createOrderRoutes(plugins: AdminPlugins) {
           tags: ['Admin/Orders'],
           summary: '订单发货',
           description:
-            '将订单标记为已发货并填写运单号。\n\n- 需要 admin 角色\n- 幂等：已发货的订单重复调用仅更新运单号\n- 订单不存在返回 404\n- 状态不允许发货返回 409',
+            '将订单标记为已发货并填写运单号与承运商（指定承运商后 worker 将轮询轨迹，签收自动完成订单）。\n\n- 需要 admin 角色\n- 幂等：已发货的订单重复调用仅更新运单号/承运商\n- 订单不存在返回 404\n- 状态不允许发货返回 409',
+        },
+      },
+    )
+    .get(
+      '/orders/:id/track',
+      async ({ params, db }) => {
+        const order = await getOrderById(params.id, db)
+        if (order.isErr()) {
+          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+        }
+        const track = await getTrackByOrderId(params.id, db)
+        return { track: track ? toTrackResponse(track) : null }
+      },
+      {
+        isAdmin: true,
+        params: t.Object({ id: t.String({ format: 'uuid' }) }),
+        response: {
+          200: t.Object({ track: t.Union([LogisticsTrackResponseSchema, t.Null()]) }),
+          404: ErrorResponse,
+        },
+        detail: {
+          tags: ['Admin/Orders'],
+          summary: '订单物流轨迹',
+          description:
+            '获取订单的物流轨迹快照（worker 轮询落库），无轨迹时返回 null。\n\n- 需要 admin 角色',
         },
       },
     )
