@@ -37,6 +37,15 @@ const PROVIDER_LABEL: Record<string, string> = {
   mock: '测试渠道',
 }
 
+// 承运商显示名(与 logistics 域 COURIER_COMPANIES 对应)
+const COURIER_COMPANY_LABELS: Record<string, string> = {
+  sf: '顺丰速运',
+  zto: '中通快递',
+  yto: '圆通速递',
+  jd: '京东物流',
+  ems: 'EMS',
+}
+
 // 渲染失败 (未知模板/缺 vars) 抛错 → 邮件 job 进 BullMQ 重试
 export function renderEmail(template: EmailTemplate, vars: Record<string, unknown>): RenderedEmail {
   switch (template) {
@@ -125,6 +134,10 @@ export function renderEmail(template: EmailTemplate, vars: Record<string, unknow
         typeof vars.trackingNumber === 'string' && vars.trackingNumber.length > 0
           ? vars.trackingNumber
           : undefined
+      const courierCompany =
+        typeof vars.courierCompany === 'string' && vars.courierCompany.length > 0
+          ? COURIER_COMPANY_LABELS[vars.courierCompany]
+          : undefined
       if (!name || !orderId) {
         throw new Error('order-shipped email requires name/orderId vars')
       }
@@ -133,6 +146,7 @@ export function renderEmail(template: EmailTemplate, vars: Record<string, unknow
         '你的订单已发货，正在奔向你的餐桌。',
         `订单编号：${orderId}`,
       ]
+      if (courierCompany) lines.push(`承运商：${courierCompany}`)
       if (trackingNumber) lines.push(`运单号：${trackingNumber}`)
       lines.push('可在「我的订单」中查看物流进度。')
       const text = [

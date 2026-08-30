@@ -137,6 +137,7 @@ export function createOrderRoutes(plugins: AdminPlugins) {
                 orderId: event.orderId,
                 trackingNumber: event.trackingNumber,
                 shippedAt: event.shippedAt,
+                courierCompany: event.courierCompany,
               },
             }),
         })

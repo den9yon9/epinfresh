@@ -1,6 +1,6 @@
 import { type DbClient, schema } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 
 import { type LogisticsProvider, type TrackSnapshot } from './model'
 import { toTrackEvents } from './model'
@@ -70,4 +70,15 @@ export function toTrackResponse(track: typeof schema.logisticsTracks.$inferSelec
     events: toTrackEvents(track.events),
     deliveredAt: track.deliveredAt ? track.deliveredAt.toISOString() : null,
   }
+}
+
+// 收尾异常(拒收/派送失败)的订单 id: 这些订单禁止超时自动完成——
+// 拒收单"自动完成"等于钱货两空, 正确动作是人工/后续编排触发退款。
+// delivery_failed 若后续重派成功, 轨迹回到 delivered, 自然退出排除集。
+export async function listExceptionOrderIds(client: DbClient): Promise<string[]> {
+  const rows = await client
+    .select({ orderId: schema.logisticsTracks.orderId })
+    .from(schema.logisticsTracks)
+    .where(inArray(schema.logisticsTracks.status, ['rejected', 'delivery_failed']))
+  return rows.map((row) => row.orderId)
 }
