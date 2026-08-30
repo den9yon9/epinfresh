@@ -16,7 +16,11 @@ ENV APP=$APP
 WORKDIR /app
 
 # 1. 仅子图依赖清单(含 pruned lockfile)先行, 命中 Docker 缓存层
+# pnpm-workspace.yaml/lockfile 在 out/ 根(out/json 里没有), 必须单独拷,
+# 缺 workspace 文件则 pnpm 不建子包 node_modules 链接, 运行时解析不到传递依赖
 COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 
 # pnpm 钉在与 packageManager 一致的版本: pnpm 11+ 依赖 node:sqlite, Bun 1.2 无此模块
 RUN bun add -g pnpm@10.7.0 && pnpm install --frozen-lockfile --prod --ignore-scripts
