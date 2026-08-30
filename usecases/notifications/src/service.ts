@@ -111,6 +111,7 @@ export async function sendOrderShippedEmail(
 ): Promise<void> {
   const orderId = requireString('order.shipped', event.payload, 'orderId')
   const trackingNumber = optionalString(event.payload, 'trackingNumber')
+  const courierCompany = optionalString(event.payload, 'courierCompany')
   requireString('order.shipped', event.payload, 'shippedAt')
 
   const { email, name } = await resolveOrderRecipient('order.shipped', deps.client, orderId)
@@ -118,7 +119,7 @@ export async function sendOrderShippedEmail(
     EMAIL_JOB_NAMES.ORDER_SHIPPED,
     {
       to: email,
-      payload: { name, orderId, trackingNumber },
+      payload: { name, orderId, trackingNumber, courierCompany },
     },
     { jobId: `order-shipped-${orderId}` },
   )

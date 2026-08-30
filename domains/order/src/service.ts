@@ -224,6 +224,7 @@ export async function markOrderRefunded(
 export interface OrderShippedEvent {
   orderId: string
   trackingNumber: string | null
+  courierCompany: string | null
   shippedAt: string
 }
 
@@ -265,6 +266,7 @@ export async function shipOrder(
       await opts.onShipped(tx, {
         orderId,
         trackingNumber: updated.trackingNumber,
+        courierCompany: updated.courierCompany,
         // 本事务内刚写入, 运行时必非空; 类型上列可空故兜底
         shippedAt: (updated.shippedAt ?? new Date()).toISOString(),
       })
@@ -305,6 +307,7 @@ export async function autoCompleteShippedOrders(
   olderThan: Date,
   client: DbClient,
   limit = ORDER_AUTO_COMPLETE_BATCH_SIZE,
+  excludeOrderIds: string[] = [],
 ): Promise<number> {
   const stale = await client
     .select({ id: schema.orders.id })
@@ -312,7 +315,10 @@ export async function autoCompleteShippedOrders(
     .where(and(eq(schema.orders.status, 'shipped'), lt(schema.orders.shippedAt, olderThan)))
     .orderBy(schema.orders.shippedAt)
     .limit(limit)
-  if (stale.length === 0) return 0
+  // excludeOrderIds: 收尾异常订单(拒收/派送失败, logistics 域查询后传入)——
+  // 拒收单被自动完成等于钱货两空, 必须排除
+  const candidates = stale.filter((row) => !excludeOrderIds.includes(row.id))
+  if (candidates.length === 0) return 0
   const rows = await client
     .update(schema.orders)
     .set({ status: 'completed', completedAt: new Date() })
@@ -321,7 +327,7 @@ export async function autoCompleteShippedOrders(
         eq(schema.orders.status, 'shipped'),
         inArray(
           schema.orders.id,
-          stale.map((row) => row.id),
+          candidates.map((row) => row.id),
         ),
       ),
     )

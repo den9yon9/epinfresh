@@ -23,6 +23,8 @@ export const TrackEventSchema = Type.Object({
     Type.Literal('in_transit'),
     Type.Literal('out_for_delivery'),
     Type.Literal('delivered'),
+    Type.Literal('delivery_failed'),
+    Type.Literal('rejected'),
   ]),
   desc: Type.String(),
 })

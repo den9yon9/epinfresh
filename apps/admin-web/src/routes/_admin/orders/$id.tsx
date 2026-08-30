@@ -23,9 +23,10 @@ const COURIER_COMPANY_LABELS: Record<string, string> = {
 
 export const Route = createFileRoute('/_admin/orders/$id')({
   loader: async ({ params }) => {
-    const [detailRes, paymentsRes] = await Promise.all([
+    const [detailRes, paymentsRes, trackRes] = await Promise.all([
       api.admin.orders({ id: params.id }).get(),
       api.admin.orders({ id: params.id }).payments.get(),
+      api.admin.orders({ id: params.id }).track.get(),
     ])
     if (detailRes.error) throw detailRes.error
     if (paymentsRes.error) throw paymentsRes.error
@@ -33,13 +34,15 @@ export const Route = createFileRoute('/_admin/orders/$id')({
       order: detailRes.data,
       payments: paymentsRes.data.items,
       refunds: paymentsRes.data.refunds,
+      // 轨迹拉取失败不阻塞详情页(条件渲染)
+      track: trackRes.error === null ? trackRes.data.track : null,
     }
   },
   component: OrderDetailPage,
 })
 
 function OrderDetailPage() {
-  const { order, payments, refunds } = Route.useLoaderData()
+  const { order, payments, refunds, track } = Route.useLoaderData()
   const [error, setError] = useState<string | null>(null)
   // 有处理中的退款单: 订单虽仍显示已支付, 但展示"退款中"
   const refunding = refunds.some((r) => r.status === 'processing')
@@ -98,6 +101,28 @@ function OrderDetailPage() {
           <Row label="地址" value={order.shippingAddress} />
         </InfoCard>
       </div>
+
+      {track && track.events.length > 0 && (
+        <InfoCard
+          title={`物流轨迹（${COURIER_COMPANY_LABELS[track.company] ?? track.company} ${track.trackingNumber}）`}
+        >
+          <ol className="flex flex-col gap-3 border-l border-gray-200 pl-4">
+            {[...track.events].reverse().map((event, i) => (
+              <li key={`${event.time}-${i}`} className="relative">
+                <span
+                  className={`absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ${
+                    i === 0 ? 'bg-brand-600' : 'bg-gray-300'
+                  }`}
+                />
+                <p className={`text-sm ${i === 0 ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                  {event.desc}
+                </p>
+                <p className="text-xs text-gray-400">{new Date(event.time).toLocaleString()}</p>
+              </li>
+            ))}
+          </ol>
+        </InfoCard>
+      )}
 
       <InfoCard title={`商品明细（${order.items.length}）`}>
         <table className="w-full text-sm">

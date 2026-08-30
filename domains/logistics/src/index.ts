@@ -1,6 +1,6 @@
 export type { LogisticsProviderName } from './env'
 export { createLogisticsProviderFromEnv, parseLogisticsEnv } from './env'
-export { LOGISTICS_JOB_NAMES } from './jobs'
+export { LOGISTICS_JOB_NAMES, LOGISTICS_POLL_INTERVAL_MS, LOGISTICS_STALE_ALERT_DAYS } from './jobs'
 export {
   COURIER_COMPANIES,
   COURIER_COMPANY_LABELS,
@@ -13,4 +13,10 @@ export {
   type TrackSnapshot,
 } from './model'
 export { createMockLogisticsProvider } from './providers/mock'
-export { getTrackByOrderId, syncTrack, type SyncTrackInput, toTrackResponse } from './service'
+export {
+  getTrackByOrderId,
+  listExceptionOrderIds,
+  syncTrack,
+  type SyncTrackInput,
+  toTrackResponse,
+} from './service'

@@ -5,6 +5,7 @@ import {
   MAINTENANCE_QUEUE_NAME,
 } from '@epinfresh/checkout/jobs'
 import { closeDb, createDb } from '@epinfresh/database'
+import { listExceptionOrderIds } from '@epinfresh/logistics'
 import { autoCompleteShippedOrders } from '@epinfresh/order'
 import {
   ORDER_AUTO_COMPLETE_AFTER_DAYS,
@@ -62,8 +63,19 @@ export function registerMaintenanceWorker(
         const olderThan = new Date(
           Date.now() - ORDER_AUTO_COMPLETE_AFTER_DAYS * 24 * 60 * 60 * 1000,
         )
-        const completed = await autoCompleteShippedOrders(olderThan, db)
-        logger.info({ olderThan, completed }, 'auto-completed stale shipped orders')
+        // 拒收/派送失败订单禁止自动完成(钱货两空), 排除后记 warn 由人工跟进退款
+        const excludeOrderIds = await listExceptionOrderIds(db)
+        const completed = await autoCompleteShippedOrders(olderThan, db, undefined, excludeOrderIds)
+        logger.info(
+          { olderThan, completed, excluded: excludeOrderIds.length },
+          'auto-completed stale shipped orders',
+        )
+        if (excludeOrderIds.length > 0) {
+          logger.warn(
+            { orderIds: excludeOrderIds },
+            'rejected/failed-delivery orders excluded from auto-complete; manual refund needed',
+          )
+        }
       },
     },
     logger,

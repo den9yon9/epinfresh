@@ -12,13 +12,17 @@ import {
 
 import { orders } from './../order/orders'
 
-// 轨迹状态(由 provider 快照归一化; pending = 已建单但承运商尚无轨迹)
+// 轨迹状态(由 provider 快照归一化; pending = 已建单但承运商尚无轨迹)。
+// rejected = 拒收(终局), delivery_failed = 派送失败(可重派): 两者是"异常收尾"——
+// 都不能参与签收自动完成, 拒收单更不能被超时自动完成(语义: 用户钱货两空)。
 export const LOGISTICS_TRACK_STATUS = [
   'pending',
   'collected',
   'in_transit',
   'out_for_delivery',
   'delivered',
+  'delivery_failed',
+  'rejected',
 ] as const
 export type LogisticsTrackStatus = (typeof LOGISTICS_TRACK_STATUS)[number]
 

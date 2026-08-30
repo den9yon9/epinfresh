@@ -89,7 +89,14 @@ describe('pollAndSyncShippedOrders', () => {
     const provider = providerFromSnapshots({ 'SF-ALICE': { delivered: true, status: 'delivered' } })
 
     const summary = await pollAndSyncShippedOrders(db, provider)
-    expect(summary).toEqual({ polled: 1, delivered: 1, autoCompleted: 1, failed: 0 })
+    expect(summary).toEqual({
+      polled: 1,
+      delivered: 1,
+      autoCompleted: 1,
+      failed: 0,
+      exceptions: 0,
+      staleNotDelivered: 0,
+    })
 
     const [row] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
     expect(row.status).toBe('completed')
@@ -110,7 +117,14 @@ describe('pollAndSyncShippedOrders', () => {
     })
 
     const summary = await pollAndSyncShippedOrders(db, provider)
-    expect(summary).toEqual({ polled: 1, delivered: 0, autoCompleted: 0, failed: 0 })
+    expect(summary).toEqual({
+      polled: 1,
+      delivered: 0,
+      autoCompleted: 0,
+      failed: 0,
+      exceptions: 0,
+      staleNotDelivered: 0,
+    })
 
     const [row] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
     expect(row.status).toBe('shipped')
@@ -155,8 +169,61 @@ describe('pollAndSyncShippedOrders', () => {
     const provider = createMockLogisticsProvider(0)
 
     const summary = await pollAndSyncShippedOrders(db, provider)
-    expect(summary).toEqual({ polled: 0, delivered: 0, autoCompleted: 0, failed: 0 })
+    expect(summary).toEqual({
+      polled: 0,
+      delivered: 0,
+      autoCompleted: 0,
+      failed: 0,
+      exceptions: 0,
+      staleNotDelivered: 0,
+    })
     const [row] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
     expect(row.status).toBe('shipped')
+  })
+
+  test('rejected snapshot counts as exception and never completes the order', async () => {
+    const order = await seedShippedOrder()
+    const provider: LogisticsProvider = {
+      async queryTrack() {
+        return ok({
+          events: [
+            { time: new Date().toISOString(), status: 'out_for_delivery', desc: '派送中' },
+            { time: new Date().toISOString(), status: 'rejected', desc: '客户拒收' },
+          ],
+          status: 'rejected',
+          delivered: false,
+          deliveredAt: null,
+        })
+      },
+    }
+
+    const summary = await pollAndSyncShippedOrders(db, provider)
+    expect(summary.exceptions).toBe(1)
+    expect(summary.autoCompleted).toBe(0)
+
+    const [row] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
+    // 关键语义: 拒收单绝不能被"完成"
+    expect(row.status).toBe('shipped')
+    const [track] = await db
+      .select()
+      .from(schema.logisticsTracks)
+      .where(eq(schema.logisticsTracks.orderId, order.id))
+    expect(track.status).toBe('rejected')
+  })
+
+  test('stale not-delivered shipments are counted for alerting', async () => {
+    // seedShippedOrder 的 shipped_at 已拨回 1 小时前——构造超 5 天的:
+    const order = await seedShippedOrder()
+    await db
+      .update(schema.orders)
+      .set({ shippedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) })
+      .where(eq(schema.orders.id, order.id))
+    const provider = providerFromSnapshots({
+      'SF-ALICE': { delivered: false, status: 'in_transit' },
+    })
+
+    const summary = await pollAndSyncShippedOrders(db, provider)
+    expect(summary.staleNotDelivered).toBe(1)
+    expect(summary.autoCompleted).toBe(0)
   })
 })

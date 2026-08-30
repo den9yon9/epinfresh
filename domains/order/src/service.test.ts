@@ -489,4 +489,28 @@ describe('autoCompleteShippedOrders', () => {
     )
     expect(completed).toBe(2)
   })
+
+  test('excludes rejected/failed-delivery orders from auto-complete', async () => {
+    const rejected = await seedShippedOrder('a@example.com')
+    const normal = await seedShippedOrder('b@example.com')
+    for (const o of [rejected, normal]) await ageShippedAt(o.id, 8)
+
+    // 拒收单被排除, 普通单照常完成(排除集由 logistics 域查询后传入)
+    const completed = await autoCompleteShippedOrders(
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+      db,
+      undefined,
+      [rejected.id],
+    )
+    expect(completed).toBe(1)
+
+    const [rejectedRow] = await db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.id, rejected.id))
+    // 关键语义: 拒收单绝不能被超时"自动完成"
+    expect(rejectedRow.status).toBe('shipped')
+    const [normalRow] = await db.select().from(schema.orders).where(eq(schema.orders.id, normal.id))
+    expect(normalRow.status).toBe('completed')
+  })
 })

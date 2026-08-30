@@ -42,6 +42,17 @@ export function registerLogisticsWorker(
         if (summary.polled > 0 || summary.failed > 0) {
           logger.info(summary, 'logistics poll run finished')
         }
+        // 拒收/派送失败: 不自动完成, 告警人工跟进(后续可接退款编排)
+        if (summary.exceptions > 0) {
+          logger.warn(summary, 'logistics exceptions detected; manual refund needed')
+        }
+        // 超时未签收预警
+        if (summary.staleNotDelivered > 0) {
+          logger.warn(
+            { staleNotDelivered: summary.staleNotDelivered },
+            'stale not-delivered shipments detected',
+          )
+        }
       },
     },
     logger,
