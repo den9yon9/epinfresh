@@ -12,12 +12,36 @@ const PAYMENT_CHANNEL_LABELS: Record<string, string> = {
   alipay: '支付宝',
 }
 
+// 承运商显示名(与 logistics 域 COURIER_COMPANIES 对应; web 侧本地维护)
+const COURIER_COMPANY_LABELS: Record<string, string> = {
+  sf: '顺丰速运',
+  zto: '中通快递',
+  yto: '圆通速递',
+  jd: '京东物流',
+  ems: 'EMS',
+}
+
+interface TrackEvent {
+  time: string
+  status: string
+  desc: string
+}
+
+interface Track {
+  company: string
+  trackingNumber: string
+  status: string
+  events: TrackEvent[]
+  deliveredAt: string | null
+}
+
 export const Route = createFileRoute('/orders/$id')({
   staticData: { title: '订单详情', showBack: true },
   loader: async ({ params }) => {
-    const [orderRes, paymentsRes] = await Promise.all([
+    const [orderRes, paymentsRes, trackRes] = await Promise.all([
       api.orders({ id: params.id }).get(),
       api.orders({ id: params.id }).payments.get(),
+      api.orders({ id: params.id }).track.get(),
     ])
     if (isUnauthorized(orderRes.error) || isUnauthorized(paymentsRes.error)) {
       clearSessionCache()
@@ -30,13 +54,15 @@ export const Route = createFileRoute('/orders/$id')({
       order: orderRes.data,
       payments: paymentsRes.error === null ? paymentsRes.data.items : [],
       refunds: paymentsRes.error === null ? paymentsRes.data.refunds : [],
+      // 轨迹拉取失败不阻塞详情页: 物流 section 条件渲染
+      track: trackRes.error === null ? (trackRes.data as { track: Track | null }).track : null,
     }
   },
   component: OrderDetailPage,
 })
 
 function OrderDetailPage() {
-  const { order, payments, refunds } = Route.useLoaderData()
+  const { order, payments, refunds, track } = Route.useLoaderData()
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -131,6 +157,32 @@ function OrderDetailPage() {
         </p>
         <p className="text-sm text-gray-600">{order.shippingAddress}</p>
       </section>
+
+      {track && track.events.length > 0 && (
+        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-base font-semibold text-gray-900">
+            物流信息
+            <span className="ml-2 text-xs font-normal text-gray-400">
+              {COURIER_COMPANY_LABELS[track.company] ?? track.company} {track.trackingNumber}
+            </span>
+          </h2>
+          <ol className="flex flex-col gap-3 border-l border-gray-200 pl-4">
+            {[...track.events].reverse().map((event, i) => (
+              <li key={`${event.time}-${i}`} className="relative">
+                <span
+                  className={`absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ${
+                    i === 0 ? 'bg-brand-600' : 'bg-gray-300'
+                  }`}
+                />
+                <p className={`text-sm ${i === 0 ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                  {event.desc}
+                </p>
+                <p className="text-xs text-gray-400">{new Date(event.time).toLocaleString()}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-base font-semibold text-gray-900">支付记录</h2>

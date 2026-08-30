@@ -55,5 +55,14 @@ export default defineConfig({
       url: 'http://localhost:5174/@vite/client',
       reuseExistingServer: true,
     },
+    {
+      // worker(含物流轮询): mock 轨迹 0 分钟签收 + 2s 轮询, 让 e2e 能观察到签收自动完成;
+      // 行内 env 优先于 --env-file(bun 不覆盖已存在的进程变量)。HEALTH_PORT 供就绪探测。
+      command:
+        'LOGISTICS_MOCK_DELIVER_AFTER_MINUTES=0 LOGISTICS_POLL_INTERVAL_MS=2000 HEALTH_PORT=3100 bun --env-file=../../.env src/index.ts',
+      cwd: '../worker',
+      url: 'http://localhost:3100/health',
+      reuseExistingServer: true,
+    },
   ],
 })

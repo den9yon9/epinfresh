@@ -285,7 +285,7 @@ describe('shipOrder', () => {
     const order = await seedOrder(user.id, sku.id)
     await updateOrderStatus(order.id, 'paid', db)
 
-    const result = await shipOrder(order.id, 'SF123', db)
+    const result = await shipOrder(order.id, 'SF123', undefined, db)
     expect(result.isOk()).toBe(true)
     const shipped = result._unsafeUnwrap()
     expect(shipped.status).toBe('shipped')
@@ -301,7 +301,7 @@ describe('shipOrder', () => {
     await updateOrderStatus(order.id, 'paid', db)
     const seen: { orderId: string; trackingNumber: string | null; shippedAt: string }[] = []
 
-    const result = await shipOrder(order.id, 'SF123', db, {
+    const result = await shipOrder(order.id, 'SF123', 'sf', db, {
       onShipped: async (tx, event) => {
         // 回调持有事务客户端: 事件写入与状态翻转同事务(此处仅记录, 实际由 app 层写 outbox)
         expect(tx).toBeDefined()
@@ -323,12 +323,12 @@ describe('shipOrder', () => {
     await updateOrderStatus(order.id, 'paid', db)
     let calls = 0
 
-    await shipOrder(order.id, 'SF123', db, {
+    await shipOrder(order.id, 'SF123', 'sf', db, {
       onShipped: async () => {
         calls += 1
       },
     })
-    const reShip = await shipOrder(order.id, 'SF456', db, {
+    const reShip = await shipOrder(order.id, 'SF456', undefined, db, {
       onShipped: async () => {
         calls += 1
       },
@@ -345,7 +345,7 @@ describe('shipOrder', () => {
     const order = await seedOrder(user.id, sku.id)
     await updateOrderStatus(order.id, 'paid', db)
 
-    const result = await shipOrder(order.id, 'SF123', db)
+    const result = await shipOrder(order.id, 'SF123', undefined, db)
     expect(result.isOk()).toBe(true)
   })
 
@@ -355,8 +355,8 @@ describe('shipOrder', () => {
     const order = await seedOrder(user.id, sku.id)
     await updateOrderStatus(order.id, 'paid', db)
 
-    await shipOrder(order.id, 'SF123', db)
-    const reShip = await shipOrder(order.id, 'SF456', db)
+    await shipOrder(order.id, 'SF123', undefined, db)
+    const reShip = await shipOrder(order.id, 'SF456', undefined, db)
     expect(reShip.isOk()).toBe(true)
     const shipped = reShip._unsafeUnwrap()
     expect(shipped.status).toBe('shipped')
@@ -369,13 +369,13 @@ describe('shipOrder', () => {
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
     const order = await seedOrder(user.id, sku.id)
 
-    const result = await shipOrder(order.id, 'SF123', db)
+    const result = await shipOrder(order.id, 'SF123', undefined, db)
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('INVALID_TRANSITION')
   })
 
   test('returns ORDER_NOT_FOUND for unknown order', async () => {
-    const result = await shipOrder('00000000-0000-4000-8000-000000000000', 'SF123', db)
+    const result = await shipOrder('00000000-0000-4000-8000-000000000000', 'SF123', undefined, db)
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
   })
@@ -388,7 +388,7 @@ async function seedShippedOrder(email = 'alice@example.com') {
   const { sku } = await seedSku('Apple', `apple-${email.split('@')[0]}`, '5.00', 10)
   const order = await seedOrder(user.id, sku.id)
   await updateOrderStatus(order.id, 'paid', db)
-  const shipped = await shipOrder(order.id, 'SF123', db)
+  const shipped = await shipOrder(order.id, 'SF123', undefined, db)
   return shipped._unsafeUnwrap()
 }
 

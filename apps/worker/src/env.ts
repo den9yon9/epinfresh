@@ -30,6 +30,11 @@ export const workerEnvSchema = Type.Object({
   MAIL_FROM: Type.Optional(Type.String()),
   // 找回密码邮件的重置链接指向 storefront-web
   STOREFRONT_WEB_URL: Type.String({ format: 'uri', default: 'http://localhost:5173' }),
+
+  // 轨迹轮询间隔(ms, 字符串数字); e2e 置小加速签收自动完成
+  LOGISTICS_POLL_INTERVAL_MS: Type.String({ pattern: '^\\d+$', default: '600000' }),
+  // 可选健康端口: 设置后起一个极简 HTTP /health(容器健康检查与 e2e 就绪探测用)
+  HEALTH_PORT: Type.Optional(Type.String({ pattern: '^\\d+$' })),
 })
 
 export type WorkerEnv = StaticDecode<typeof workerEnvSchema>

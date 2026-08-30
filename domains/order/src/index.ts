@@ -14,6 +14,7 @@ export {
   getOrderStatusCounts,
   listOrders,
   listOrdersByUser,
+  listShippedWithTracking,
   markOrderRefunded,
   ORDER_AUTO_COMPLETE_BATCH_SIZE,
   shipOrder,

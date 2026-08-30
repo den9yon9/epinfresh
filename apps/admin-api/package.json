@@ -19,6 +19,7 @@
     "@elysiajs/openapi": "^1.4.0",
     "@epinfresh/database": "workspace:*",
     "@epinfresh/http": "workspace:*",
+    "@epinfresh/logistics": "workspace:*",
     "@epinfresh/order": "workspace:*",
     "@epinfresh/order-cancel": "workspace:*",
     "@epinfresh/outbox": "workspace:*",

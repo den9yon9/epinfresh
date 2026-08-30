@@ -12,6 +12,15 @@ const CHANNEL_LABELS: Record<string, string> = {
   alipay: '支付宝',
 }
 
+// 承运商显示名(与 logistics 域 COURIER_COMPANIES 对应; web 侧本地维护, 同 CHANNEL_LABELS 惯例)
+const COURIER_COMPANY_LABELS: Record<string, string> = {
+  sf: '顺丰速运',
+  zto: '中通快递',
+  yto: '圆通速递',
+  jd: '京东物流',
+  ems: 'EMS',
+}
+
 export const Route = createFileRoute('/_admin/orders/$id')({
   loader: async ({ params }) => {
     const [detailRes, paymentsRes] = await Promise.all([
@@ -77,6 +86,12 @@ function OrderDetailPage() {
             <Row label="发货时间" value={new Date(order.shippedAt).toLocaleString()} />
           )}
           {order.trackingNumber && <Row label="运单号" value={order.trackingNumber} />}
+          {order.courierCompany && (
+            <Row
+              label="承运商"
+              value={COURIER_COMPANY_LABELS[order.courierCompany] ?? order.courierCompany}
+            />
+          )}
         </InfoCard>
         <InfoCard title="收货信息">
           <Row label="收件人" value={`${order.recipientName} ${order.recipientPhone}`} />
@@ -259,13 +274,18 @@ function ShipButton({ onDone, onError }: { onDone: () => void; onError: (msg: st
   const params = Route.useParams()
   const [open, setOpen] = useState(false)
   const [trackingNumber, setTrackingNumber] = useState('')
+  const [courierCompany, setCourierCompany] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function ship() {
     setBusy(true)
-    const res = await api.admin.orders({ id: params.id }).ship.post({
+    // ponytail: eden treaty 对 union 字面量 body 推断坍缩, 与 tech-debt #1 同族 workaround
+    const payload = {
       ...(trackingNumber ? { trackingNumber } : {}),
-    })
+      // 指定承运商后 worker 轮询轨迹, 签收自动完成订单
+      ...(courierCompany ? { courierCompany } : {}),
+    }
+    const res = await api.admin.orders({ id: params.id }).ship.post(payload as never)
     setBusy(false)
     if (res.error) {
       onError(res.error.value.message ?? '发货失败')
@@ -284,6 +304,18 @@ function ShipButton({ onDone, onError }: { onDone: () => void; onError: (msg: st
         <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30">
           <div className="w-80 rounded-xl bg-white p-5 shadow-lg">
             <h3 className="mb-3 text-base font-semibold">确认发货</h3>
+            <select
+              value={courierCompany}
+              onChange={(e) => setCourierCompany(e.target.value)}
+              className="mb-3 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none"
+            >
+              <option value="">承运商（可选，指定后自动跟踪签收）</option>
+              {Object.entries(COURIER_COMPANY_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
             <input
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}

@@ -7,7 +7,7 @@ import {
 } from '@epinfresh/database'
 import { err, fromCents, ok, type Result, toCents } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, count, eq, inArray, lt } from 'drizzle-orm'
+import { and, count, eq, inArray, isNotNull, lt } from 'drizzle-orm'
 
 import type { AdminOrderListQuerySchema, OrderDetailSchema, OrderListQuerySchema } from './model'
 export type OrderDetail = Static<typeof OrderDetailSchema>
@@ -231,9 +231,11 @@ export interface ShipOrderOptions {
   onShipped?: (client: DbClient, event: OrderShippedEvent) => Promise<void>
 }
 
+// 发货: courierCompany 为承运商标识(logistics 域枚举值), 不传保留原值(补单号幂等语义)
 export async function shipOrder(
   orderId: string,
   trackingNumber: string | undefined,
+  courierCompany: string | undefined,
   client: DbClient,
   opts: ShipOrderOptions = {},
 ): Promise<Result<OrderDetail, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'>> {
@@ -249,6 +251,7 @@ export async function shipOrder(
       .set({
         status: 'shipped',
         trackingNumber: trackingNumber ?? order.trackingNumber,
+        courierCompany: courierCompany ?? order.courierCompany,
         shippedAt: order.shippedAt ?? new Date(),
       })
       .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, order.status)))
@@ -294,8 +297,7 @@ export async function completeOrder(
   return ok({ ...updated, items })
 }
 
-// 超时自动完成: 批量把发货超过 olderThan 的 shipped 订单 CAS 置 completed。
-// 先圈定目标(limit), 再带 status='shipped' 守卫的 CAS 批量更新——两步之间的
+// 超时自动完成: 批量把发货超过 olderThan 的 shipped 订单 CAS 置 completed。// 先圈定目标(limit), 再带 status='shipped' 守卫的 CAS 批量更新——两步之间的
 // 状态变化(如用户恰好确认)由 CAS 过滤, 不会误伤。返回实际完成数供 worker 记录。
 export const ORDER_AUTO_COMPLETE_BATCH_SIZE = 200
 
@@ -325,4 +327,36 @@ export async function autoCompleteShippedOrders(
     )
     .returning({ id: schema.orders.id })
   return rows.length
+}
+
+// 物流轮询入口: 已发货且指定了承运商与运单号的订单(轨迹可查)。
+// 供 logistics-sync 用例消费——域间禁止互调, 编排发生在 usecases。
+export async function listShippedWithTracking(
+  client: DbClient,
+  limit = 100,
+): Promise<{ id: string; courierCompany: string; trackingNumber: string; shippedAt: Date }[]> {
+  const rows = await client
+    .select({
+      id: schema.orders.id,
+      courierCompany: schema.orders.courierCompany,
+      trackingNumber: schema.orders.trackingNumber,
+      shippedAt: schema.orders.shippedAt,
+    })
+    .from(schema.orders)
+    .where(
+      and(
+        eq(schema.orders.status, 'shipped'),
+        isNotNull(schema.orders.courierCompany),
+        isNotNull(schema.orders.trackingNumber),
+        isNotNull(schema.orders.shippedAt),
+      ),
+    )
+    .orderBy(schema.orders.shippedAt)
+    .limit(limit)
+  return rows.map((row) => ({
+    id: row.id,
+    courierCompany: row.courierCompany as string,
+    trackingNumber: row.trackingNumber as string,
+    shippedAt: row.shippedAt as Date,
+  }))
 }

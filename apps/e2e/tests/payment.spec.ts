@@ -115,6 +115,39 @@ test('下单支付 → admin 发货 → 确认收货 → 已完成', async ({ pa
   expect(errors).toEqual([])
 })
 
+test('下单支付 → admin 发货(顺丰) → mock 签收自动完成订单', async ({ page }) => {
+  const { errors, pageErrors } = collectConsoleErrors(page)
+
+  // 1. storefront: 下单并支付
+  await registerAndLogin(page)
+  const orderId = await orderAndPay(page)
+
+  // 2. admin: 发货并指定承运商(独立 context, 同 payment.spec 签收链路)
+  const adminContext = await page.context().browser()!.newContext()
+  const adminPage = await adminContext.newPage()
+  await adminLogin(adminPage)
+  await adminPage.goto(`${ADMIN_BASE}/orders/${orderId}`)
+  await adminPage.getByRole('button', { name: '发货', exact: true }).click()
+  await adminPage.getByRole('combobox').selectOption({ label: '顺丰速运' })
+  await adminPage.getByPlaceholder('运单号（可选）').fill('SF000111222')
+  await adminPage.getByRole('button', { name: '确认发货' }).click()
+  await expect(adminPage.getByText('已发货').first()).toBeVisible()
+  await adminContext.close()
+
+  // 3. storefront: worker 轮询 mock 轨迹(e2e 环境 0 分钟签收 + 2s 轮询)
+  //    → 签收事件驱动订单自动完成。轮询是异步的, 重载页面直至轨迹与完成态出现
+  await expect(async () => {
+    await page.goto(`/orders/${orderId}`)
+    await expect(page.getByText('物流信息')).toBeVisible()
+    await expect(page.getByText(/已签收/).first()).toBeVisible()
+    await expect(page.getByText('已完成').first()).toBeVisible()
+  }).toPass({ timeout: 30_000 })
+  await expect(page.getByRole('button', { name: '确认收货' })).toHaveCount(0)
+
+  expect(pageErrors).toEqual([])
+  expect(errors).toEqual([])
+})
+
 test('wechat oauth routes are wired in the storefront api', async ({ request }) => {
   // mock 环境下未授权: openid 为 null(端点存在即验证路由已注册)
   const res = await request.get('http://localhost:3000/auth/wechat/openid')
