@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { isAbsolute, resolve } from 'node:path'
 
 import { parseEnv } from '@epinfresh/shared'
 import { type StaticDecode, Type } from '@sinclair/typebox'
@@ -36,14 +37,31 @@ export interface PayMockServerConfig {
   alipayAppId?: string
 }
 
+// 密钥路径以仓库根为基准解析: 包脚本(turbo/pnpm)的 CWD 是 apps/pay-mock-server/,
+// 而 .env 里的 keys/... 是相对仓库根写的——不修正的话相对路径永远指向不存在的
+// apps/pay-mock-server/keys/。绝对路径原样保留。
+const REPO_ROOT = resolve(import.meta.dir, '../../..')
+
+function readKeyFile(envPath: string): string {
+  const abs = isAbsolute(envPath) ? envPath : resolve(REPO_ROOT, envPath)
+  try {
+    return readFileSync(abs, 'utf8')
+  } catch {
+    // 裸 ENOENT 对使用者毫无指向性: 指明生成密钥的命令
+    throw new Error(
+      `[pay-mock-server] 密钥文件不存在: ${abs}\n先在仓库根运行 pnpm keys:pay 生成密钥对`,
+    )
+  }
+}
+
 function loadConfig(env: PayMockEnv): PayMockServerConfig {
   return {
     port: Number(env.PAY_MOCK_PORT),
     merchantId: env.PAY_MOCK_MERCHANT_ID,
     appId: env.PAY_MOCK_APP_ID,
     apiV3Key: env.PAY_MOCK_API_V3_KEY,
-    merchantPrivateKey: readFileSync(env.PAY_MOCK_MERCHANT_PRIVATE_KEY_PATH, 'utf8'),
-    platformPrivateKey: readFileSync(env.PAY_MOCK_PLATFORM_PRIVATE_KEY_PATH, 'utf8'),
+    merchantPrivateKey: readKeyFile(env.PAY_MOCK_MERCHANT_PRIVATE_KEY_PATH),
+    platformPrivateKey: readKeyFile(env.PAY_MOCK_PLATFORM_PRIVATE_KEY_PATH),
     platformSerialNo: env.PAY_MOCK_PLATFORM_SERIAL_NO,
     notifyUrl: env.PAY_MOCK_NOTIFY_URL,
     alipayAppId: env.PAY_MOCK_ALIPAY_APP_ID,
