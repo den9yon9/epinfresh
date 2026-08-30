@@ -1,6 +1,6 @@
 import { checkout } from '@epinfresh/checkout'
 import { CheckoutErrorResponseSchema, CreateOrderInputSchema } from '@epinfresh/checkout/model'
-import { getOrderForUser, listOrdersByUser } from '@epinfresh/order'
+import { completeOrder, getOrderForUser, listOrdersByUser } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
 import { cancelOrder } from '@epinfresh/order-cancel'
 import { listPaymentsByOrder } from '@epinfresh/payment'
@@ -148,6 +148,44 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           summary: '取消订单',
           description:
             '取消当前用户的待支付/已支付订单。待支付: 回滚库存; 已支付(未发货): 先经渠道网关退款再回滚库存并取消。\n\n- 需要登录，且订单必须属于当前用户\n- 订单不存在返回 404\n- 状态不允许取消返回 409\n- 渠道退款失败返回 502',
+        },
+      },
+    )
+    .post(
+      '/orders/:id/confirm',
+      async ({ params, session, db }) => {
+        const ownership = await getOrderForUser(session.userId, params.id, db)
+        if (ownership.isErr()) {
+          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+        }
+        const result = await completeOrder(params.id, db)
+        return result.match(
+          (order) => order,
+          (e) => {
+            switch (e) {
+              case 'ORDER_NOT_FOUND':
+                return status(404, { error: e, message: 'Order not found' })
+              case 'INVALID_TRANSITION':
+                return status(409, { error: e, message: 'Order cannot be completed' })
+              default:
+                return assertNever(e)
+            }
+          },
+        )
+      },
+      {
+        isAuth: true,
+        params: t.Object({ id: t.String({ format: 'uuid' }) }),
+        response: {
+          200: OrderModel.OrderResponseSchema,
+          404: ErrorResponse,
+          409: ErrorResponse,
+        },
+        detail: {
+          tags: ['Orders'],
+          summary: '确认收货',
+          description:
+            '将当前用户的已发货订单标记为已完成。\n\n- 需要登录，且订单必须属于当前用户\n- 订单不存在返回 404\n- 非 shipped 状态返回 409',
         },
       },
     )

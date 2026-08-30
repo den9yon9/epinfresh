@@ -4,6 +4,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:tes
 import { eq } from 'drizzle-orm'
 
 import {
+  autoCompleteShippedOrders,
+  completeOrder,
   createOrderRecord,
   getOrderById,
   getOrderForUser,
@@ -332,5 +334,115 @@ describe('shipOrder', () => {
     const result = await shipOrder('00000000-0000-4000-8000-000000000000', 'SF123', db)
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
+  })
+})
+
+// 造一个已发货订单: pending → paid → shipped 全程走真实流转。
+// slug 从邮箱派生保证唯一(同用例多次 seed 不撞 products_slug_unique)
+async function seedShippedOrder(email = 'alice@example.com') {
+  const user = await seedUser(email)
+  const { sku } = await seedSku('Apple', `apple-${email.split('@')[0]}`, '5.00', 10)
+  const order = await seedOrder(user.id, sku.id)
+  await updateOrderStatus(order.id, 'paid', db)
+  const shipped = await shipOrder(order.id, 'SF123', db)
+  return shipped._unsafeUnwrap()
+}
+
+// 把 shipped_at 拨回过去(模拟发货已久, 触发自动完成窗口)
+async function ageShippedAt(orderId: string, daysAgo: number) {
+  await db
+    .update(schema.orders)
+    .set({ shippedAt: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000) })
+    .where(eq(schema.orders.id, orderId))
+}
+
+describe('completeOrder', () => {
+  test('completes a shipped order and stamps completedAt', async () => {
+    const order = await seedShippedOrder()
+
+    const result = await completeOrder(order.id, db)
+    expect(result.isOk()).toBe(true)
+    const completed = result._unsafeUnwrap()
+    expect(completed.status).toBe('completed')
+    expect(completed.completedAt).not.toBeNull()
+    expect(completed.items).toHaveLength(1)
+  })
+
+  test('rejects confirming a non-shipped order', async () => {
+    const user = await seedUser('bob@example.com')
+    const { sku } = await seedSku('Banana', 'banana', '3.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+
+    const result = await completeOrder(order.id, db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('INVALID_TRANSITION')
+  })
+
+  test('double confirm is rejected by CAS (already completed)', async () => {
+    const order = await seedShippedOrder()
+    await completeOrder(order.id, db)
+
+    const again = await completeOrder(order.id, db)
+    expect(again.isErr()).toBe(true)
+    expect(again._unsafeUnwrapErr()).toBe('INVALID_TRANSITION')
+  })
+
+  test('returns ORDER_NOT_FOUND for unknown order', async () => {
+    const result = await completeOrder('00000000-0000-4000-8000-000000000000', db)
+    expect(result.isErr()).toBe(true)
+    expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
+  })
+})
+
+describe('autoCompleteShippedOrders', () => {
+  test('completes only shipped orders past the window', async () => {
+    const stale = await seedShippedOrder('alice@example.com')
+    const fresh = await seedShippedOrder('bob@example.com')
+    await ageShippedAt(stale.id, 8)
+    // fresh 保持刚发货(默认 now)
+
+    const completed = await autoCompleteShippedOrders(
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+      db,
+    )
+    expect(completed).toBe(1)
+
+    const [staleRow] = await db.select().from(schema.orders).where(eq(schema.orders.id, stale.id))
+    expect(staleRow.status).toBe('completed')
+    expect(staleRow.completedAt).not.toBeNull()
+    const [freshRow] = await db.select().from(schema.orders).where(eq(schema.orders.id, fresh.id))
+    expect(freshRow.status).toBe('shipped')
+    expect(freshRow.completedAt).toBeNull()
+  })
+
+  test('leaves other statuses untouched', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const paid = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(paid.id, 'paid', db)
+    // 直接把 created_at 拨老: 即使很老, 非 shipped 也不该被动
+    await db
+      .update(schema.orders)
+      .set({ createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) })
+      .where(eq(schema.orders.id, paid.id))
+
+    const completed = await autoCompleteShippedOrders(new Date(), db)
+    expect(completed).toBe(0)
+    const [row] = await db.select().from(schema.orders).where(eq(schema.orders.id, paid.id))
+    expect(row.status).toBe('paid')
+  })
+
+  test('respects the batch limit', async () => {
+    const a = await seedShippedOrder('a@example.com')
+    const b = await seedShippedOrder('b@example.com')
+    const c = await seedShippedOrder('c@example.com')
+    for (const o of [a, b, c]) await ageShippedAt(o.id, 8)
+
+    const completed = await autoCompleteShippedOrders(
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+      db,
+      2,
+    )
+    expect(completed).toBe(2)
   })
 })

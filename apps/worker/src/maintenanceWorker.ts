@@ -5,6 +5,12 @@ import {
   MAINTENANCE_QUEUE_NAME,
 } from '@epinfresh/checkout/jobs'
 import { closeDb, createDb } from '@epinfresh/database'
+import { autoCompleteShippedOrders } from '@epinfresh/order'
+import {
+  ORDER_AUTO_COMPLETE_AFTER_DAYS,
+  ORDER_AUTO_COMPLETE_CRON,
+  ORDER_MAINTENANCE_JOB_NAMES,
+} from '@epinfresh/order/jobs'
 import { createDispatcher, createQueue, createWorker, type Worker } from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
 
@@ -20,7 +26,7 @@ export function registerMaintenanceWorker(
 ): MaintenanceWorker {
   const db = createDb(databaseUrl, { logger })
 
-  // repeatable job: 每天 03:00 UTC 触发一次幂等键清理。
+  // repeatable job: 每天 03:00 UTC 清理幂等键; 04:00 UTC 自动完成超时收货订单。
   // upsertJobScheduler 幂等: 重复启动不会重复注册(以 id 覆盖)。
   // 注册失败只记日志: 调度器缺失的后果是当天少跑一次清理, 不应拖垮进程。
   const queue = createQueue(MAINTENANCE_QUEUE_NAME, { redisUrl })
@@ -33,6 +39,15 @@ export function registerMaintenanceWorker(
     .catch((err) => {
       logger.error({ err }, 'failed to register maintenance scheduler')
     })
+  queue
+    .upsertJobScheduler(
+      ORDER_MAINTENANCE_JOB_NAMES.AUTO_COMPLETE,
+      { pattern: ORDER_AUTO_COMPLETE_CRON },
+      { name: ORDER_MAINTENANCE_JOB_NAMES.AUTO_COMPLETE, data: {} },
+    )
+    .catch((err) => {
+      logger.error({ err }, 'failed to register order auto-complete scheduler')
+    })
 
   const processor = createDispatcher(
     {
@@ -42,6 +57,13 @@ export function registerMaintenanceWorker(
         )
         const { pruned } = await pruneIdempotencyKeys(db, olderThan)
         logger.info({ olderThan, pruned }, 'pruned expired checkout idempotency keys')
+      },
+      [ORDER_MAINTENANCE_JOB_NAMES.AUTO_COMPLETE]: async (_data, logger) => {
+        const olderThan = new Date(
+          Date.now() - ORDER_AUTO_COMPLETE_AFTER_DAYS * 24 * 60 * 60 * 1000,
+        )
+        const completed = await autoCompleteShippedOrders(olderThan, db)
+        logger.info({ olderThan, completed }, 'auto-completed stale shipped orders')
       },
     },
     logger,

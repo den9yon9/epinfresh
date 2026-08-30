@@ -13,6 +13,7 @@
     "@epinfresh/checkout": "workspace:*",
     "@epinfresh/database": "workspace:*",
     "@epinfresh/notifications": "workspace:*",
+    "@epinfresh/order": "workspace:*",
     "@epinfresh/outbox": "workspace:*",
     "@epinfresh/payment": "workspace:*",
     "@epinfresh/payment-confirm": "workspace:*",

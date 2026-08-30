@@ -1,4 +1,5 @@
 import {
+  completeOrder,
   getOrderById,
   getOrderStatusCounts,
   listOrders,
@@ -71,10 +72,14 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     .patch(
       '/orders/:id/status',
       async ({ params, body, db }) => {
+        // 特例分发: cancelled 走取消流程(回滚库存并退款/通知), completed 走
+        // completeOrder 同事务写 completed_at; 其余走通用状态机 PATCH。
         const result =
           body.status === 'cancelled'
             ? await cancelOrder(params.id, paymentGateways, db)
-            : (await updateOrderStatus(params.id, body.status, db)).map(({ order }) => order)
+            : body.status === 'completed'
+              ? await completeOrder(params.id, db)
+              : (await updateOrderStatus(params.id, body.status, db)).map(({ order }) => order)
         return result.match(
           (order) => order,
           (e) => {

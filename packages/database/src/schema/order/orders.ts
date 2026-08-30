@@ -31,6 +31,7 @@ export const orders = pgTable(
     shippingAddress: varchar('shipping_address', { length: 500 }).notNull().default(''),
     trackingNumber: varchar('tracking_number', { length: 100 }),
     shippedAt: timestamp('shipped_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .defaultNow()

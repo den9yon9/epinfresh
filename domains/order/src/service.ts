@@ -7,7 +7,7 @@ import {
 } from '@epinfresh/database'
 import { err, fromCents, ok, type Result, toCents } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, eq, inArray, lt } from 'drizzle-orm'
 
 import type { AdminOrderListQuerySchema, OrderDetailSchema, OrderListQuerySchema } from './model'
 export type OrderDetail = Static<typeof OrderDetailSchema>
@@ -262,4 +262,61 @@ export async function shipOrder(
     }
     return ok({ ...updated, items })
   })
+}
+
+// 确认收货/标记完成: CAS shipped → completed, 同语句写 completedAt。
+// 用户确认、admin 手动完成、超时自动完成三条路径共用, 并发竞态由 CAS 兜底先到先得。
+export async function completeOrder(
+  orderId: string,
+  client: DbClient,
+): Promise<Result<OrderDetail, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'>> {
+  const [updated] = await client
+    .update(schema.orders)
+    .set({ status: 'completed', completedAt: new Date() })
+    .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, 'shipped')))
+    .returning()
+  if (!updated) {
+    // 区分不存在与非法流转, 供路由层映射 404/409
+    const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
+    if (!order) return err('ORDER_NOT_FOUND')
+    return err('INVALID_TRANSITION')
+  }
+  const items = await client
+    .select()
+    .from(schema.orderItems)
+    .where(eq(schema.orderItems.orderId, orderId))
+  return ok({ ...updated, items })
+}
+
+// 超时自动完成: 批量把发货超过 olderThan 的 shipped 订单 CAS 置 completed。
+// 先圈定目标(limit), 再带 status='shipped' 守卫的 CAS 批量更新——两步之间的
+// 状态变化(如用户恰好确认)由 CAS 过滤, 不会误伤。返回实际完成数供 worker 记录。
+export const ORDER_AUTO_COMPLETE_BATCH_SIZE = 200
+
+export async function autoCompleteShippedOrders(
+  olderThan: Date,
+  client: DbClient,
+  limit = ORDER_AUTO_COMPLETE_BATCH_SIZE,
+): Promise<number> {
+  const stale = await client
+    .select({ id: schema.orders.id })
+    .from(schema.orders)
+    .where(and(eq(schema.orders.status, 'shipped'), lt(schema.orders.shippedAt, olderThan)))
+    .orderBy(schema.orders.shippedAt)
+    .limit(limit)
+  if (stale.length === 0) return 0
+  const rows = await client
+    .update(schema.orders)
+    .set({ status: 'completed', completedAt: new Date() })
+    .where(
+      and(
+        eq(schema.orders.status, 'shipped'),
+        inArray(
+          schema.orders.id,
+          stale.map((row) => row.id),
+        ),
+      ),
+    )
+    .returning({ id: schema.orders.id })
+  return rows.length
 }
