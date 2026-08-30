@@ -11,7 +11,8 @@ COPY packages/ ./packages/
 COPY domains/ ./domains/
 COPY usecases/ ./usecases/
 
-RUN corepack enable && pnpm install --frozen-lockfile
+# --ignore-scripts: 跳过根 prepare(lefthook install)——镜像内无 git, 且 hooks 构建时无用
+RUN corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
 # 2. 构建目标前端（edn client 直接引 api 源码, 无需先构建后端）
 RUN pnpm --filter @epinfresh/${APP} build
