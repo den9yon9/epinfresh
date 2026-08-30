@@ -84,6 +84,37 @@ test('下单支付 → admin 退款 → 订单与退款记录联动', async ({ p
   expect(errors).toEqual([])
 })
 
+test('下单支付 → admin 发货 → 确认收货 → 已完成', async ({ page }) => {
+  const { errors, pageErrors } = collectConsoleErrors(page)
+
+  // 1. storefront: 下单并支付
+  await registerAndLogin(page)
+  const orderId = await orderAndPay(page)
+
+  // 2. admin: 发货(独立 context——localhost 各端口共享 cookie jar,
+  //    复用同一 page 会让 admin session 覆盖 storefront 会话导致 401)
+  const adminContext = await page.context().browser()!.newContext()
+  const adminPage = await adminContext.newPage()
+  await adminLogin(adminPage)
+  await adminPage.goto(`${ADMIN_BASE}/orders/${orderId}`)
+  await adminPage.getByRole('button', { name: '发货', exact: true }).click()
+  await adminPage.getByPlaceholder('运单号（可选）').fill('SF000111222')
+  await adminPage.getByRole('button', { name: '确认发货' }).click()
+  await expect(adminPage.getByText('已发货').first()).toBeVisible()
+  await adminContext.close()
+
+  // 3. storefront: 确认收货 → 已完成
+  await page.goto(`/orders/${orderId}`)
+  await expect(page.getByText('运单号：SF000111222')).toBeVisible()
+  page.on('dialog', (d) => d.accept())
+  await page.getByRole('button', { name: '确认收货' }).click()
+  await expect(page.getByText('已完成').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: '确认收货' })).toHaveCount(0)
+
+  expect(pageErrors).toEqual([])
+  expect(errors).toEqual([])
+})
+
 test('wechat oauth routes are wired in the storefront api', async ({ request }) => {
   // mock 环境下未授权: openid 为 null(端点存在即验证路由已注册)
   const res = await request.get('http://localhost:3000/auth/wechat/openid')

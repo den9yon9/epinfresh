@@ -318,6 +318,9 @@ importers:
       '@epinfresh/notifications':
         specifier: workspace:*
         version: link:../../usecases/notifications
+      '@epinfresh/order':
+        specifier: workspace:*
+        version: link:../../domains/order
       '@epinfresh/outbox':
         specifier: workspace:*
         version: link:../../domains/outbox

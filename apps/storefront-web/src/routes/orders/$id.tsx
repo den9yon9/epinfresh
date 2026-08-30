@@ -57,6 +57,22 @@ function OrderDetailPage() {
     router.invalidate()
   }
 
+  async function confirmReceipt() {
+    if (!window.confirm('确认已收到全部商品？')) return
+    setError(null)
+    setBusy(true)
+    const res = await api.orders({ id: order.id }).confirm.post()
+    setBusy(false)
+    if (res.error) {
+      const code = 'error' in res.error.value ? res.error.value.error : undefined
+      setError(
+        code === 'INVALID_TRANSITION' ? '订单当前状态不可确认收货' : '确认收货失败，请稍后重试',
+      )
+      return
+    }
+    router.invalidate()
+  }
+
   const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0)
   // 退款处理中: 不提供取消/去支付操作
   const cancellable = !refunding && (order.status === 'pending' || order.status === 'paid')
@@ -176,6 +192,21 @@ function OrderDetailPage() {
                 去支付
               </Link>
             )}
+          </div>
+        </div>
+      )}
+
+      {order.status === 'shipped' && (
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white">
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
+            <p className="text-xs text-gray-400">收到货后请及时确认，超时将自动完成</p>
+            <button
+              onClick={confirmReceipt}
+              disabled={busy}
+              className="rounded-lg bg-brand-600 px-8 py-2.5 text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {busy ? '确认中…' : '确认收货'}
+            </button>
           </div>
         </div>
       )}

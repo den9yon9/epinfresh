@@ -6,6 +6,8 @@ export type {
   ShipOrderOptions,
 } from './service'
 export {
+  autoCompleteShippedOrders,
+  completeOrder,
   createOrderRecord,
   getOrderById,
   getOrderForUser,
@@ -13,6 +15,7 @@ export {
   listOrders,
   listOrdersByUser,
   markOrderRefunded,
+  ORDER_AUTO_COMPLETE_BATCH_SIZE,
   shipOrder,
   updateOrderStatus,
 } from './service'
