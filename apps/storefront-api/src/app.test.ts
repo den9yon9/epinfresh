@@ -48,6 +48,7 @@ function createTestDeps(deps: {
       appId: '',
       appSecret: '',
     },
+    shippingFeeConfig: { flatFeeCents: 0n, freeThresholdCents: null },
     sessionSecret: env.TESTING_SESSION_SECRET,
     corsOrigin: true,
     trustProxy: false,

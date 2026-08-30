@@ -107,6 +107,50 @@ describe('createOrderRecord', () => {
     expect(order.items[0].unitPrice).toBe('5.00')
     expect(order.items[0].subtotal).toBe('10.00')
   })
+
+  test('includes shipping fee in totalAmount and stores the breakdown', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'fee-order', '5.00', 10)
+    const address = await seedAddress(user.id)
+
+    const order = await createOrderRecord(
+      user.id,
+      [{ skuId: sku.id, productName: 'Apple', skuName: '1kg', unitPrice: '5.00', quantity: 2 }],
+      {
+        addressId: address.id,
+        recipientName: address.recipientName,
+        phone: address.phone,
+        address: address.address,
+      },
+      db,
+      { shippingFeeCents: 600n },
+    )
+
+    // 商品 10.00 + 运费 6.00
+    expect(order.totalAmount).toBe('16.00')
+    expect(order.shippingFee).toBe('6.00')
+  })
+
+  test('defaults shipping fee to zero when not provided', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'fee-order-default', '5.00', 10)
+    const address = await seedAddress(user.id)
+
+    const order = await createOrderRecord(
+      user.id,
+      [{ skuId: sku.id, productName: 'Apple', skuName: '1kg', unitPrice: '5.00', quantity: 1 }],
+      {
+        addressId: address.id,
+        recipientName: address.recipientName,
+        phone: address.phone,
+        address: address.address,
+      },
+      db,
+    )
+
+    expect(order.totalAmount).toBe('5.00')
+    expect(order.shippingFee).toBe('0.00')
+  })
 })
 
 describe('order queries', () => {

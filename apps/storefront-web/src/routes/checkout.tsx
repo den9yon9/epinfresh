@@ -24,9 +24,10 @@ export const Route = createFileRoute('/checkout')({
   }),
   loader: async ({ deps }) => {
     const directBuy = Boolean(deps.productId && deps.skuId && deps.qty)
-    const [addressesRes, directRes] = await Promise.all([
+    const [addressesRes, directRes, feeRes] = await Promise.all([
       api.addresses.get(),
       directBuy ? api.products({ id: deps.productId! }).get() : Promise.resolve(null),
+      api.orders['shipping-fee'].get(),
     ])
     if (isUnauthorized(addressesRes.error) || isUnauthorized(directRes?.error)) {
       clearSessionCache()
@@ -35,6 +36,12 @@ export const Route = createFileRoute('/checkout')({
     if (addressesRes.error || directRes?.error) {
       throw new Error('结算信息加载失败，请稍后重试')
     }
+    // 运费配置拉取失败不阻塞结算: 前端仅做预览, 服务端下单时才是权威计算
+    if (isUnauthorized(feeRes.error)) {
+      clearSessionCache()
+      throw redirect({ to: '/login', search: { redirectTo: '/checkout' } })
+    }
+    const feeConfig = feeRes.error ? null : feeRes.data
 
     type CheckoutItem = {
       skuId: string
@@ -81,13 +88,13 @@ export const Route = createFileRoute('/checkout')({
       }
     }
 
-    return { cart, addresses: addressesRes.data.items }
+    return { cart, addresses: addressesRes.data.items, feeConfig }
   },
   component: CheckoutPage,
 })
 
 function CheckoutPage() {
-  const { cart, addresses } = Route.useLoaderData()
+  const { cart, addresses, feeConfig } = Route.useLoaderData()
   const search = Route.useSearch()
   const navigate = useNavigate()
   const defaultAddr = addresses.find((a) => a.isDefault)
@@ -114,7 +121,17 @@ function CheckoutPage() {
     })
   }
 
-  const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const goodsTotal = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  // 运费预览(与服务端 computeShippingFee 同规则): 达阈值免运费, 否则固定运费
+  const feeActive =
+    feeConfig !== null &&
+    (Number(feeConfig.flatFee) > 0 || feeConfig.freeShippingThreshold !== null)
+  const shippingFee = feeActive
+    ? feeConfig!.freeShippingThreshold !== null &&
+      goodsTotal >= Number(feeConfig!.freeShippingThreshold)
+      ? 0
+      : Number(feeConfig!.flatFee)
+    : 0
 
   if (cart.items.length === 0) {
     return (
@@ -272,7 +289,22 @@ function CheckoutPage() {
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <div className="text-sm text-gray-500">
-            合计 <span className="text-lg font-bold text-gray-900">¥{total.toFixed(2)}</span>
+            {feeActive && (
+              <p className="text-xs">
+                商品 ¥{goodsTotal.toFixed(2)} · 运费{' '}
+                {shippingFee === 0 ? (
+                  <span className="text-brand-600">免运费</span>
+                ) : (
+                  `¥${shippingFee.toFixed(2)}`
+                )}
+              </p>
+            )}
+            <p>
+              合计{' '}
+              <span className="text-lg font-bold text-gray-900">
+                ¥{(goodsTotal + shippingFee).toFixed(2)}
+              </span>
+            </p>
           </div>
           <button
             onClick={submit}

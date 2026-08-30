@@ -127,6 +127,13 @@
       "when": 1788054445715,
       "tag": "0017_last_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788061663119,
+      "tag": "0018_yummy_wrecking_crew",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { count, eq } from 'drizzle-orm'
 
+import { computeShippingFee } from './fee'
 import { checkout, pruneIdempotencyKeys } from './service'
 
 let db: Db
@@ -479,5 +480,77 @@ describe('checkout', () => {
       .where(eq(schema.checkoutIdempotencyKeys.key, 'fresh-key'))
     expect(oldRow).toBeUndefined()
     expect(freshRow).toBeDefined()
+  })
+})
+
+describe('computeShippingFee', () => {
+  const cfg = { flatFeeCents: 600n, freeThresholdCents: 8800n }
+
+  test('charges flat fee below the free-shipping threshold', () => {
+    expect(computeShippingFee(8799n, cfg)).toBe(600n)
+  })
+
+  test('waives the fee when goods total reaches the threshold', () => {
+    expect(computeShippingFee(8800n, cfg)).toBe(0n)
+    expect(computeShippingFee(10000n, cfg)).toBe(0n)
+  })
+
+  test('always charges when no threshold is configured', () => {
+    expect(computeShippingFee(100000n, { flatFeeCents: 600n, freeThresholdCents: null })).toBe(600n)
+  })
+
+  test('zero flat fee means shipping is always free', () => {
+    expect(computeShippingFee(100n, { flatFeeCents: 0n, freeThresholdCents: null })).toBe(0n)
+  })
+})
+
+describe('checkout with shipping fee', () => {
+  test('charges flat fee and stores the breakdown when below threshold', async () => {
+    const user = await seedUser()
+    const address = await seedAddress(user.id)
+    const { sku: apple } = await seedSku('Apple', 'fee-apple', '5.00', 10)
+
+    const result = await checkout(
+      { userId: user.id, addressId: address.id, items: [{ skuId: apple.id, quantity: 2 }] },
+      db,
+      { shippingFeeConfig: { flatFeeCents: 600n, freeThresholdCents: 8800n } },
+    )
+    expect(result.isOk()).toBe(true)
+    const { order } = result._unsafeUnwrap()
+    // 商品 10.00 + 运费 6.00 = 16.00
+    expect(order.shippingFee).toBe('6.00')
+    expect(order.totalAmount).toBe('16.00')
+  })
+
+  test('waives the fee when goods total reaches the threshold', async () => {
+    const user = await seedUser()
+    const address = await seedAddress(user.id)
+    const { sku: apple } = await seedSku('Apple', 'fee-threshold', '5.00', 20)
+
+    const result = await checkout(
+      // 商品 18 × 5.00 = 90.00 ≥ 88.00 → 免运费
+      { userId: user.id, addressId: address.id, items: [{ skuId: apple.id, quantity: 18 }] },
+      db,
+      { shippingFeeConfig: { flatFeeCents: 600n, freeThresholdCents: 8800n } },
+    )
+    expect(result.isOk()).toBe(true)
+    const { order } = result._unsafeUnwrap()
+    expect(order.shippingFee).toBe('0.00')
+    expect(order.totalAmount).toBe('90.00')
+  })
+
+  test('defaults to zero fee when no config is injected (backward compatible)', async () => {
+    const user = await seedUser()
+    const address = await seedAddress(user.id)
+    const { sku: apple } = await seedSku('Apple', 'fee-default', '5.00', 10)
+
+    const result = await checkout(
+      { userId: user.id, addressId: address.id, items: [{ skuId: apple.id, quantity: 2 }] },
+      db,
+    )
+    expect(result.isOk()).toBe(true)
+    const { order } = result._unsafeUnwrap()
+    expect(order.shippingFee).toBe('0.00')
+    expect(order.totalAmount).toBe('10.00')
   })
 })

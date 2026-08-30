@@ -42,6 +42,10 @@ export const storefrontEnvSchema = Type.Object({
   CORS_ORIGIN: corsOrigin,
   TRUST_PROXY: trustProxy,
   STOREFRONT_PORT: Type.String({ pattern: '^\\d+$' }),
+  // 运费策略: 固定运费(元), 默认 '0.00' = 关闭
+  SHIPPING_FLAT_FEE: Type.String({ default: '0.00' }),
+  // 满额包邮阈值(元, 按商品合计计); 空 = 不启用包邮
+  FREE_SHIPPING_THRESHOLD: Type.String({ default: '' }),
 })
 
 export type StorefrontEnv = StaticDecode<typeof storefrontEnvSchema>

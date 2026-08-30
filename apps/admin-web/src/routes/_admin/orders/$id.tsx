@@ -66,6 +66,12 @@ function OrderDetailPage() {
         <InfoCard title="基本信息">
           <Row label="订单号" value={shortId(order.id)} />
           <Row label="金额" value={`¥${order.totalAmount} ${order.currency}`} />
+          {Number(order.shippingFee) > 0 && (
+            <Row
+              label="运费"
+              value={`¥${Number(order.shippingFee).toFixed(2)}（商品 ¥${(Number(order.totalAmount) - Number(order.shippingFee)).toFixed(2)}）`}
+            />
+          )}
           <Row label="下单时间" value={new Date(order.createdAt).toLocaleString()} />
           {order.shippedAt && (
             <Row label="发货时间" value={new Date(order.shippedAt).toLocaleString()} />

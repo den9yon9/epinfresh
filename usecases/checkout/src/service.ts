@@ -3,10 +3,11 @@ import { removeCartItems } from '@epinfresh/cart'
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { createOrderRecord, getOrderById, type OrderDetail } from '@epinfresh/order'
 import { getSkusByIds, reduceProductStock } from '@epinfresh/product'
-import { err, ok, type Result } from '@epinfresh/shared'
+import { err, ok, type Result, toCents } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
 import { and, eq, lt } from 'drizzle-orm'
 
+import { computeShippingFee, type ShippingFeeConfig } from './fee'
 import type { CreateOrderInputSchema } from './model'
 
 export type CheckoutError =
@@ -14,6 +15,11 @@ export type CheckoutError =
   | 'PRODUCT_UNAVAILABLE'
   | 'ADDRESS_NOT_FOUND'
   | { code: 'INSUFFICIENT_STOCK'; skuId: string; available: number }
+
+export interface CheckoutOptions {
+  // 运费策略由 app 层从 env 组装注入; 不传 = 零运费(向后兼容, 测试便捷)
+  shippingFeeConfig?: ShippingFeeConfig
+}
 
 function isUniqueViolation(caught: unknown): boolean {
   return (
@@ -27,6 +33,7 @@ function isUniqueViolation(caught: unknown): boolean {
 export async function checkout(
   input: Static<typeof CreateOrderInputSchema> & { userId: string; idempotencyKey?: string },
   client: DbClient,
+  opts: CheckoutOptions = {},
 ): Promise<Result<{ order: OrderDetail; replayed: boolean }, CheckoutError>> {
   const { userId, idempotencyKey } = input
 
@@ -87,6 +94,15 @@ export async function checkout(
           quantity: item.quantity,
         }))
 
+        // 运费按商品合计计: 达阈值免运费, 否则固定运费; 未注入策略 = 零运费
+        const goodsCents = validated.reduce(
+          (sum, { item, sku }) => sum + toCents(sku.price) * BigInt(item.quantity),
+          0n,
+        )
+        const shippingFeeCents = opts.shippingFeeConfig
+          ? computeShippingFee(goodsCents, opts.shippingFeeConfig)
+          : 0n
+
         const order = await createOrderRecord(
           userId,
           lines,
@@ -97,6 +113,7 @@ export async function checkout(
             address: address.address,
           },
           tx,
+          { shippingFeeCents },
         )
         // 只清结算涉及的 SKU: 契约允许按 SKU 直接结算, 整车清空会误删未结算商品
         await removeCartItems(userId, skuIds, tx)

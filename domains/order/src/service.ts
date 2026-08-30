@@ -42,6 +42,7 @@ export async function createOrderRecord(
   lines: OrderLineInput[],
   shipping: OrderShippingInput,
   client: DbClient,
+  opts: { shippingFeeCents?: bigint } = {},
 ): Promise<OrderDetail> {
   let totalCents = 0n
   const rows = lines.map((line) => {
@@ -57,6 +58,10 @@ export async function createOrderRecord(
       subtotal: fromCents(subtotalCents),
     }
   })
+  // totalAmount 语义 = 最终应付(商品合计 + 运费); shippingFee 列保存明细供展示/审计
+  const shippingFeeCents = opts.shippingFeeCents ?? 0n
+  totalCents += shippingFeeCents
+  const shippingFee = fromCents(shippingFeeCents)
 
   const [order] = await client
     .insert(schema.orders)
@@ -64,6 +69,7 @@ export async function createOrderRecord(
       userId,
       status: 'pending',
       totalAmount: fromCents(totalCents),
+      shippingFee,
       addressId: shipping.addressId,
       recipientName: shipping.recipientName,
       recipientPhone: shipping.phone,

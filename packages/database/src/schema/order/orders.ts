@@ -24,6 +24,8 @@ export const orders = pgTable(
       .notNull(),
     status: orderStatus('status').default('pending').notNull(),
     totalAmount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
+    // 运费明细(totalAmount = 商品合计 + shippingFee); 历史订单默认 0
+    shippingFee: decimal('shipping_fee', { precision: 10, scale: 2 }).default('0.00').notNull(),
     currency: varchar('currency', { length: 3 }).default('CNY').notNull(),
     addressId: uuid('address_id').references(() => addresses.id, { onDelete: 'set null' }),
     recipientName: varchar('recipient_name', { length: 100 }).notNull().default(''),
