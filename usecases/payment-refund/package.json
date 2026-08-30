@@ -17,10 +17,10 @@
     "@epinfresh/order": "workspace:*",
     "@epinfresh/outbox": "workspace:*",
     "@epinfresh/payment": "workspace:*",
-    "@epinfresh/shared": "workspace:*"
+    "@epinfresh/shared": "workspace:*",
+    "drizzle-orm": "^0.40.0"
   },
   "devDependencies": {
-    "@epinfresh/payment-confirm": "workspace:*",
-    "drizzle-orm": "^0.40.0"
+    "@epinfresh/payment-confirm": "workspace:*"
   }
 }

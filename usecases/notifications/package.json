@@ -15,9 +15,7 @@
   "dependencies": {
     "@epinfresh/database": "workspace:*",
     "@epinfresh/shared": "workspace:*",
-    "@epinfresh/user": "workspace:*"
-  },
-  "devDependencies": {
+    "@epinfresh/user": "workspace:*",
     "drizzle-orm": "^0.40.0"
   }
 }
