@@ -301,8 +301,13 @@ function ShipButton({ onDone, onError }: { onDone: () => void; onError: (msg: st
   const [trackingNumber, setTrackingNumber] = useState('')
   const [courierCompany, setCourierCompany] = useState('')
   const [busy, setBusy] = useState(false)
+  // 承运商与运单号需同填或同空(后端同规则校验); 只填其一是永远无轨迹的死状态
+  const incomplete =
+    (courierCompany !== '' && trackingNumber.trim() === '') ||
+    (courierCompany === '' && trackingNumber.trim() !== '')
 
   async function ship() {
+    if (incomplete) return
     setBusy(true)
     // ponytail: eden treaty 对 union 字面量 body 推断坍缩, 与 tech-debt #1 同族 workaround
     const payload = {
@@ -334,7 +339,7 @@ function ShipButton({ onDone, onError }: { onDone: () => void; onError: (msg: st
               onChange={(e) => setCourierCompany(e.target.value)}
               className="mb-3 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none"
             >
-              <option value="">承运商（可选，指定后自动跟踪签收）</option>
+              <option value="">承运商（可与运单号后补）</option>
               {Object.entries(COURIER_COMPANY_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -345,13 +350,18 @@ function ShipButton({ onDone, onError }: { onDone: () => void; onError: (msg: st
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}
               placeholder="运单号（可选）"
-              className="mb-4 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none"
+              className="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none"
             />
+            {incomplete && (
+              <p className="mb-2 text-xs text-red-600">
+                承运商与运单号需同时填写，或都留空（后补）；只填其一将无法跟踪物流
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <ActionButton variant="ghost" onClick={() => setOpen(false)}>
                 取消
               </ActionButton>
-              <ActionButton variant="primary" disabled={busy} onClick={ship}>
+              <ActionButton variant="primary" disabled={busy || incomplete} onClick={ship}>
                 {busy ? '发货中…' : '确认发货'}
               </ActionButton>
             </div>

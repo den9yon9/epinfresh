@@ -147,6 +147,11 @@ export function createOrderRoutes(plugins: AdminPlugins) {
             switch (e) {
               case 'ORDER_NOT_FOUND':
                 return status(404, { error: e, message: 'Order not found' })
+              case 'SHIPMENT_INFO_INCOMPLETE':
+                return status(400, {
+                  error: e,
+                  message: '承运商与运单号需同时填写，或都留空（后补）',
+                })
               case 'INVALID_TRANSITION':
                 return status(409, { error: e, message: 'Order cannot be shipped' })
               default:
@@ -164,6 +169,7 @@ export function createOrderRoutes(plugins: AdminPlugins) {
         }),
         response: {
           200: OrderModel.OrderResponseSchema,
+          400: ErrorResponse,
           404: ErrorResponse,
           409: ErrorResponse,
         },
@@ -171,7 +177,7 @@ export function createOrderRoutes(plugins: AdminPlugins) {
           tags: ['Admin/Orders'],
           summary: '订单发货',
           description:
-            '将订单标记为已发货并填写运单号与承运商（指定承运商后 worker 将轮询轨迹，签收自动完成订单）。\n\n- 需要 admin 角色\n- 幂等：已发货的订单重复调用仅更新运单号/承运商\n- 订单不存在返回 404\n- 状态不允许发货返回 409',
+            '将订单标记为已发货并填写运单号与承运商（指定承运商后 worker 将轮询轨迹，签收自动完成订单）。\n\n- 需要 admin 角色\n- 承运商与运单号需同时填写或都留空（首次发货校验；已发货订单可部分更新补录）\n- 幂等：已发货的订单重复调用仅更新运单号/承运商\n- 订单不存在返回 404\n- 状态不允许发货返回 409，承运商/运单号只填其一返回 400',
         },
       },
     )

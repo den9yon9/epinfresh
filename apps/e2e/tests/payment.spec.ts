@@ -98,14 +98,14 @@ test('下单支付 → admin 发货 → 确认收货 → 已完成', async ({ pa
   await adminLogin(adminPage)
   await adminPage.goto(`${ADMIN_BASE}/orders/${orderId}`)
   await adminPage.getByRole('button', { name: '发货', exact: true }).click()
-  await adminPage.getByPlaceholder('运单号（可选）').fill('SF000111222')
+  // 都留空 = 自送/单号后补路径(首次发货校验允许同空), 与签收自动完成用例语义分离,
+  // 不会与 e2e worker 的签收自动完成产生竞态
   await adminPage.getByRole('button', { name: '确认发货' }).click()
   await expect(adminPage.getByText('已发货').first()).toBeVisible()
   await adminContext.close()
 
-  // 3. storefront: 确认收货 → 已完成
+  // 3. storefront: 手动确认收货(本用例走"都留空"路径, 无轨迹, 无自动完成竞态)
   await page.goto(`/orders/${orderId}`)
-  await expect(page.getByText('运单号：SF000111222')).toBeVisible()
   page.on('dialog', (d) => d.accept())
   await page.getByRole('button', { name: '确认收货' }).click()
   await expect(page.getByText('已完成').first()).toBeVisible()
