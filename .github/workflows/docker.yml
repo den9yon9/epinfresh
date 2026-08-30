@@ -44,4 +44,4 @@ jobs:
           tags: ghcr.io/${{ github.repository }}/${{ matrix.app }}:${{ github.sha }},ghcr.io/${{ github.repository }}/${{ matrix.app }}:latest
           build-args: |
             APP=${{ matrix.app }}
-            APPS=${{ matrix.app }}
+            APPS=@epinfresh/${{ matrix.app }}
