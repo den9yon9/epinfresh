@@ -131,7 +131,8 @@ test('下单支付 → admin 发货(顺丰) → mock 签收自动完成订单', 
   await adminPage.getByRole('combobox').selectOption({ label: '顺丰速运' })
   await adminPage.getByPlaceholder('运单号（可选）').fill('SF000111222')
   await adminPage.getByRole('button', { name: '确认发货' }).click()
-  await expect(adminPage.getByText('已发货').first()).toBeVisible()
+  // CI 上 worker 可能在页面刷新前就完成签收→自动完成, 此时徽章已是"已完成"
+  await expect(adminPage.getByText(/已发货|已完成/).first()).toBeVisible()
   await adminContext.close()
 
   // 3. storefront: worker 轮询 mock 轨迹(e2e 环境 0 分钟签收 + 2s 轮询)
