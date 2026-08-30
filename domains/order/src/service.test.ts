@@ -279,13 +279,74 @@ describe('updateOrderStatus', () => {
 })
 
 describe('shipOrder', () => {
+  test('first shipment requires courierCompany and trackingNumber together', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'ship-both', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(order.id, 'paid', db)
+
+    // 都填: 通过
+    const both = await shipOrder(order.id, 'SF123', 'sf', db)
+    expect(both.isOk()).toBe(true)
+    expect(both._unsafeUnwrap().courierCompany).toBe('sf')
+  })
+
+  test('first shipment with neither company nor tracking is allowed (后补/自送 path)', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'ship-neither', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(order.id, 'paid', db)
+
+    const result = await shipOrder(order.id, undefined, undefined, db)
+    expect(result.isOk()).toBe(true)
+    const shipped = result._unsafeUnwrap()
+    expect(shipped.courierCompany).toBeNull()
+    expect(shipped.trackingNumber).toBeNull()
+  })
+
+  test('first shipment with only one of company/tracking is rejected', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'ship-one', '5.00', 10)
+    const paidOrder = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(paidOrder.id, 'paid', db)
+
+    // 只填承运商
+    const companyOnly = await shipOrder(paidOrder.id, undefined, 'sf', db)
+    expect(companyOnly.isErr()).toBe(true)
+    expect(companyOnly._unsafeUnwrapErr()).toBe('SHIPMENT_INFO_INCOMPLETE')
+
+    // 只填运单号
+    const trackingOnly = await shipOrder(paidOrder.id, 'SF999', undefined, db)
+    expect(trackingOnly.isErr()).toBe(true)
+    expect(trackingOnly._unsafeUnwrapErr()).toBe('SHIPMENT_INFO_INCOMPLETE')
+
+    // 订单状态未被破坏(仍可正常发货)
+    const after = await shipOrder(paidOrder.id, 'SF999', 'sf', db)
+    expect(after.isOk()).toBe(true)
+  })
+
+  test('re-ship allows partial update (correction path without re-validation)', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'ship-refix', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(order.id, 'paid', db)
+    await shipOrder(order.id, 'SF123', 'sf', db)
+
+    // 已 shipped: 仅改运单号的补录/修正不受首发校验限制
+    const reShip = await shipOrder(order.id, 'SF456', undefined, db)
+    expect(reShip.isOk()).toBe(true)
+    const shipped = reShip._unsafeUnwrap()
+    expect(shipped.trackingNumber).toBe('SF456')
+    expect(shipped.courierCompany).toBe('sf')
+  })
+
   test('ships a paid order with trackingNumber and shippedAt', async () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
     const order = await seedOrder(user.id, sku.id)
     await updateOrderStatus(order.id, 'paid', db)
 
-    const result = await shipOrder(order.id, 'SF123', undefined, db)
+    const result = await shipOrder(order.id, 'SF123', 'sf', db)
     expect(result.isOk()).toBe(true)
     const shipped = result._unsafeUnwrap()
     expect(shipped.status).toBe('shipped')
@@ -345,7 +406,7 @@ describe('shipOrder', () => {
     const order = await seedOrder(user.id, sku.id)
     await updateOrderStatus(order.id, 'paid', db)
 
-    const result = await shipOrder(order.id, 'SF123', undefined, db)
+    const result = await shipOrder(order.id, 'SF123', 'sf', db)
     expect(result.isOk()).toBe(true)
   })
 
@@ -355,12 +416,13 @@ describe('shipOrder', () => {
     const order = await seedOrder(user.id, sku.id)
     await updateOrderStatus(order.id, 'paid', db)
 
-    await shipOrder(order.id, 'SF123', undefined, db)
+    await shipOrder(order.id, 'SF123', 'sf', db)
     const reShip = await shipOrder(order.id, 'SF456', undefined, db)
     expect(reShip.isOk()).toBe(true)
     const shipped = reShip._unsafeUnwrap()
     expect(shipped.status).toBe('shipped')
     expect(shipped.trackingNumber).toBe('SF456')
+    expect(shipped.courierCompany).toBe('sf')
     expect(shipped.shippedAt).not.toBeNull()
   })
 
@@ -388,7 +450,7 @@ async function seedShippedOrder(email = 'alice@example.com') {
   const { sku } = await seedSku('Apple', `apple-${email.split('@')[0]}`, '5.00', 10)
   const order = await seedOrder(user.id, sku.id)
   await updateOrderStatus(order.id, 'paid', db)
-  const shipped = await shipOrder(order.id, 'SF123', undefined, db)
+  const shipped = await shipOrder(order.id, 'SF123', 'sf', db)
   return shipped._unsafeUnwrap()
 }
 

@@ -342,15 +342,26 @@ describe('order status transitions', () => {
     const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
     await updateOrderStatus(order.id, 'paid', db)
 
-    const ship = await api.admin
+    // 首次发货校验: 承运商与运单号需同填
+    const bad = await api.admin
       .orders({ id: order.id })
       .ship.post({ trackingNumber: 'SF123' }, { fetch: { headers: { cookie } } })
+    expect(bad.status).toBe(400)
+
+    // ponytail: eden treaty union 字面量 body 坍缩(typo family tech-debt #1)
+    const ship = await api.admin
+      .orders({ id: order.id })
+      .ship.post({ trackingNumber: 'SF123', courierCompany: 'sf' } as never, {
+        fetch: { headers: { cookie } },
+      })
     expect(ship.status).toBe(200)
     if (ship.error !== null) throw ship.error
     expect(ship.data.status).toBe('shipped')
     expect(ship.data.trackingNumber).toBe('SF123')
+    expect(ship.data.courierCompany).toBe('sf')
     expect(ship.data.shippedAt).not.toBeNull()
 
+    // 已发货: 部分更新(仅改号)是合法的补录/修正路径
     const reShip = await api.admin
       .orders({ id: order.id })
       .ship.post({ trackingNumber: 'SF456' }, { fetch: { headers: { cookie } } })
@@ -358,6 +369,7 @@ describe('order status transitions', () => {
     if (reShip.error !== null) throw reShip.error
     expect(reShip.data.status).toBe('shipped')
     expect(reShip.data.trackingNumber).toBe('SF456')
+    expect(reShip.data.courierCompany).toBe('sf')
   })
 
   test('ship rejects a pending order with 409', async () => {

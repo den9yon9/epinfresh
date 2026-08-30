@@ -217,8 +217,11 @@ export async function markOrderRefunded(
   return ok({ order: { ...updated, items }, from: order.status })
 }
 
-// 发货: 只有 paid 可发货; 已 shipped 时重复调用仅补/更运单号(幂等)。CAS 防并发双发货,
-// 状态流转 + 运单号 + shippedAt 在同一事务内原子提交, 不会出现"已发货但无运单号"的半态。
+// 发货: courierCompany 为承运商标识(logistics 域枚举值)。
+// 首次发货时承运商与运单号必须同填或同空——只填其一是不可能被轨迹轮询的"死状态"
+// (轮询要求两者齐全), 且静默产生永远无轨迹的订单; 后补语义由"先都空、再都填"表达。
+// re-ship(已 shipped)允许部分更新: 补录/改号的修正路径不受校验限制。
+// CAS 防并发双发货, 状态流转 + 运单号 + shippedAt 在同一事务内原子提交。
 // onShipped 由调用方(app 层)注入(域不依赖 outbox): 仅 paid → shipped 真实转变时在
 // 同一事务内回调写 order.shipped 事件; 已 shipped 的运单号补录不触发(不重发邮件)。
 export interface OrderShippedEvent {
@@ -232,14 +235,15 @@ export interface ShipOrderOptions {
   onShipped?: (client: DbClient, event: OrderShippedEvent) => Promise<void>
 }
 
-// 发货: courierCompany 为承运商标识(logistics 域枚举值), 不传保留原值(补单号幂等语义)
 export async function shipOrder(
   orderId: string,
   trackingNumber: string | undefined,
   courierCompany: string | undefined,
   client: DbClient,
   opts: ShipOrderOptions = {},
-): Promise<Result<OrderDetail, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION'>> {
+): Promise<
+  Result<OrderDetail, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION' | 'SHIPMENT_INFO_INCOMPLETE'>
+> {
   return withTransaction(client, async (tx) => {
     const [order] = await tx.select().from(schema.orders).where(eq(schema.orders.id, orderId))
     if (!order) return err('ORDER_NOT_FOUND')
@@ -247,6 +251,11 @@ export async function shipOrder(
       return err('INVALID_TRANSITION')
     }
     const firstShipment = order.status === 'paid'
+    if (firstShipment) {
+      const hasCompany = courierCompany !== undefined && courierCompany !== ''
+      const hasTracking = trackingNumber !== undefined && trackingNumber !== ''
+      if (hasCompany !== hasTracking) return err('SHIPMENT_INFO_INCOMPLETE')
+    }
     const [updated] = await tx
       .update(schema.orders)
       .set({
