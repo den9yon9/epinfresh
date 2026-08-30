@@ -96,6 +96,12 @@ function OrderDetailPage() {
           <span className="text-sm text-gray-500">共 {totalItems} 件商品</span>
           <span className="text-xl font-bold text-gray-900">¥{order.totalAmount}</span>
         </div>
+        {Number(order.shippingFee) > 0 && (
+          <p className="mt-1 text-right text-xs text-gray-400">
+            商品 ¥{(Number(order.totalAmount) - Number(order.shippingFee)).toFixed(2)} · 运费 ¥
+            {Number(order.shippingFee).toFixed(2)}
+          </p>
+        )}
         {order.trackingNumber && (
           <p className="mt-2 text-sm text-gray-500">运单号：{order.trackingNumber}</p>
         )}

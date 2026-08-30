@@ -26,6 +26,12 @@ export const AdminOrderListQuerySchema = Type.Composite([
 ])
 export const UpdateOrderStatusSchema = Type.Object({ status: patchableStatusLiteral })
 
+// 运费预览(结算页展示用): 元字符串; threshold null = 不启用包邮
+export const ShippingFeePreviewSchema = Type.Object({
+  flatFee: Type.String(),
+  freeShippingThreshold: Type.Union([Type.String(), Type.Null()]),
+})
+
 export const DashboardResponseSchema = Type.Object(
   Object.fromEntries(ORDER_STATUS.map((s) => [s, Type.Number()])) as Record<
     (typeof ORDER_STATUS)[number],

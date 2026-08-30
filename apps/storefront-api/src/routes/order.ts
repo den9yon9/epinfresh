@@ -1,4 +1,5 @@
 import { checkout } from '@epinfresh/checkout'
+import { centsToYuan } from '@epinfresh/checkout'
 import { CheckoutErrorResponseSchema, CreateOrderInputSchema } from '@epinfresh/checkout/model'
 import { completeOrder, getOrderForUser, listOrdersByUser } from '@epinfresh/order'
 import * as OrderModel from '@epinfresh/order/model'
@@ -11,7 +12,7 @@ import { Elysia, status, t } from 'elysia'
 import { type StorefrontPlugins } from '../plugins'
 
 export function createOrderRoutes(plugins: StorefrontPlugins) {
-  const { paymentGateways } = plugins
+  const { paymentGateways, shippingFeeConfig } = plugins
   return new Elysia({ name: 'order-storefront' })
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
@@ -21,6 +22,7 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         const result = await checkout(
           { ...body, userId: session.userId, idempotencyKey: headers['idempotency-key'] },
           db,
+          { shippingFeeConfig },
         )
         return result.match(
           ({ order, replayed }) => status(replayed ? 200 : 201, order),
@@ -79,6 +81,26 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         description: '获取当前登录用户的订单列表，支持分页与状态筛选。\n\n- 需要登录',
       },
     })
+    .get(
+      '/orders/shipping-fee',
+      () => ({
+        flatFee: centsToYuan(shippingFeeConfig.flatFeeCents),
+        freeShippingThreshold:
+          shippingFeeConfig.freeThresholdCents === null
+            ? null
+            : centsToYuan(shippingFeeConfig.freeThresholdCents),
+      }),
+      {
+        isAuth: true,
+        response: { 200: OrderModel.ShippingFeePreviewSchema },
+        detail: {
+          tags: ['Orders'],
+          summary: '运费预览配置',
+          description:
+            '获取当前生效的运费策略（固定运费与满额包邮阈值），供结算页预览。\n\n- 需要登录\n- 最终运费以下单时服务端计算为准',
+        },
+      },
+    )
     .get(
       '/orders/:id',
       async ({ params, session, db }) => {

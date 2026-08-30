@@ -1,3 +1,4 @@
+import { type ShippingFeeConfig, yuanToCentsOrNull, yuanToCentsOrZero } from '@epinfresh/checkout'
 import { createDb, type Db } from '@epinfresh/database'
 import {
   createPaymentGatewaysFromEnv,
@@ -29,6 +30,7 @@ export interface StorefrontAppOptions {
   emailQueue: Queue<SendEmailJobData>
   paymentGateways: Record<PaymentChannel, PaymentGateway>
   wechatOauth: WechatOauthConfig
+  shippingFeeConfig: ShippingFeeConfig
   sessionSecret: string
   corsOrigin: true | string | string[]
   trustProxy: boolean
@@ -48,6 +50,11 @@ export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
     emailQueue: createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { connection: redis }),
     // 渠道注册表由共享支付 env 助手构建(storefront/admin/worker 三进程同一来源)
     paymentGateways: createPaymentGatewaysFromEnv(process.env),
+    // 运费策略: env(元字符串) → 分; 阈值空 = 不启用包邮
+    shippingFeeConfig: {
+      flatFeeCents: yuanToCentsOrZero(env.SHIPPING_FLAT_FEE),
+      freeThresholdCents: yuanToCentsOrNull(env.FREE_SHIPPING_THRESHOLD),
+    },
     wechatOauth: {
       enabled:
         paymentEnv.PAYMENT_GATEWAY.includes('wechat') && paymentEnv.WECHAT_APP_SECRET.length > 0,

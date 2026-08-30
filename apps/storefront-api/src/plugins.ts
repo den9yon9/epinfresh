@@ -1,3 +1,4 @@
+import { type ShippingFeeConfig } from '@epinfresh/checkout'
 import { dbPlugin, redisPlugin } from '@epinfresh/http'
 import { type PaymentChannel, type PaymentGateway } from '@epinfresh/payment'
 import { type Queue } from '@epinfresh/queue'
@@ -16,6 +17,7 @@ export interface StorefrontPlugins {
   authRateLimit: ReturnType<typeof authRateLimit>
   paymentGateways: Record<PaymentChannel, PaymentGateway>
   wechatOauth: WechatOauthConfig
+  shippingFeeConfig: ShippingFeeConfig
   isProduction: boolean
   logger: Logger
 }
@@ -37,6 +39,7 @@ export function createPlugins(
     emailQueue,
     paymentGateways,
     wechatOauth,
+    shippingFeeConfig,
     sessionSecret,
     trustProxy,
     isProduction,
@@ -59,6 +62,7 @@ export function createPlugins(
     }),
     paymentGateways,
     wechatOauth,
+    shippingFeeConfig,
     isProduction,
     logger,
   }
