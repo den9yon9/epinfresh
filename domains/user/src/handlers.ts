@@ -1,4 +1,4 @@
-import type { Logger } from '@epinfresh/shared'
+import { InvariantViolation, type Logger } from '@epinfresh/shared'
 
 import { EMAIL_JOB_NAMES, type EmailSender, type SendEmailJobData } from './jobs'
 
@@ -22,7 +22,7 @@ export function createEmailHandlers(
     [EMAIL_JOB_NAMES.RESET_PASSWORD]: (data) => {
       const token = data.payload.token
       if (typeof token !== 'string' || token.length === 0) {
-        throw new Error('reset-password job payload requires "token"')
+        throw new InvariantViolation('reset-password job payload requires "token"')
       }
       return sender.send(EMAIL_JOB_NAMES.RESET_PASSWORD, data.to, {
         resetLink: `${opts.webBaseUrl}/reset-password?token=${token}`,

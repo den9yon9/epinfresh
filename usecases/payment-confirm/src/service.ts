@@ -2,6 +2,7 @@ import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { markOrderRefunded, type OrderDetail, updateOrderStatus } from '@epinfresh/order'
 import { insertOutboxEvent } from '@epinfresh/outbox'
 import {
+  attachProviderTransactionId,
   cancelPendingPayment,
   confirmPayment,
   getPaymentById,
@@ -106,10 +107,7 @@ export async function confirmByWebhookEvent(
     event.providerTransactionId !== undefined &&
     payment.providerTransactionId !== event.providerTransactionId
   ) {
-    await client
-      .update(schema.payments)
-      .set({ providerTransactionId: event.providerTransactionId })
-      .where(eq(schema.payments.id, payment.id))
+    await attachProviderTransactionId(payment.id, event.providerTransactionId, client)
   }
 
   const confirmed = await confirmOrderPayment(payment.id, client)

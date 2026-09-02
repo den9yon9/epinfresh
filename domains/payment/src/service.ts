@@ -102,6 +102,19 @@ export async function getPaymentById(
   return ok(toPaymentRecord(payment))
 }
 
+// 回填渠道交易号: webhook 首次回调带 providerTransactionId 时写入(幂等, 不推进状态)。
+// 事务原语: 在传入的 client 上执行, 编排归 usecase。
+export async function attachProviderTransactionId(
+  paymentId: string,
+  providerTransactionId: string,
+  client: DbClient,
+): Promise<void> {
+  await client
+    .update(schema.payments)
+    .set({ providerTransactionId })
+    .where(eq(schema.payments.id, paymentId))
+}
+
 // 退款编号确定性派生自支付单 id: 同一支付单的重试使用相同 out_refund_no, 渠道侧幂等,
 // 避免网络重放/本地翻转失败后重试产生重复退款。退款编排(usecases)与订单取消共用。
 export function buildRefundNo(paymentId: string): string {

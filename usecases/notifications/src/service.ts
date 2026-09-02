@@ -1,4 +1,5 @@
 import { type DbClient, schema } from '@epinfresh/database'
+import { InvariantViolation } from '@epinfresh/shared'
 import { EMAIL_JOB_NAMES, type SendEmailJobData } from '@epinfresh/user/jobs'
 import { eq } from 'drizzle-orm'
 
@@ -22,7 +23,7 @@ function requireString(eventType: string, payload: unknown, key: string): string
       ? (payload as Record<string, unknown>)[key]
       : undefined
   if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`${eventType} event payload missing "${key}"`)
+    throw new InvariantViolation(`${eventType} event payload missing "${key}"`)
   }
   return value
 }
@@ -47,14 +48,14 @@ async function resolveOrderRecipient(
     .from(schema.orders)
     .where(eq(schema.orders.id, orderId))
     .limit(1)
-  if (!order) throw new Error(`${eventType} email: order not found (${orderId})`)
+  if (!order) throw new InvariantViolation(`${eventType} email: order not found (${orderId})`)
 
   const [user] = await client
     .select()
     .from(schema.users)
     .where(eq(schema.users.id, order.userId))
     .limit(1)
-  if (!user) throw new Error(`${eventType} email: user not found (${order.userId})`)
+  if (!user) throw new InvariantViolation(`${eventType} email: user not found (${order.userId})`)
   // name 列可空: 邮件称呼兜底
   return { email: user.email, name: user.name ?? '用户' }
 }

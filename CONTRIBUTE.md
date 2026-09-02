@@ -52,6 +52,10 @@ pnpm dev                    # 自动迁移 + 全部服务 watch
 | service.ts | 纯业务函数                 | 不 import Elysia/session/http；依赖以参数注入（client: DbClient）；失败 `err('CODE')`，成功 `ok(data)` |
 | index.ts   | 对外出口，只导出函数与类型 | 不暴露内部实现                                                                                         |
 
+**表访问**（ESLint 强制）：只许读写本域的表（写：`table-ownership`；读：`cross-domain-read`，
+当前 warn 级，升级触发条件见 docs/tech-debt.md）。跨域取数经域函数/usecase 编排，
+apps 层禁止引用任何表。
+
 **错误码约定**：默认错误就是大写字符串 `err('CODE')`（字符串字面量推断不拓宽，零仪式）。
 只有需要附带数据时，才把该错误码升级为对象 `err({ code: 'CODE', ...payload })`
 （如 `{ code: 'INSUFFICIENT_STOCK', skuId, available }`，当前唯一 payload 错误），
@@ -61,6 +65,14 @@ payload 对象**无需 `as const`**：函数有返回类型注解时 contextual 
 每个域/用例在 service.ts 顶部定义自己的错误联合类型。控制器必须穷举映射（见 §3），
 因此**新增错误码 = 编译错误**，强制在任何入口处补映射，杜绝静默漏处理。
 
+**失败的三种表达**（ESLint `invariant-throw/no-bare-throw` 强制，env.ts 豁免）：
+
+- 业务失败 → `return err('CODE')`：进错误契约，调用方穷举处理
+- 不该发生的失败（数据不一致/程序 bug，如事务内恢复库存失败）→
+  `throw new InvariantViolation(msg, { cause })`（`@epinfresh/shared`）：触发回滚、
+  落 500，name 可监控告警；与 `assertNever` 同族（编译期/运行时两种"不可能"）
+- 环境配置错误 → env.ts 内 fail-fast `throw new Error`（启动即失败，保留现状）
+
 ### 2. 新增用例（usecases/*）
 
 跨域编排放这里，与 domain 同样的三文件结构。需要原子性时用
@@ -68,6 +80,10 @@ payload 对象**无需 `as const`**：函数有返回类型注解时 contextual 
 回调内 `return err('CODE')` 会自动回滚整个事务（helper 内部转抛 abort 再还原为 err），
 DB 异常同理。域/用例内禁止直接调用 `.transaction(`（ESLint 强制）。
 幂等需求在事务内写唯一约束表实现（冲突时回滚整个事务，不静默跳过）。
+
+**表访问**（ESLint `table-ownership` 强制）：用例只许直写 `schema/<用例名>/` 下的
+"编排状态表"（如 checkout → `checkout_idempotency_keys`）；写任何业务域的表必须走
+该域的 service 原语（如回填渠道交易号 → `payment.attachProviderTransactionId`）。
 
 ### 3. 新增路由（apps/*/src/routes/）
 

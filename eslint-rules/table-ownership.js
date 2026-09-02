@@ -8,9 +8,11 @@
 // 规则扫描该目录下所有 .ts, 凡 `export const <name> = pgTable(` 的表, 归属 = 所在目录名。
 // 新增表只需放到正确域目录并同步 index.ts 导出, 规则零维护。
 //
-// 只检查"写操作目标"(update/insert/delete 的实参表), 读操作(select/join)放行——
-// 跨域读是合法关联(如 cart join product 展示详情), 只有跨域写才是越界。
+// 只检查"写操作目标"(update/insert/delete 的实参表), 读操作(select/join)由
+// cross-domain-read.js 单独约束(跨域读是耦合, 但危害低于写, 分级管理)。
 // apps/** 无归属域, 任何写表操作都属越界(写必须经 domain/usecase service)。
+// usecases/** 以用例名参与归属比对: 只允许写 schema/<用例名>/ 下的"编排状态表"
+// (如 checkout → checkout_idempotency_keys), 写他域表必须走该域的 service 原语。
 'use strict'
 
 import { readdirSync, readFileSync } from 'node:fs'
@@ -47,10 +49,12 @@ function loadTableOwnership() {
   return tableOwnership
 }
 
-/** 提取文件作用域: domain(带归属域) / app(无归属域, 禁写一切) / null(其他) */
+/** 提取文件作用域: domain / usecase(带归属名) / app(无归属域, 禁写一切) / null(其他) */
 function extractScopeFromFilename(filename) {
   const domain = /\/domains\/([^/]+)\//.exec(filename)?.[1]
   if (domain) return { kind: 'domain', name: domain }
+  const usecase = /\/usecases\/([^/]+)\//.exec(filename)?.[1]
+  if (usecase) return { kind: 'usecase', name: usecase }
   if (/\/apps\//.test(filename)) return { kind: 'app' }
   return null
 }
@@ -84,6 +88,8 @@ const rule = {
         'Writing table "schema.{{table}}" (owned by the "{{owner}}" domain) from the "{{domain}}" domain is forbidden. Cross-domain orchestration belongs in usecases/; keep writes within the owning domain.',
       appWrite:
         'Writing table "schema.{{table}}" from apps/ is forbidden. Presentation is a thin shell: route all writes through domain/usecase services.',
+      usecaseWrite:
+        'Writing table "schema.{{table}}" (owned by the "{{owner}}" domain) from the "usecases/{{domain}}" usecase is forbidden. Route writes through the owning domain\'s service primitives; only orchestration-state tables under schema/{{domain}}/ may be written directly.',
     },
   },
   create(context) {
@@ -110,7 +116,7 @@ const rule = {
           if (owner === scope.name) continue
           context.report({
             node: ref,
-            messageId: 'crossDomain',
+            messageId: scope.kind === 'usecase' ? 'usecaseWrite' : 'crossDomain',
             data: { table: tableName, owner, domain: scope.name },
           })
         }
@@ -118,5 +124,7 @@ const rule = {
     }
   },
 }
+
+export { loadTableOwnership }
 
 export default { rules: { 'no-cross-domain-tables': rule } }

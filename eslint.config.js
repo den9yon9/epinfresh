@@ -4,7 +4,9 @@ import eslintConfigPrettier from 'eslint-config-prettier'
 import boundaries from 'eslint-plugin-boundaries'
 import simpleImportSort from 'eslint-plugin-simple-import-sort'
 
+import crossDomainRead from './eslint-rules/cross-domain-read.js'
 import errorCodeRule from './eslint-rules/error-code.js'
+import invariantThrow from './eslint-rules/invariant-throw.js'
 import tableOwnership from './eslint-rules/table-ownership.js'
 import transactionRule from './eslint-rules/transaction.js'
 
@@ -122,10 +124,34 @@ export default [
   },
   {
     plugins: { 'table-ownership': tableOwnership },
-    files: ['domains/**/*.ts', 'apps/**/*.ts'],
+    files: ['domains/**/*.ts', 'apps/**/*.ts', 'usecases/**/*.ts'],
     ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
     rules: {
       'table-ownership/no-cross-domain-tables': 'error',
+    },
+  },
+  {
+    plugins: { 'invariant-throw': invariantThrow },
+    files: ['domains/**/*.ts', 'usecases/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**', '**/env.ts'],
+    rules: {
+      'invariant-throw/no-bare-throw': 'error',
+    },
+  },
+  {
+    plugins: { 'cross-domain-read': crossDomainRead },
+    files: ['domains/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
+    rules: {
+      'cross-domain-read/no-cross-domain-refs': 'warn',
+    },
+  },
+  {
+    plugins: { 'cross-domain-read': crossDomainRead },
+    files: ['apps/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
+    rules: {
+      'cross-domain-read/no-cross-domain-refs': 'error',
     },
   },
   {

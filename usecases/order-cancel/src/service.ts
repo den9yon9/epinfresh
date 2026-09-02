@@ -11,7 +11,7 @@ import {
   refundPayment,
 } from '@epinfresh/payment'
 import { restoreProductStock } from '@epinfresh/product'
-import { err, ok, type Result } from '@epinfresh/shared'
+import { err, InvariantViolation, ok, type Result } from '@epinfresh/shared'
 import { eq } from 'drizzle-orm'
 
 export type CancelOrderError =
@@ -60,7 +60,9 @@ export async function cancelOrder(
       for (const item of cancelled.value.order.items) {
         const restored = await restoreProductStock(item.skuId, item.quantity, tx)
         if (restored.isErr()) {
-          throw new Error(`restore stock failed for sku ${item.skuId}`)
+          throw new InvariantViolation('cancel order: restore stock failed', {
+            cause: restored.error,
+          })
         }
       }
       if (asyncRefund) {
@@ -84,7 +86,7 @@ export async function cancelOrder(
         if (payment.status === 'succeeded') {
           const refunded = await refundPayment(payment.id, tx)
           if (refunded.isErr()) {
-            throw new Error(`refund failed for payment ${payment.id}`)
+            throw new InvariantViolation('cancel order: refund failed', { cause: refunded.error })
           }
         }
       }
@@ -127,7 +129,9 @@ export async function cancelOrder(
     for (const item of order.items) {
       const restored = await restoreProductStock(item.skuId, item.quantity, tx)
       if (restored.isErr()) {
-        throw new Error(`restore stock failed for sku ${item.skuId}`)
+        throw new InvariantViolation('cancel order: restore stock failed', {
+          cause: restored.error,
+        })
       }
     }
     return ok(order)

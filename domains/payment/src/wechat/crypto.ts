@@ -9,6 +9,8 @@ import {
   verify,
 } from 'node:crypto'
 
+import { InvariantViolation } from '@epinfresh/shared'
+
 // --- 微信支付 APIv3 密码学原语(网关与 pay-mock-server 共用) ---
 
 // RSA-SHA256 签名, base64 输出
@@ -93,7 +95,7 @@ export interface AesGcmCiphertext {
 function requireApiV3Key(apiV3Key: string): Buffer {
   const key = Buffer.from(apiV3Key, 'utf8')
   if (key.length !== 32) {
-    throw new Error('[wechat] APIv3 key must be exactly 32 bytes (utf8)')
+    throw new InvariantViolation('[wechat] APIv3 key must be exactly 32 bytes (utf8)')
   }
   return key
 }
@@ -121,7 +123,7 @@ export function aesGcmEncrypt(
 export function aesGcmDecrypt(apiV3Key: string, encrypted: AesGcmCiphertext): string {
   const key = requireApiV3Key(apiV3Key)
   const data = Buffer.from(encrypted.ciphertext, 'base64')
-  if (data.length <= 16) throw new Error('[wechat] invalid AES-GCM ciphertext')
+  if (data.length <= 16) throw new InvariantViolation('[wechat] invalid AES-GCM ciphertext')
   const tag = data.subarray(data.length - 16)
   const body = data.subarray(0, data.length - 16)
   const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(encrypted.nonce, 'base64'))

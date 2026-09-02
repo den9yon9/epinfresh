@@ -26,6 +26,7 @@ export {
   type WechatPlatformCertificate,
 } from './gateways/wechat'
 export {
+  attachProviderTransactionId,
   buildRefundNo,
   cancelPendingPayment,
   confirmPayment,

@@ -1,6 +1,6 @@
 import { createPublicKey, randomBytes } from 'node:crypto'
 
-import { err, ok, type Result } from '@epinfresh/shared'
+import { err, InvariantViolation, ok, type Result } from '@epinfresh/shared'
 
 import { type WechatGatewayConfig } from '../config/wechat'
 import {
@@ -24,7 +24,7 @@ const REFUND_PATH = '/v3/refund/domestic/refunds'
 
 function toFen(amount: string): number {
   const fen = Math.round(Number(amount) * 100)
-  if (!Number.isFinite(fen)) throw new Error(`[wechat] invalid amount: ${amount}`)
+  if (!Number.isFinite(fen)) throw new InvariantViolation(`[wechat] invalid amount: ${amount}`)
   return fen
 }
 

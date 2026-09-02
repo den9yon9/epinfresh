@@ -1,4 +1,4 @@
-import { type Result } from '@epinfresh/shared'
+import { InvariantViolation, type Result } from '@epinfresh/shared'
 import { type StaticDecode, Type } from '@sinclair/typebox'
 
 import { type AlipayGatewayConfig } from './config/alipay'
@@ -114,7 +114,7 @@ export function createPaymentGateways(
   const registry: Partial<Record<PaymentChannel, PaymentGateway>> = {}
   for (const config of configs) {
     if (registry[config.channel] !== undefined) {
-      throw new Error(`[payment] duplicate gateway config: ${config.channel}`)
+      throw new InvariantViolation(`[payment] duplicate gateway config: ${config.channel}`)
     }
     switch (config.channel) {
       case 'mock':
