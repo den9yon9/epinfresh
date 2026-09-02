@@ -107,8 +107,9 @@ function CheckoutPage() {
   const [error, setError] = useState<string | null>(null)
   const [stockError, setStockError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  // 幂等键: 每次进入结算页生成一次, 防双提交/重试产生重复订单
-  const [idempotencyKey] = useState(() => crypto.randomUUID())
+  // 幂等键: 每次进入结算页生成一次, 防双提交/重试产生重复订单。
+  // 生命周期 = 一次提交尝试: 提交完结后重生成(见 submit 内注释), 页面停留期间改内容再提交不会被静默去重
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
 
   const directBuy = Boolean(search.productId && search.skuId && search.qty)
 
@@ -161,6 +162,12 @@ function CheckoutPage() {
     )
     setSubmitting(false)
     if (res.error) {
+      // 幂等键生命周期 = 一次提交尝试:
+      // - 明确的 4xx 拒绝(服务端事务必然回滚、未建单) → 重生成, 下次提交是新意图
+      // - 网络失败(eden 以 503 + response undefined 表示)或 5xx → 服务端结果未知,
+      //   保留 key: 用户重试时后端幂等返回同一笔订单, 防止重复下单
+      const status = res.error.status
+      if (status >= 400 && status < 500) setIdempotencyKey(crypto.randomUUID())
       const value = res.error.value
       if ('skuId' in value) {
         const item = cart.items.find((i) => i.skuId === value.skuId)
@@ -179,6 +186,9 @@ function CheckoutPage() {
       setError((code ? messages[code] : undefined) ?? '下单失败，请稍后重试')
       return
     }
+    // 提交成功: 本次尝试完结, 重生成 key——防止停留在本页改内容再提交时,
+    // 同 key 不同 body 被后端按幂等静默返回旧订单
+    setIdempotencyKey(crypto.randomUUID())
     // replace: 下单后购物车已清空, 从支付页返回不应回到空结算页
     navigate({ to: '/pay', search: { orderId: res.data.id }, replace: true })
   }
