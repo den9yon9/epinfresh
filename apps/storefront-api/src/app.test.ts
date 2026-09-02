@@ -54,6 +54,7 @@ function createTestDeps(deps: {
     trustProxy: false,
     isProduction: false,
     logger: createLogger('silent'),
+    authRateLimitPerMinute: 40,
   }
 }
 

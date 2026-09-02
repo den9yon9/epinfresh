@@ -20,6 +20,7 @@ export interface StorefrontPlugins {
   shippingFeeConfig: ShippingFeeConfig
   isProduction: boolean
   logger: Logger
+  authRateLimitPerMinute: number
 }
 
 function createEmailQueuePlugin(emailQueue: Queue<SendEmailJobData>) {
@@ -65,5 +66,6 @@ export function createPlugins(
     shippingFeeConfig,
     isProduction,
     logger,
+    authRateLimitPerMinute: options.authRateLimitPerMinute,
   }
 }

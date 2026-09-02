@@ -36,6 +36,7 @@ export interface StorefrontAppOptions {
   trustProxy: boolean
   isProduction: boolean
   logger: Logger
+  authRateLimitPerMinute: number
 }
 
 export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
@@ -68,5 +69,6 @@ export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
     trustProxy: env.TRUST_PROXY,
     isProduction: env.NODE_ENV === 'production',
     logger: createLogger(env.LOG_LEVEL),
+    authRateLimitPerMinute: env.AUTH_RATE_LIMIT_PER_MINUTE,
   }
 }

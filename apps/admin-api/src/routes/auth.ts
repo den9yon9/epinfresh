@@ -7,7 +7,7 @@ import { Elysia, status } from 'elysia'
 import { type AdminPlugins } from '../plugins'
 
 export function createAuthRoutes(plugins: AdminPlugins) {
-  const { dbPlugin, sessionPlugin, isProduction } = plugins
+  const { dbPlugin, sessionPlugin, isProduction, authRateLimitPerMinute } = plugins
   return new Elysia({ name: 'auth-admin', prefix: '/auth' })
     .use(dbPlugin)
     .use(sessionPlugin)
@@ -42,8 +42,8 @@ export function createAuthRoutes(plugins: AdminPlugins) {
       },
       {
         body: UserModel.LoginInputSchema,
-        // ponytail: 10/分 在 e2e 并行与调试节奏下不足, 放宽到 20/分
-        rateLimit: { limit: 20, window: '60s' },
+        // 限流值来自 env(生产默认 20/分); e2e 经 webServer 行内 env 注入放宽值
+        rateLimit: { limit: authRateLimitPerMinute, window: '60s' },
         response: {
           200: UserModel.UserResponseSchema,
           401: ErrorResponse,

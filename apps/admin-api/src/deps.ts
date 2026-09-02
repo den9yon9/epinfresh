@@ -18,6 +18,7 @@ export interface AdminAppOptions {
   trustProxy: boolean
   isProduction: boolean
   logger: Logger
+  authRateLimitPerMinute: number
 }
 
 export function createAdminDeps(env: AdminEnv): AdminAppOptions {
@@ -31,5 +32,6 @@ export function createAdminDeps(env: AdminEnv): AdminAppOptions {
     trustProxy: env.TRUST_PROXY,
     isProduction: env.NODE_ENV === 'production',
     logger: createLogger(env.LOG_LEVEL),
+    authRateLimitPerMinute: env.AUTH_RATE_LIMIT_PER_MINUTE,
   }
 }

@@ -12,6 +12,7 @@ export interface AdminPlugins {
   paymentGateways: AdminAppOptions['paymentGateways']
   isProduction: boolean
   logger: Logger
+  authRateLimitPerMinute: number
 }
 
 export function createPlugins(options: Omit<AdminAppOptions, 'corsOrigin'>): AdminPlugins {
@@ -33,5 +34,6 @@ export function createPlugins(options: Omit<AdminAppOptions, 'corsOrigin'>): Adm
     paymentGateways,
     isProduction,
     logger,
+    authRateLimitPerMinute: options.authRateLimitPerMinute,
   }
 }

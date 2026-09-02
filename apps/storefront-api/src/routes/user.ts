@@ -16,6 +16,7 @@ import { type StorefrontPlugins } from '../plugins'
 
 export function createUserRoutes(plugins: StorefrontPlugins) {
   const { dbPlugin, sessionPlugin, authRateLimit, emailQueuePlugin, isProduction } = plugins
+  const { authRateLimitPerMinute } = plugins
   return new Elysia({ name: 'user-storefront', prefix: '/auth' })
     .use(dbPlugin)
     .use(sessionPlugin)
@@ -39,11 +40,11 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
       {
         body: UserModel.RegisterInputSchema,
         response: { 200: UserModel.UserResponseSchema },
-        rateLimit: { limit: 40, window: '60s' },
+        rateLimit: { limit: authRateLimitPerMinute, window: '60s' },
         detail: {
           tags: ['Auth'],
           summary: '注册',
-          description: '注册新用户，成功后异步发送欢迎邮件。\n\n- 邮箱重复时由校验层返回错误',
+          description: `注册新用户，成功后异步发送欢迎邮件。\n\n- 邮箱重复时由校验层返回错误\n- 限流：60 秒内最多 ${authRateLimitPerMinute} 次尝试`,
         },
       },
     )
@@ -75,14 +76,13 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
       },
       {
         body: UserModel.LoginInputSchema,
-        // ponytail: 10/分 在 e2e 并行(mobile+desktop 共享 IP)下不足, 放宽到 20/分
-        rateLimit: { limit: 40, window: '60s' },
+        // 限流值来自 env(生产默认 20/分); e2e 经 webServer 行内 env 注入放宽值
+        rateLimit: { limit: authRateLimitPerMinute, window: '60s' },
         response: { 200: UserModel.UserResponseSchema, 401: ErrorResponse, 403: ErrorResponse },
         detail: {
           tags: ['Auth'],
           summary: '登录',
-          description:
-            '邮箱密码登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 账号被禁用返回 403\n- 限流：60 秒内最多 20 次尝试',
+          description: `邮箱密码登录，成功后设置签名 session cookie。\n\n- 凭据错误返回 401\n- 账号被禁用返回 403\n- 限流：60 秒内最多 ${authRateLimitPerMinute} 次尝试`,
         },
       },
     )

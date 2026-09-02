@@ -42,6 +42,8 @@ export const adminEnvSchema = Type.Object({
   CORS_ORIGIN: corsOrigin,
   TRUST_PROXY: trustProxy,
   ADMIN_PORT: Type.String({ pattern: '^\\d+$' }),
+  // 认证接口限流(次/分钟): 管理员登录。默认 20 为生产风控口径; e2e 行内 env 注入放宽值
+  AUTH_RATE_LIMIT_PER_MINUTE: Type.Number({ minimum: 1, maximum: 1000, default: 20 }),
 })
 
 export type AdminEnv = StaticDecode<typeof adminEnvSchema>

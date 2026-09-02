@@ -33,6 +33,7 @@ function createTestDeps(deps: { db: Db; redis: Redis }): AdminAppOptions {
     trustProxy: false,
     isProduction: false,
     logger: createLogger('silent'),
+    authRateLimitPerMinute: 20,
   }
 }
 

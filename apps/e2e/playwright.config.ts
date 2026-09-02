@@ -31,7 +31,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'bun --env-file=../../.env src/index.ts',
+      // AUTH_RATE_LIMIT_PER_MINUTE=40: e2e 并行 3 项目共享 IP, 放宽认证限流(生产默认 20)
+      command: 'AUTH_RATE_LIMIT_PER_MINUTE=40 bun --env-file=../../.env src/index.ts',
       cwd: '../storefront-api',
       url: 'http://localhost:3000/health',
       reuseExistingServer: true,
@@ -44,7 +45,7 @@ export default defineConfig({
       reuseExistingServer: true,
     },
     {
-      command: 'bun --env-file=../../.env src/index.ts',
+      command: 'AUTH_RATE_LIMIT_PER_MINUTE=40 bun --env-file=../../.env src/index.ts',
       cwd: '../admin-api',
       url: 'http://localhost:3001/health',
       reuseExistingServer: true,
