@@ -1,15 +1,15 @@
-import { closeDb, type Db, type ProductStatus, schema } from '@epinfresh/database'
+import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
 import {
-  addToCart,
   clearCart,
-  listCart,
+  listCartItems,
   removeCartItem,
   removeCartItems,
   updateCartItem,
+  upsertCartItem,
 } from './service'
 
 let db: Db
@@ -34,14 +34,8 @@ async function seedUser(email = 'alice@example.com') {
   return user
 }
 
-async function seedSku(
-  name: string,
-  slug: string,
-  price = '5.00',
-  stock = 10,
-  status: ProductStatus = 'published',
-) {
-  const [product] = await db.insert(schema.products).values({ name, slug, status }).returning()
+async function seedSku(name: string, slug: string, price = '5.00', stock = 10) {
+  const [product] = await db.insert(schema.products).values({ name, slug }).returning()
   const [sku] = await db
     .insert(schema.productSkus)
     .values({
@@ -59,53 +53,30 @@ async function cartRows(userId: string) {
   return db.select().from(schema.cartItems).where(eq(schema.cartItems.userId, userId))
 }
 
-describe('addToCart', () => {
-  test('adds an item with sku/product details', async () => {
+describe('upsertCartItem', () => {
+  test('inserts a row', async () => {
     const user = await seedUser()
-    const { product, sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const { sku } = await seedSku('Apple', 'apple')
 
-    const result = await addToCart(user.id, sku.id, 2, db)
-    expect(result.isOk()).toBe(true)
-    const item = result._unsafeUnwrap()
-    expect(item.quantity).toBe(2)
-    expect(item.sku.id).toBe(sku.id)
-    expect(item.sku.price).toBe('5.00')
-    expect(item.product.id).toBe(product.id)
-    expect(item.product.status).toBe('published')
+    const row = await upsertCartItem(user.id, sku.id, 2, db)
+    expect(row.skuId).toBe(sku.id)
+    expect(row.quantity).toBe(2)
   })
 
   test('merges quantity for the same sku with a cap of 9999', async () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple')
 
-    await addToCart(user.id, sku.id, 3, db)
-    const merged = await addToCart(user.id, sku.id, 4, db)
-    expect(merged.isOk()).toBe(true)
-    expect(merged._unsafeUnwrap().quantity).toBe(7)
+    await upsertCartItem(user.id, sku.id, 3, db)
+    const merged = await upsertCartItem(user.id, sku.id, 4, db)
+    expect(merged.quantity).toBe(7)
 
     const rows = await cartRows(user.id)
     expect(rows).toHaveLength(1)
 
-    await addToCart(user.id, sku.id, 9999, db)
-    const capped = await addToCart(user.id, sku.id, 5, db)
-    expect(capped.isOk()).toBe(true)
-    expect(capped._unsafeUnwrap().quantity).toBe(9999)
-  })
-
-  test('returns SKU_NOT_FOUND for unknown sku', async () => {
-    const user = await seedUser()
-    const result = await addToCart(user.id, '00000000-0000-4000-8000-000000000000', 1, db)
-    expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('SKU_NOT_FOUND')
-  })
-
-  test('rejects sku whose product is not published', async () => {
-    const user = await seedUser()
-    const { sku } = await seedSku('Apple', 'apple-draft', '5.00', 10, 'draft')
-
-    const result = await addToCart(user.id, sku.id, 1, db)
-    expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('PRODUCT_UNAVAILABLE')
+    await upsertCartItem(user.id, sku.id, 9999, db)
+    const capped = await upsertCartItem(user.id, sku.id, 5, db)
+    expect(capped.quantity).toBe(9999)
   })
 
   test('concurrent adds never create duplicate rows', async () => {
@@ -113,9 +84,9 @@ describe('addToCart', () => {
     const { sku } = await seedSku('Apple', 'apple')
 
     await Promise.all([
-      addToCart(user.id, sku.id, 1, db),
-      addToCart(user.id, sku.id, 1, db),
-      addToCart(user.id, sku.id, 1, db),
+      upsertCartItem(user.id, sku.id, 1, db),
+      upsertCartItem(user.id, sku.id, 1, db),
+      upsertCartItem(user.id, sku.id, 1, db),
     ])
     const rows = await cartRows(user.id)
     expect(rows).toHaveLength(1)
@@ -123,15 +94,15 @@ describe('addToCart', () => {
   })
 })
 
-describe('listCart', () => {
+describe('listCartItems', () => {
   test('lists own items only', async () => {
     const user = await seedUser()
     const other = await seedUser('bob@example.com')
     const { sku } = await seedSku('Apple', 'apple')
-    await addToCart(user.id, sku.id, 2, db)
-    await addToCart(other.id, sku.id, 5, db)
+    await upsertCartItem(user.id, sku.id, 2, db)
+    await upsertCartItem(other.id, sku.id, 5, db)
 
-    const { items } = await listCart(user.id, db)
+    const { items } = await listCartItems(user.id, db)
     expect(items).toHaveLength(1)
     expect(items[0].quantity).toBe(2)
   })
@@ -141,7 +112,7 @@ describe('updateCartItem', () => {
   test('sets the quantity', async () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple')
-    await addToCart(user.id, sku.id, 2, db)
+    await upsertCartItem(user.id, sku.id, 2, db)
 
     const result = await updateCartItem(user.id, sku.id, 8, db)
     expect(result.isOk()).toBe(true)
@@ -162,7 +133,7 @@ describe('removeCartItem and clearCart', () => {
   test('removes one item', async () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple')
-    await addToCart(user.id, sku.id, 2, db)
+    await upsertCartItem(user.id, sku.id, 2, db)
 
     const result = await removeCartItem(user.id, sku.id, db)
     expect(result.isOk()).toBe(true)
@@ -182,8 +153,8 @@ describe('removeCartItem and clearCart', () => {
     const user = await seedUser()
     const other = await seedUser('bob@example.com')
     const { sku } = await seedSku('Apple', 'apple')
-    await addToCart(user.id, sku.id, 2, db)
-    await addToCart(other.id, sku.id, 2, db)
+    await upsertCartItem(user.id, sku.id, 2, db)
+    await upsertCartItem(other.id, sku.id, 2, db)
 
     await clearCart(user.id, db)
     expect(await cartRows(user.id)).toHaveLength(0)
@@ -196,8 +167,8 @@ describe('removeCartItems', () => {
     const user = await seedUser()
     const { sku: apple } = await seedSku('Apple', 'apple')
     const { sku: banana } = await seedSku('Banana', 'banana')
-    await addToCart(user.id, apple.id, 2, db)
-    await addToCart(user.id, banana.id, 1, db)
+    await upsertCartItem(user.id, apple.id, 2, db)
+    await upsertCartItem(user.id, banana.id, 1, db)
 
     const result = await removeCartItems(user.id, [apple.id], db)
 
@@ -211,7 +182,7 @@ describe('removeCartItems', () => {
     const user = await seedUser()
     const { sku: apple } = await seedSku('Apple', 'apple')
     const { sku: banana } = await seedSku('Banana', 'banana')
-    await addToCart(user.id, banana.id, 1, db)
+    await upsertCartItem(user.id, banana.id, 1, db)
 
     await removeCartItems(user.id, [apple.id, '00000000-0000-4000-8000-000000000000'], db)
 
@@ -224,8 +195,8 @@ describe('removeCartItems', () => {
     const user = await seedUser()
     const other = await seedUser('bob@example.com')
     const { sku } = await seedSku('Apple', 'apple')
-    await addToCart(user.id, sku.id, 2, db)
-    await addToCart(other.id, sku.id, 5, db)
+    await upsertCartItem(user.id, sku.id, 2, db)
+    await upsertCartItem(other.id, sku.id, 5, db)
 
     await removeCartItems(user.id, [sku.id], db)
 

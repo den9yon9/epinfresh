@@ -95,6 +95,59 @@ export async function getSkusByIds(skuIds: string[], client: DbClient) {
   })
 }
 
+// 可购性校验快照(轻量): SKU 存在性 + 所属商品状态。加购等编排层校验用。
+export async function getSkuPurchaseInfo(
+  skuId: string,
+  client: DbClient,
+): Promise<Result<{ productId: string; productStatus: string }, 'SKU_NOT_FOUND'>> {
+  const [sku] = await client
+    .select({
+      productId: schema.productSkus.productId,
+      productStatus: schema.products.status,
+    })
+    .from(schema.productSkus)
+    .innerJoin(schema.products, eq(schema.productSkus.productId, schema.products.id))
+    .where(eq(schema.productSkus.id, skuId))
+  if (!sku) return err('SKU_NOT_FOUND')
+  return ok(sku)
+}
+
+// SKU 展示视图: SKU 简报 + 所属商品简报。批量取, 供购物车等读模型编排层拼装。
+export interface SkuView {
+  skuId: string
+  name: string
+  skuCode: string
+  price: string
+  stock: number
+  attributes: Record<string, string>
+  productId: string
+  productName: string
+  slug: string
+  images: string[]
+  productStatus: string
+}
+
+export async function getSkuViewsByIds(skuIds: string[], client: DbClient): Promise<SkuView[]> {
+  if (skuIds.length === 0) return []
+  return client
+    .select({
+      skuId: schema.productSkus.id,
+      name: schema.productSkus.name,
+      skuCode: schema.productSkus.skuCode,
+      price: schema.productSkus.price,
+      stock: schema.productSkus.stock,
+      attributes: schema.productSkus.attributes,
+      productId: schema.products.id,
+      productName: schema.products.name,
+      slug: schema.products.slug,
+      images: schema.products.images,
+      productStatus: schema.products.status,
+    })
+    .from(schema.productSkus)
+    .innerJoin(schema.products, eq(schema.productSkus.productId, schema.products.id))
+    .where(inArray(schema.productSkus.id, skuIds))
+}
+
 export async function reduceProductStock(
   skuId: string,
   quantity: number,

@@ -3,7 +3,9 @@ export {
   createProduct,
   getProductById,
   getProductByIdPublic,
+  getSkuPurchaseInfo,
   getSkusByIds,
+  getSkuViewsByIds,
   listAllProducts,
   listCategories,
   listPublishedProducts,
@@ -11,6 +13,7 @@ export {
   removeCategory,
   removeProduct,
   restoreProductStock,
+  type SkuView,
   updateCategory,
   updateProduct,
 } from './service'

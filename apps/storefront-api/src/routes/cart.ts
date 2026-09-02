@@ -1,5 +1,6 @@
-import { addToCart, clearCart, listCart, removeCartItem, updateCartItem } from '@epinfresh/cart'
+import { clearCart, removeCartItem } from '@epinfresh/cart'
 import * as CartModel from '@epinfresh/cart/model'
+import * as CartOps from '@epinfresh/cart-ops'
 import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
@@ -10,9 +11,9 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
   return new Elysia({ name: 'cart-storefront' })
     .use(dbPlugin)
     .use(sessionPlugin)
-    .get('/cart', async ({ session, db }) => listCart(session.userId, db), {
+    .get('/cart', async ({ session, db }) => CartOps.viewCart(session.userId, db), {
       isAuth: true,
-      response: { 200: CartModel.CartListResponseSchema },
+      response: { 200: CartOps.CartListResponseSchema },
       detail: {
         tags: ['Cart'],
         summary: '查看购物车',
@@ -22,7 +23,7 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
     .post(
       '/cart/items',
       async ({ body, session, db }) => {
-        const result = await addToCart(session.userId, body.skuId, body.quantity, db)
+        const result = await CartOps.addItemToCart(session.userId, body.skuId, body.quantity, db)
         return result.match(
           (item) => status(201, item),
           (e) => {
@@ -41,7 +42,7 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
         isAuth: true,
         body: CartModel.AddCartItemInputSchema,
         response: {
-          201: CartModel.CartItemResponseSchema,
+          201: CartOps.CartItemResponseSchema,
           404: ErrorResponse,
           409: ErrorResponse,
         },
@@ -56,7 +57,12 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
     .put(
       '/cart/items/:skuId',
       async ({ params, body, session, db }) => {
-        const result = await updateCartItem(session.userId, params.skuId, body.quantity, db)
+        const result = await CartOps.changeCartItemQuantity(
+          session.userId,
+          params.skuId,
+          body.quantity,
+          db,
+        )
         return result.match(
           (item) => item,
           (e) => {
@@ -73,7 +79,7 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
         isAuth: true,
         params: t.Object({ skuId: t.String({ format: 'uuid' }) }),
         body: CartModel.UpdateCartItemInputSchema,
-        response: { 200: CartModel.CartItemResponseSchema, 404: ErrorResponse },
+        response: { 200: CartOps.CartItemResponseSchema, 404: ErrorResponse },
         detail: {
           tags: ['Cart'],
           summary: '更新购物车商品数量',

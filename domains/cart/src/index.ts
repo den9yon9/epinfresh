@@ -1,9 +1,9 @@
-export type { CartItemDetail } from './service'
+export type { CartError, CartItemRow } from './service'
 export {
-  addToCart,
   clearCart,
-  listCart,
+  listCartItems,
   removeCartItem,
   removeCartItems,
   updateCartItem,
+  upsertCartItem,
 } from './service'

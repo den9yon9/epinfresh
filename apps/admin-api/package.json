@@ -25,6 +25,7 @@
     "@epinfresh/outbox": "workspace:*",
     "@epinfresh/payment": "workspace:*",
     "@epinfresh/payment-confirm": "workspace:*",
+    "@epinfresh/payment-initiate": "workspace:*",
     "@epinfresh/payment-refund": "workspace:*",
     "@epinfresh/product": "workspace:*",
     "@epinfresh/redis": "workspace:*",
