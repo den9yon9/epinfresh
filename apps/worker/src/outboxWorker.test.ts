@@ -60,7 +60,7 @@ describe('dispatchOutbox', () => {
   test('does not lose an event with no registered handler; it enters retry backoff', async () => {
     await seedEvent('order.created')
 
-    await dispatchOutbox(db, logger)
+    await dispatchOutbox(db, logger, {})
 
     const [row] = await db.select().from(schema.outboxEvents)
     expect(row.status).toBe('pending')

@@ -11,7 +11,6 @@ import {
   OUTBOX_BATCH_SIZE,
   OUTBOX_STALE_THRESHOLD_MS,
   type OutboxEventHandler,
-  outboxHandlers,
   resetStaleOutboxEvents,
 } from '@epinfresh/outbox'
 import {
@@ -81,11 +80,11 @@ export function registerOutboxWorker(
 
 // 单次扫描: 先回收卡死的 processing 事件(claim 方崩溃自愈) → 原子抢占一批 →
 // 按 event_type 分发 → 成功标记 / 失败退避或死信。
-// handlers 可注入以便测试; 默认用域注册表。
+// handlers 必传(调用方显式组装映射, 防止"忘传 → 全量死信"的静默失败), 可注入以便测试。
 export async function dispatchOutbox(
   db: Db,
   logger: Logger,
-  handlers: Record<string, OutboxEventHandler> = outboxHandlers,
+  handlers: Record<string, OutboxEventHandler>,
 ): Promise<void> {
   const staleBefore = new Date(Date.now() - OUTBOX_STALE_THRESHOLD_MS)
   const reset = await resetStaleOutboxEvents(db, staleBefore)

@@ -1,4 +1,4 @@
-export { type OutboxEventHandler, outboxHandlers } from './handlers'
+export { type OutboxEventHandler } from './handlers'
 export {
   claimOutboxBatch,
   completeOutboxEvent,
