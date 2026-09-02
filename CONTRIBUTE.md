@@ -152,7 +152,10 @@ createEnv() → createDeps(env) → buildApp(options) → createPlugins(options)
 
 ### 5. 队列
 
-- 队列名 / job 名 / payload 类型定义在领域内 `jobs.ts`（纯契约，零依赖）
+- 队列名 / job 名 / payload 类型定义在领域内 `jobs.ts`（纯契约，零依赖）。
+  **归属口径**：域内 `jobs.ts` 只放**该域自己触发**的任务；事件通知类契约（支付/退款/发货
+  的邮件模板等）归 `usecases/notifications` 侧，不要往 `domains/user` 堆——通知渠道膨胀
+  （短信/推送）时结构化拆分，见 tech-debt 债项
 - handler 只消费纯数据 `(data, logger)`，放在领域内（如 `domains/user/src/handlers.ts`）；
   依赖传输实现时用工厂注入（如 `createEmailHandlers(sender, opts)`，sender 接口定义在 jobs.ts）
 - BullMQ 适配（createWorker/createDispatcher/Redis 连接）在 apps/worker；
