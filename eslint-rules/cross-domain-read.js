@@ -4,9 +4,9 @@
 // 判断)与"展示关联读"(cart join product 显示商品名)都是耦合。约定: 域只许引用自己的表;
 // apps 是薄壳, 不许直接引用任何表。跨域取数一律经域函数或 usecase 编排。
 //
-// 当前 domains 侧为 warn 级: 已知命中 payment→orders(待上移 usecase)、cart→products
-// (待读模型重构)。升 error 触发条件见 docs/tech-debt.md(两项重构完成后一行改级)。
-// apps 侧为 error 级: 生产代码应零表引用(验证时全仓 apps 非 test 文件零命中)。
+// 当前为 error 级(payment/cart 两处历史耦合已于 2026-09 重构清偿, 见 git log):
+// 行为性读经 usecases 编排(payment-initiate), 展示读由读模型 usecase(cart-ops)拼装。
+// apps 侧一直为 error 级: 生产代码应零表引用。
 //
 // 检查路径: 1) schema.<table>  2) <db>.query.<relation>(drizzle 关系查询)。
 // 归属推导复用 table-ownership 的 loadTableOwnership(schema 目录名即归属域)。

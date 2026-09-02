@@ -143,7 +143,7 @@ export default [
     files: ['domains/**/*.ts'],
     ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
     rules: {
-      'cross-domain-read/no-cross-domain-refs': 'warn',
+      'cross-domain-read/no-cross-domain-refs': 'error',
     },
   },
   {

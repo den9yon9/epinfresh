@@ -52,9 +52,8 @@ pnpm dev                    # 自动迁移 + 全部服务 watch
 | service.ts | 纯业务函数                 | 不 import Elysia/session/http；依赖以参数注入（client: DbClient）；失败 `err('CODE')`，成功 `ok(data)` |
 | index.ts   | 对外出口，只导出函数与类型 | 不暴露内部实现                                                                                         |
 
-**表访问**（ESLint 强制）：只许读写本域的表（写：`table-ownership`；读：`cross-domain-read`，
-当前 warn 级，升级触发条件见 docs/tech-debt.md）。跨域取数经域函数/usecase 编排，
-apps 层禁止引用任何表。
+**表访问**（ESLint 强制）：只许读写本域的表（写：`table-ownership`；读：`cross-domain-read`）。
+跨域取数经域函数/usecase 编排（行为性校验与展示拼装都在 usecases），apps 层禁止引用任何表。
 
 **错误码约定**：默认错误就是大写字符串 `err('CODE')`（字符串字面量推断不拓宽，零仪式）。
 只有需要附带数据时，才把该错误码升级为对象 `err({ code: 'CODE', ...payload })`
