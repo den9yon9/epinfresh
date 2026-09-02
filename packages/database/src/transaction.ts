@@ -1,11 +1,12 @@
 import { err, type Result } from '@epinfresh/shared'
+import { PgTransaction } from 'drizzle-orm/pg-core'
 
 import type { DbClient, DbTransaction } from './index'
 
 // 事务内返回 err() 的语义由本 helper 统一处理：
 // drizzle 的 client.transaction 只有回调抛异常才回滚，直接 return err() 会被当正常结果提交。
 // withTransaction 把 err 转成内部 abort（抛异常→回滚），在边界再还原为 err()。
-// 非 Result 异常（DB 错误、业务 throw）原样上抛，保持回滚。
+// 非 Result 异常（DB 错误、InvariantViolation 等业务 throw）原样上抛，保持回滚。
 // 错误类型 C 不做约束：域层约定为字符串错误码或 { code, ...payload } 对象（见 CONTRIBUTE.md
 // 错误码约定），但 helper 本身不限制，将来传任意结构化错误都可用。
 class TransactionAbort<C> extends Error {
@@ -35,6 +36,12 @@ export async function withTransaction<T, C>(
   client: DbClient,
   fn: (tx: DbTransaction) => Promise<Result<T, C> | T>,
 ): Promise<Result<T, C> | T> {
+  // 嵌套复用: 传入的 client 已是事务时直接在其上执行, 不再开新事务。
+  // 语义自然成立——内层 err 原样返回给外层 fn, 由外层统一 abort 回滚;
+  // 调用方无需记忆"哪些域函数自带事务", 域内原子性与跨域编排可自由组合。
+  if (client instanceof PgTransaction) {
+    return fn(client)
+  }
   try {
     const value = await client.transaction(async (tx) => {
       const result = await fn(tx)

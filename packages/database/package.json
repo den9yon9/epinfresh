@@ -16,6 +16,7 @@
     "db:migrate": "bun --env-file=../../.env node_modules/drizzle-kit/bin.cjs migrate",
     "migrate": "bun --env-file=../../.env src/migrate.ts",
     "db:seed": "bun --env-file=../../.env src/seed.ts",
+    "test": "bun --env-file=../../.env test --parallel=1",
     "db:fixtures": "bun --env-file=../../.env src/fixtures.ts"
   },
   "dependencies": {
