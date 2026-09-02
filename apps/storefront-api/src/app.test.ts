@@ -55,6 +55,7 @@ function createTestDeps(deps: {
     isProduction: false,
     logger: createLogger('silent'),
     authRateLimitPerMinute: 40,
+    queueRedis: redis,
   }
 }
 
