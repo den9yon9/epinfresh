@@ -1,10 +1,9 @@
 export type {
   OrderDetail,
   OrderLineInput,
-  OrderShippedEvent,
   OrderShippingInput,
   PayableOrderSnapshot,
-  ShipOrderOptions,
+  ShipOrderResult,
 } from './service'
 export {
   autoCompleteShippedOrders,

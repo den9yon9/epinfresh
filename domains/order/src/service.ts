@@ -1,10 +1,4 @@
-import {
-  type DbClient,
-  ORDER_STATUS,
-  type OrderStatus,
-  schema,
-  withTransaction,
-} from '@epinfresh/database'
+import { type DbClient, ORDER_STATUS, type OrderStatus, schema } from '@epinfresh/database'
 import { err, fromCents, ok, type Result, toCents } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
 import { and, count, eq, inArray, isNotNull, lt } from 'drizzle-orm'
@@ -247,18 +241,11 @@ export async function markOrderRefunded(
 // 首次发货时承运商与运单号必须同填或同空——只填其一是不可能被轨迹轮询的"死状态"
 // (轮询要求两者齐全), 且静默产生永远无轨迹的订单; 后补语义由"先都空、再都填"表达。
 // re-ship(已 shipped)允许部分更新: 补录/改号的修正路径不受校验限制。
-// CAS 防并发双发货, 状态流转 + 运单号 + shippedAt 在同一事务内原子提交。
-// onShipped 由调用方(app 层)注入(域不依赖 outbox): 仅 paid → shipped 真实转变时在
-// 同一事务内回调写 order.shipped 事件; 已 shipped 的运单号补录不触发(不重发邮件)。
-export interface OrderShippedEvent {
-  orderId: string
-  trackingNumber: string | null
-  courierCompany: string | null
-  shippedAt: string
-}
-
-export interface ShipOrderOptions {
-  onShipped?: (client: DbClient, event: OrderShippedEvent) => Promise<void>
+// CAS 防并发双发货。事务原语: 不自己开事务, 返回 from(旧状态)供编排层判断真实转变;
+// order.shipped 事件由发货用例(usecases/ship-order)在同一事务内固定写入, 域不依赖 outbox。
+export interface ShipOrderResult {
+  order: OrderDetail
+  from: OrderStatus
 }
 
 export async function shipOrder(
@@ -266,48 +253,36 @@ export async function shipOrder(
   trackingNumber: string | undefined,
   courierCompany: string | undefined,
   client: DbClient,
-  opts: ShipOrderOptions = {},
 ): Promise<
-  Result<OrderDetail, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION' | 'SHIPMENT_INFO_INCOMPLETE'>
+  Result<ShipOrderResult, 'ORDER_NOT_FOUND' | 'INVALID_TRANSITION' | 'SHIPMENT_INFO_INCOMPLETE'>
 > {
-  return withTransaction(client, async (tx) => {
-    const [order] = await tx.select().from(schema.orders).where(eq(schema.orders.id, orderId))
-    if (!order) return err('ORDER_NOT_FOUND')
-    if (order.status !== 'paid' && order.status !== 'shipped') {
-      return err('INVALID_TRANSITION')
-    }
-    const firstShipment = order.status === 'paid'
-    if (firstShipment) {
-      const hasCompany = courierCompany !== undefined && courierCompany !== ''
-      const hasTracking = trackingNumber !== undefined && trackingNumber !== ''
-      if (hasCompany !== hasTracking) return err('SHIPMENT_INFO_INCOMPLETE')
-    }
-    const [updated] = await tx
-      .update(schema.orders)
-      .set({
-        status: 'shipped',
-        trackingNumber: trackingNumber ?? order.trackingNumber,
-        courierCompany: courierCompany ?? order.courierCompany,
-        shippedAt: order.shippedAt ?? new Date(),
-      })
-      .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, order.status)))
-      .returning()
-    if (!updated) return err('INVALID_TRANSITION')
-    const items = await tx
-      .select()
-      .from(schema.orderItems)
-      .where(eq(schema.orderItems.orderId, orderId))
-    if (firstShipment && opts.onShipped) {
-      await opts.onShipped(tx, {
-        orderId,
-        trackingNumber: updated.trackingNumber,
-        courierCompany: updated.courierCompany,
-        // 本事务内刚写入, 运行时必非空; 类型上列可空故兜底
-        shippedAt: (updated.shippedAt ?? new Date()).toISOString(),
-      })
-    }
-    return ok({ ...updated, items })
-  })
+  const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
+  if (!order) return err('ORDER_NOT_FOUND')
+  if (order.status !== 'paid' && order.status !== 'shipped') {
+    return err('INVALID_TRANSITION')
+  }
+  const firstShipment = order.status === 'paid'
+  if (firstShipment) {
+    const hasCompany = courierCompany !== undefined && courierCompany !== ''
+    const hasTracking = trackingNumber !== undefined && trackingNumber !== ''
+    if (hasCompany !== hasTracking) return err('SHIPMENT_INFO_INCOMPLETE')
+  }
+  const [updated] = await client
+    .update(schema.orders)
+    .set({
+      status: 'shipped',
+      trackingNumber: trackingNumber ?? order.trackingNumber,
+      courierCompany: courierCompany ?? order.courierCompany,
+      shippedAt: order.shippedAt ?? new Date(),
+    })
+    .where(and(eq(schema.orders.id, orderId), eq(schema.orders.status, order.status)))
+    .returning()
+  if (!updated) return err('INVALID_TRANSITION')
+  const items = await client
+    .select()
+    .from(schema.orderItems)
+    .where(eq(schema.orderItems.orderId, orderId))
+  return ok({ order: { ...updated, items }, from: order.status })
 }
 
 // 确认收货/标记完成: CAS shipped → completed, 同语句写 completedAt。

@@ -288,7 +288,8 @@ describe('shipOrder', () => {
     // 都填: 通过
     const both = await shipOrder(order.id, 'SF123', 'sf', db)
     expect(both.isOk()).toBe(true)
-    expect(both._unsafeUnwrap().courierCompany).toBe('sf')
+    expect(both._unsafeUnwrap().order.courierCompany).toBe('sf')
+    expect(both._unsafeUnwrap().from).toBe('paid')
   })
 
   test('first shipment with neither company nor tracking is allowed (后补/自送 path)', async () => {
@@ -299,7 +300,7 @@ describe('shipOrder', () => {
 
     const result = await shipOrder(order.id, undefined, undefined, db)
     expect(result.isOk()).toBe(true)
-    const shipped = result._unsafeUnwrap()
+    const shipped = result._unsafeUnwrap().order
     expect(shipped.courierCompany).toBeNull()
     expect(shipped.trackingNumber).toBeNull()
   })
@@ -335,9 +336,11 @@ describe('shipOrder', () => {
     // 已 shipped: 仅改运单号的补录/修正不受首发校验限制
     const reShip = await shipOrder(order.id, 'SF456', undefined, db)
     expect(reShip.isOk()).toBe(true)
-    const shipped = reShip._unsafeUnwrap()
+    const shipped = reShip._unsafeUnwrap().order
     expect(shipped.trackingNumber).toBe('SF456')
     expect(shipped.courierCompany).toBe('sf')
+    // re-ship 返回 from='shipped', 编排层据此不发事件
+    expect(reShip._unsafeUnwrap().from).toBe('shipped')
   })
 
   test('ships a paid order with trackingNumber and shippedAt', async () => {
@@ -348,66 +351,11 @@ describe('shipOrder', () => {
 
     const result = await shipOrder(order.id, 'SF123', 'sf', db)
     expect(result.isOk()).toBe(true)
-    const shipped = result._unsafeUnwrap()
+    const shipped = result._unsafeUnwrap().order
     expect(shipped.status).toBe('shipped')
     expect(shipped.trackingNumber).toBe('SF123')
     expect(shipped.shippedAt).not.toBeNull()
     expect(shipped.items).toHaveLength(1)
-  })
-
-  test('onShipped fires once on the paid → shipped transition inside the transaction', async () => {
-    const user = await seedUser()
-    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
-    const order = await seedOrder(user.id, sku.id)
-    await updateOrderStatus(order.id, 'paid', db)
-    const seen: { orderId: string; trackingNumber: string | null; shippedAt: string }[] = []
-
-    const result = await shipOrder(order.id, 'SF123', 'sf', db, {
-      onShipped: async (tx, event) => {
-        // 回调持有事务客户端: 事件写入与状态翻转同事务(此处仅记录, 实际由 app 层写 outbox)
-        expect(tx).toBeDefined()
-        seen.push(event)
-      },
-    })
-
-    expect(result.isOk()).toBe(true)
-    expect(seen).toHaveLength(1)
-    expect(seen[0].orderId).toBe(order.id)
-    expect(seen[0].trackingNumber).toBe('SF123')
-    expect(seen[0].shippedAt).toBe((result._unsafeUnwrap().shippedAt ?? new Date()).toISOString())
-  })
-
-  test('onShipped does not fire on tracking-number re-ship (idempotent)', async () => {
-    const user = await seedUser()
-    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
-    const order = await seedOrder(user.id, sku.id)
-    await updateOrderStatus(order.id, 'paid', db)
-    let calls = 0
-
-    await shipOrder(order.id, 'SF123', 'sf', db, {
-      onShipped: async () => {
-        calls += 1
-      },
-    })
-    const reShip = await shipOrder(order.id, 'SF456', undefined, db, {
-      onShipped: async () => {
-        calls += 1
-      },
-    })
-
-    expect(reShip.isOk()).toBe(true)
-    expect(reShip._unsafeUnwrap().trackingNumber).toBe('SF456')
-    expect(calls).toBe(1)
-  })
-
-  test('works without onShipped (backward compatible)', async () => {
-    const user = await seedUser()
-    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
-    const order = await seedOrder(user.id, sku.id)
-    await updateOrderStatus(order.id, 'paid', db)
-
-    const result = await shipOrder(order.id, 'SF123', 'sf', db)
-    expect(result.isOk()).toBe(true)
   })
 
   test('re-shipping is idempotent and only updates the tracking number', async () => {
@@ -419,7 +367,7 @@ describe('shipOrder', () => {
     await shipOrder(order.id, 'SF123', 'sf', db)
     const reShip = await shipOrder(order.id, 'SF456', undefined, db)
     expect(reShip.isOk()).toBe(true)
-    const shipped = reShip._unsafeUnwrap()
+    const shipped = reShip._unsafeUnwrap().order
     expect(shipped.status).toBe('shipped')
     expect(shipped.trackingNumber).toBe('SF456')
     expect(shipped.courierCompany).toBe('sf')
@@ -451,7 +399,7 @@ async function seedShippedOrder(email = 'alice@example.com') {
   const order = await seedOrder(user.id, sku.id)
   await updateOrderStatus(order.id, 'paid', db)
   const shipped = await shipOrder(order.id, 'SF123', 'sf', db)
-  return shipped._unsafeUnwrap()
+  return shipped._unsafeUnwrap().order
 }
 
 // 把 shipped_at 拨回过去(模拟发货已久, 触发自动完成窗口)

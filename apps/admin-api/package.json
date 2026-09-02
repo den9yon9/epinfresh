@@ -31,6 +31,7 @@
     "@epinfresh/redis": "workspace:*",
     "@epinfresh/session": "workspace:*",
     "@epinfresh/shared": "workspace:*",
+    "@epinfresh/ship-order": "workspace:*",
     "@epinfresh/user": "workspace:*",
     "@sinclair/typebox": "^0.34.0",
     "elysia": "^1.2.0"
