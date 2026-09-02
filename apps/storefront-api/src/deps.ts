@@ -69,6 +69,6 @@ export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
     trustProxy: env.TRUST_PROXY,
     isProduction: env.NODE_ENV === 'production',
     logger: createLogger(env.LOG_LEVEL),
-    authRateLimitPerMinute: env.AUTH_RATE_LIMIT_PER_MINUTE,
+    authRateLimitPerMinute: Number(env.AUTH_RATE_LIMIT_PER_MINUTE),
   }
 }

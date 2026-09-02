@@ -44,7 +44,7 @@ export const storefrontEnvSchema = Type.Object({
   STOREFRONT_PORT: Type.String({ pattern: '^\\d+$' }),
   // 认证接口限流(次/分钟): 注册/登录共用。默认 20 为生产风控口径;
   // e2e 并行 3 项目共享 IP, 由 playwright webServer 行内 env 注入放宽值
-  AUTH_RATE_LIMIT_PER_MINUTE: Type.Number({ minimum: 1, maximum: 1000, default: 20 }),
+  AUTH_RATE_LIMIT_PER_MINUTE: Type.String({ pattern: '^\\d+$', default: '20' }),
   // 运费策略: 固定运费(元), 默认 '0.00' = 关闭
   SHIPPING_FLAT_FEE: Type.String({ default: '0.00' }),
   // 满额包邮阈值(元, 按商品合计计); 空 = 不启用包邮
