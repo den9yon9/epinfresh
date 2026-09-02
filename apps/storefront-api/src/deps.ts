@@ -27,6 +27,8 @@ export interface WechatOauthConfig {
 export interface StorefrontAppOptions {
   db: Db
   redis: Redis
+  // BullMQ 生产者专用连接(bullmq close() 不释放传入实例, 由 emailQueuePlugin.onStop quit)
+  queueRedis: Redis
   emailQueue: Queue<SendEmailJobData>
   paymentGateways: Record<PaymentChannel, PaymentGateway>
   wechatOauth: WechatOauthConfig
@@ -40,15 +42,17 @@ export interface StorefrontAppOptions {
 }
 
 export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
-  // 单条 Redis 连接全进程共享: session/rateLimit 直接用, BullMQ(生产者)复用同一实例
-  // (bullmq v5 传实例即自动共享, close() 不会释放, 由 redisPlugin.onStop 统一 quit)
+  // session/限流与 BullMQ 生产者使用独立连接: 隔离连接级故障(断线重连风暴、
+  // 慢命令阻塞互不牵连)。实例级拆分(双 Redis)的触发条件 = 队列流量影响会话延迟时。
   const redis = createRedisClient(env.REDIS_URL)
+  const queueRedis = createRedisClient(env.REDIS_URL)
   // 共享支付 env: 渠道注册表 + 公众号 OAuth/JS-SDK 配置(同一来源, 避免二次定义)
   const paymentEnv = parseEnv(paymentEnvSchema, process.env)
   return {
     db: createDb(env.DATABASE_URL),
     redis,
-    emailQueue: createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { connection: redis }),
+    queueRedis,
+    emailQueue: createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { connection: queueRedis }),
     // 渠道注册表由共享支付 env 助手构建(storefront/admin/worker 三进程同一来源)
     paymentGateways: createPaymentGatewaysFromEnv(process.env),
     // 运费策略: env(元字符串) → 分; 阈值空 = 不启用包邮

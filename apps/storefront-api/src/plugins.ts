@@ -2,6 +2,7 @@ import { type ShippingFeeConfig } from '@epinfresh/checkout'
 import { dbPlugin, redisPlugin } from '@epinfresh/http'
 import { type PaymentChannel, type PaymentGateway } from '@epinfresh/payment'
 import { type Queue } from '@epinfresh/queue'
+import { type Redis } from '@epinfresh/redis'
 import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
 import { type Logger } from '@epinfresh/shared'
 import { type SendEmailJobData } from '@epinfresh/user/jobs'
@@ -23,11 +24,13 @@ export interface StorefrontPlugins {
   authRateLimitPerMinute: number
 }
 
-function createEmailQueuePlugin(emailQueue: Queue<SendEmailJobData>) {
+function createEmailQueuePlugin(emailQueue: Queue<SendEmailJobData>, queueRedis: Redis) {
   return new Elysia({ name: 'infra-email-queue' })
     .decorate('emailQueue', emailQueue)
     .onStop(async () => {
       await emailQueue.close()
+      // bullmq 传实例时不接管连接生命周期: 生产者专用连接在此显式释放
+      await queueRedis.quit()
     })
 }
 
@@ -37,6 +40,7 @@ export function createPlugins(
   const {
     db,
     redis,
+    queueRedis,
     emailQueue,
     paymentGateways,
     wechatOauth,
@@ -55,7 +59,7 @@ export function createPlugins(
       isProduction,
       logger,
     }),
-    emailQueuePlugin: createEmailQueuePlugin(emailQueue),
+    emailQueuePlugin: createEmailQueuePlugin(emailQueue, queueRedis),
     authRateLimit: authRateLimit({
       redis,
       prefix: 'rl:auth',
