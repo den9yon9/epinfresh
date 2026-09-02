@@ -69,6 +69,15 @@ jobs:
           TESTING_SESSION_SECRET: test-session-secret-0123456789abcdef
           NODE_ENV: test
 
+      # 覆盖率只报告不设门槛: 看见盲区即可, 数字指标容易异化为刷分
+      - name: Test coverage report
+        run: pnpm exec turbo test --concurrency=1 -- --coverage
+        env:
+          TESTING_DATABASE_URL: postgres://epinfresh:epinfresh@localhost:5432/epinfresh_test
+          TESTING_REDIS_URL: redis://localhost:6379/1
+          TESTING_SESSION_SECRET: test-session-secret-0123456789abcdef
+          NODE_ENV: test
+
       - name: Commit message lint
         if: github.event_name == 'pull_request'
         uses: wagoid/commitlint-github-action@v6
