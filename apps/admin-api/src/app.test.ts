@@ -2,13 +2,9 @@ import { treaty } from '@elysiajs/eden'
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { createOrderRecord, updateOrderStatus } from '@epinfresh/order'
-import {
-  createMockPaymentGateway,
-  createPaymentGateways,
-  initiatePayment,
-  insertRefund,
-} from '@epinfresh/payment'
+import { createMockPaymentGateway, createPaymentGateways, insertRefund } from '@epinfresh/payment'
 import { confirmOrderPayment } from '@epinfresh/payment-confirm'
+import { initiateOrderPayment } from '@epinfresh/payment-initiate'
 import { reduceProductStock } from '@epinfresh/product'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { flushTestRedis } from '@epinfresh/redis/testing'
@@ -294,7 +290,7 @@ describe('order status transitions', () => {
     const cookie = await adminCookie()
     const { order, sku } = await seedOrderWithStock('alice@example.com', 2, 10)
     const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
+      await initiateOrderPayment(order.id, createMockPaymentGateway(), db)
     )._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
     expect(await skuStock(sku.id)).toBe(8)
@@ -396,7 +392,7 @@ describe('admin refunds', () => {
     const cookie = await adminCookie()
     const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
     const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
+      await initiateOrderPayment(order.id, createMockPaymentGateway(), db)
     )._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
 
@@ -452,7 +448,7 @@ describe('admin payments', () => {
     const cookie = await adminCookie()
     const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
     const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
+      await initiateOrderPayment(order.id, createMockPaymentGateway(), db)
     )._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
     await insertRefund(

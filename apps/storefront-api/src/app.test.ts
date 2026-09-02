@@ -10,9 +10,9 @@ import {
   createMockPaymentGateway,
   createPaymentGateways,
   generateRsaKeyPair,
-  initiatePayment,
 } from '@epinfresh/payment'
 import { confirmOrderPayment } from '@epinfresh/payment-confirm'
+import { initiateOrderPayment } from '@epinfresh/payment-initiate'
 import { createQueue, type Queue } from '@epinfresh/queue'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { flushTestRedis } from '@epinfresh/redis/testing'
@@ -655,7 +655,7 @@ describe('orders', () => {
     )
     if (order.error !== null) throw order.error
     const payment = (
-      await initiatePayment(order.data.id, createMockPaymentGateway(), db)
+      await initiateOrderPayment(order.data.id, createMockPaymentGateway(), db)
     )._unsafeUnwrap().payment
     const confirmed = await confirmOrderPayment(payment.id, db)
     if (confirmed.isErr()) throw new Error('seed confirm failed')

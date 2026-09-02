@@ -4,11 +4,11 @@ import {
   createWechatPaymentGateway,
   fetchWechatPlatformPublicKey,
   generateRsaKeyPair,
-  initiatePayment,
   signMessage,
   verifyMessage,
 } from '@epinfresh/payment'
 import { confirmByWebhookEvent } from '@epinfresh/payment-confirm'
+import { initiateOrderPayment } from '@epinfresh/payment-initiate'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
@@ -103,7 +103,7 @@ describe('pay-mock-server wechat pipeline', () => {
     const harness = createHarness()
     const order = await seedPendingOrder()
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db)
     expect(initiated.isOk()).toBe(true)
     if (initiated.isErr()) return
     const payment = initiated.value.payment
@@ -143,7 +143,7 @@ describe('pay-mock-server wechat pipeline', () => {
     const harness = createHarness()
     const order = await seedPendingOrder('25.00')
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db)
     if (initiated.isErr()) return
     const payment = initiated.value.payment
 
@@ -181,7 +181,7 @@ describe('pay-mock-server wechat pipeline', () => {
       },
       merchantPrivateKey: generateRsaKeyPair().privateKey,
     })
-    const result = await initiatePayment(order.id, rogueGateway, db)
+    const result = await initiateOrderPayment(order.id, rogueGateway, db)
     expect(result.isErr()).toBe(true)
     if (result.isErr()) expect(result.error).toBe('GATEWAY_ERROR')
   })
@@ -210,7 +210,7 @@ describe('pay-mock-server wechat pipeline', () => {
     const harness = createHarness()
     const order = await seedPendingOrder('25.00')
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db)
     if (initiated.isErr()) return
     const payment = initiated.value.payment
 
@@ -237,7 +237,7 @@ describe('pay-mock-server wechat pipeline', () => {
     const harness = createHarness()
     const order = await seedPendingOrder('25.00')
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db)
     if (initiated.isErr()) return
     const payment = initiated.value.payment
 
@@ -258,7 +258,7 @@ describe('pay-mock-server wechat pipeline', () => {
     const harness = createHarness()
     const order = await seedPendingOrder('25.00')
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db)
     if (initiated.isErr()) return
     const payment = initiated.value.payment
     await harness.mock.simulate({
@@ -286,7 +286,7 @@ describe('pay-mock-server wechat H5 and JSAPI ordering', () => {
     const harness = createHarness()
     const order = await seedPendingOrder('25.00')
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db, {
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db, {
       product: 'h5',
     })
     expect(initiated.isOk()).toBe(true)
@@ -303,7 +303,7 @@ describe('pay-mock-server wechat H5 and JSAPI ordering', () => {
     const harness = createHarness()
     const order = await seedPendingOrder('25.00')
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db, {
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db, {
       openid: 'o-test-openid',
     })
     expect(initiated.isOk()).toBe(true)

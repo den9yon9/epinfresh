@@ -121,6 +121,32 @@ export async function getOrderForUser(
   return ok({ ...order, items })
 }
 
+// 支付快照: 发起支付所需的订单窄视图(id/状态/金额/币种)。支付编排层先取快照并校验
+// 可支付状态, 再把金额/币种交给 payment 域——payment 域无需感知订单表结构。
+export interface PayableOrderSnapshot {
+  id: string
+  status: OrderStatus
+  totalAmount: string
+  currency: string
+}
+
+export async function getPayableOrder(
+  orderId: string,
+  client: DbClient,
+): Promise<Result<PayableOrderSnapshot, 'ORDER_NOT_FOUND'>> {
+  const [order] = await client
+    .select({
+      id: schema.orders.id,
+      status: schema.orders.status,
+      totalAmount: schema.orders.totalAmount,
+      currency: schema.orders.currency,
+    })
+    .from(schema.orders)
+    .where(eq(schema.orders.id, orderId))
+  if (!order) return err('ORDER_NOT_FOUND')
+  return ok(order)
+}
+
 export async function getOrderById(
   orderId: string,
   client: DbClient,

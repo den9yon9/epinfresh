@@ -21,26 +21,25 @@ const PAYMENT_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   cancelled: [],
 }
 
+// 发起支付的订单信息: 编排层经 order 域快照(getPayableOrder)校验 pending 后传入,
+// payment 域不感知订单表(跨域读约束见 eslint-rules/cross-domain-read)。
+export interface PayableOrderInfo {
+  id: string
+  totalAmount: string
+  currency: string
+}
+
 export async function initiatePayment(
-  orderId: string,
+  order: PayableOrderInfo,
   gateway: PaymentGateway,
   client: DbClient,
   channelContext?: Record<string, unknown>,
-): Promise<
-  Result<
-    { payment: PaymentRecord; payload: PaymentPayload },
-    'ORDER_NOT_FOUND' | 'ORDER_NOT_PENDING' | 'GATEWAY_ERROR'
-  >
-> {
-  const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
-  if (!order) return err('ORDER_NOT_FOUND')
-  if (order.status !== 'pending') return err('ORDER_NOT_PENDING')
-
+): Promise<Result<{ payment: PaymentRecord; payload: PaymentPayload }, 'GATEWAY_ERROR'>> {
   // 幂等复用: 已存在且已拿到渠道参数的 pending 支付单直接返回
   const [existing] = await client
     .select()
     .from(schema.payments)
-    .where(and(eq(schema.payments.orderId, orderId), eq(schema.payments.status, 'pending')))
+    .where(and(eq(schema.payments.orderId, order.id), eq(schema.payments.status, 'pending')))
     .orderBy(schema.payments.createdAt)
     .limit(1)
   if (existing?.payload)
@@ -57,7 +56,7 @@ export async function initiatePayment(
   const [created] = await client
     .insert(schema.payments)
     .values({
-      orderId,
+      orderId: order.id,
       amount: order.totalAmount,
       currency: order.currency,
       status: 'pending',
@@ -68,7 +67,7 @@ export async function initiatePayment(
 
   const initiated = await gateway.createPayment({
     outTradeNo,
-    orderId,
+    orderId: order.id,
     amount: order.totalAmount,
     currency: order.currency,
     description: `一品鲜订单 ${order.id.slice(0, 8)}`,
@@ -175,15 +174,12 @@ export async function refundPayment(
   return ok(toPaymentRecord(payment))
 }
 
+// 按 orderId 找 succeeded 支付单并 CAS 翻 refunded。订单存在性/状态由调用方编排保证
+// (usecases/payment-refund 先走 order 域 markOrderRefunded, 本函数不再跨域查订单)。
 export async function refundOrder(
   orderId: string,
   client: DbClient,
-): Promise<
-  Result<PaymentRecord, 'ORDER_NOT_FOUND' | 'NO_REFUNDABLE_PAYMENT' | 'INVALID_PAYMENT_STATE'>
-> {
-  const [order] = await client.select().from(schema.orders).where(eq(schema.orders.id, orderId))
-  if (!order) return err('ORDER_NOT_FOUND')
-
+): Promise<Result<PaymentRecord, 'NO_REFUNDABLE_PAYMENT' | 'INVALID_PAYMENT_STATE'>> {
   const [payment] = await client
     .select()
     .from(schema.payments)

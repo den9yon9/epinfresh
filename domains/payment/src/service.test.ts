@@ -38,10 +38,20 @@ async function seedOrder(amount = '25.00') {
   return order
 }
 
+// 域函数收快照(编排层经 order 域 getPayableOrder 取得并校验 pending 后传入);
+// 订单存在性/可支付状态的拒绝路径在 usecases/payment-initiate 测试。
+async function pay(order: typeof schema.orders.$inferSelect) {
+  return initiatePayment(
+    { id: order.id, totalAmount: order.totalAmount, currency: order.currency },
+    createMockPaymentGateway(),
+    db,
+  )
+}
+
 describe('payment domain', () => {
   test('initiates a pending payment with provider ref', async () => {
     const order = await seedOrder()
-    const result = await initiatePayment(order.id, createMockPaymentGateway(), db)
+    const result = await pay(order)
 
     expect(result.isOk()).toBe(true)
     const payment = result._unsafeUnwrap().payment
@@ -52,20 +62,9 @@ describe('payment domain', () => {
     expect(payment.providerRef).toMatch(/^mock-/)
   })
 
-  test('rejects payment for non-pending order', async () => {
-    const order = await seedOrder()
-    await db.update(schema.orders).set({ status: 'shipped' }).where(eq(schema.orders.id, order.id))
-
-    const result = await initiatePayment(order.id, createMockPaymentGateway(), db)
-    expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_PENDING')
-  })
-
   test('confirming payment marks the payment succeeded', async () => {
     const order = await seedOrder()
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap().payment
+    const payment = (await pay(order))._unsafeUnwrap().payment
 
     const result = await confirmPayment(payment.id, db)
     expect(result.isOk()).toBe(true)
@@ -74,9 +73,7 @@ describe('payment domain', () => {
 
   test('confirming twice is rejected', async () => {
     const order = await seedOrder()
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap().payment
+    const payment = (await pay(order))._unsafeUnwrap().payment
     await confirmPayment(payment.id, db)
 
     const again = await confirmPayment(payment.id, db)
@@ -86,9 +83,7 @@ describe('payment domain', () => {
 
   test('refunds a succeeded payment', async () => {
     const order = await seedOrder()
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap().payment
+    const payment = (await pay(order))._unsafeUnwrap().payment
     await confirmPayment(payment.id, db)
 
     const refunded = await refundPayment(payment.id, db)
@@ -98,9 +93,7 @@ describe('payment domain', () => {
 
   test('cannot refund a pending payment', async () => {
     const order = await seedOrder()
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap().payment
+    const payment = (await pay(order))._unsafeUnwrap().payment
 
     const refunded = await refundPayment(payment.id, db)
     expect(refunded.isErr()).toBe(true)
@@ -109,7 +102,7 @@ describe('payment domain', () => {
 
   test('lists payments by order', async () => {
     const order = await seedOrder()
-    await initiatePayment(order.id, createMockPaymentGateway(), db)
+    await pay(order)
 
     const { items } = await listPaymentsByOrder(order.id, db)
     expect(items).toHaveLength(1)
@@ -117,9 +110,7 @@ describe('payment domain', () => {
 
   test('refundOrder refunds the succeeded payment', async () => {
     const order = await seedOrder()
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap().payment
+    const payment = (await pay(order))._unsafeUnwrap().payment
     await confirmPayment(payment.id, db)
 
     const result = await refundOrder(order.id, db)
@@ -130,16 +121,10 @@ describe('payment domain', () => {
   test('refundOrder returns NO_REFUNDABLE_PAYMENT without a succeeded payment', async () => {
     const order = await seedOrder()
     await db.update(schema.orders).set({ status: 'paid' }).where(eq(schema.orders.id, order.id))
-    await initiatePayment(order.id, createMockPaymentGateway(), db)
+    await pay(order)
 
     const result = await refundOrder(order.id, db)
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('NO_REFUNDABLE_PAYMENT')
-  })
-
-  test('refundOrder returns ORDER_NOT_FOUND for unknown order', async () => {
-    const result = await refundOrder('00000000-0000-4000-8000-000000000000', db)
-    expect(result.isErr()).toBe(true)
-    expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
   })
 })

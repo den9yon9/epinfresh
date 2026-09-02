@@ -1,7 +1,8 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
-import { createAlipayPaymentGateway, generateRsaKeyPair, initiatePayment } from '@epinfresh/payment'
+import { createAlipayPaymentGateway, generateRsaKeyPair } from '@epinfresh/payment'
 import { confirmByWebhookEvent } from '@epinfresh/payment-confirm'
+import { initiateOrderPayment } from '@epinfresh/payment-initiate'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
@@ -90,7 +91,7 @@ describe('pay-mock-server alipay pipeline', () => {
     const harness = createHarness()
     const order = await seedPendingOrder('25.00')
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db)
     expect(initiated.isOk()).toBe(true)
     if (initiated.isErr()) return
     const payment = initiated.value.payment
@@ -130,7 +131,7 @@ describe('pay-mock-server alipay pipeline', () => {
     const harness = createHarness()
     const order = await seedPendingOrder('25.00')
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db)
     if (initiated.isErr()) return
     const payment = initiated.value.payment
 
@@ -150,7 +151,7 @@ describe('pay-mock-server alipay pipeline', () => {
     const harness = createHarness()
     const order = await seedPendingOrder()
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db)
     if (initiated.isErr()) return
     const payment = initiated.value.payment
 
@@ -178,7 +179,7 @@ describe('pay-mock-server alipay pipeline', () => {
     const harness = createHarness()
     const order = await seedPendingOrder('25.00')
 
-    const initiated = await initiatePayment(order.id, harness.gateway, db)
+    const initiated = await initiateOrderPayment(order.id, harness.gateway, db)
     if (initiated.isErr()) return
     const payment = initiated.value.payment
     await harness.mock.simulateAlipay({

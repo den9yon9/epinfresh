@@ -41,6 +41,7 @@ export {
   markRefundAbnormal,
   markRefundSucceeded,
   nextRefundNo,
+  type PayableOrderInfo,
   type PaymentRecord,
   refundOrder,
   refundPayment,

@@ -26,6 +26,15 @@ beforeEach(async () => {
 
 const mockGateways = { mock: createMockPaymentGateway() }
 
+// 域函数 initiatePayment 收订单快照(编排层经 order 域快照传入); 测试直接构造。
+async function startPayment(order: typeof schema.orders.$inferSelect) {
+  return initiatePayment(
+    { id: order.id, totalAmount: order.totalAmount, currency: order.currency },
+    createMockPaymentGateway(),
+    db,
+  )
+}
+
 async function seedUser(email = 'alice@example.com') {
   const [user] = await db
     .insert(schema.users)
@@ -94,9 +103,7 @@ describe('cancelOrder', () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
     const order = await seedOrder(user.id, sku.id, 2)
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap().payment
+    const payment = (await startPayment(order))._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
 
     const result = await cancelOrder(order.id, mockGateways, db)
@@ -129,9 +136,7 @@ describe('cancelOrder', () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
     const order = await seedOrder(user.id, sku.id, 2)
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap().payment
+    const payment = (await startPayment(order))._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
     const failingGateway: PaymentGateway = {
       ...createMockPaymentGateway(),
@@ -159,9 +164,7 @@ describe('cancelOrder', () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
     const order = await seedOrder(user.id, sku.id, 2)
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap().payment
+    const payment = (await startPayment(order))._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
     const asyncGateway: PaymentGateway = {
       ...createMockPaymentGateway(),
@@ -198,9 +201,7 @@ describe('cancelOrder', () => {
     const user = await seedUser()
     const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
     const order = await seedOrder(user.id, sku.id, 2)
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap().payment
+    const payment = (await startPayment(order))._unsafeUnwrap().payment
     await confirmOrderPayment(payment.id, db)
     const asyncGateway: PaymentGateway = {
       ...createMockPaymentGateway(),

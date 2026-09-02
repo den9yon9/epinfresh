@@ -1,7 +1,8 @@
 import { getOrderForUser } from '@epinfresh/order'
-import { getPaymentById, initiatePayment, type WebhookEvent } from '@epinfresh/payment'
+import { getPaymentById, type WebhookEvent } from '@epinfresh/payment'
 import * as PaymentModel from '@epinfresh/payment/model'
 import { confirmByWebhookEvent } from '@epinfresh/payment-confirm'
+import { initiateOrderPayment } from '@epinfresh/payment-initiate'
 import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
@@ -53,7 +54,7 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
           body.channel === 'wechat' && Object.keys(wechatContext).length > 0
             ? { ...body.channelContext, ...wechatContext }
             : body.channelContext
-        const result = await initiatePayment(params.id, gateway, db, channelContext)
+        const result = await initiateOrderPayment(params.id, gateway, db, channelContext)
         return result.match(
           (value) => status(201, value),
           (e) => {

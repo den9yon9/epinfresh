@@ -45,8 +45,21 @@ async function seedPendingOrder(amount = '25.00') {
   return order
 }
 
+// 域函数 initiatePayment 收订单快照(编排层经 order 域快照传入); 测试直接构造。
+async function startPayment(
+  order: typeof schema.orders.$inferSelect,
+  gateway: PaymentGateway = createMockPaymentGateway(),
+) {
+  return initiatePayment(
+    { id: order.id, totalAmount: order.totalAmount, currency: order.currency },
+    gateway,
+    db,
+  )
+}
+
 async function seedPayment(orderId: string) {
-  const payment = (await initiatePayment(orderId, createMockPaymentGateway(), db))._unsafeUnwrap()
+  const [order] = await db.select().from(schema.orders).where(eq(schema.orders.id, orderId))
+  const payment = (await startPayment(order))._unsafeUnwrap()
   return payment.payment
 }
 
@@ -258,7 +271,8 @@ describe('reconcilePendingPayments', () => {
   // 以 wechat provider 落库(provider 列决定对账走哪个网关)
   async function seedWechatPayment(orderId: string) {
     const wechatGateway = { ...createMockPaymentGateway(), channel: 'wechat' as const }
-    const payment = (await initiatePayment(orderId, wechatGateway, db))._unsafeUnwrap()
+    const [order] = await db.select().from(schema.orders).where(eq(schema.orders.id, orderId))
+    const payment = (await startPayment(order, wechatGateway))._unsafeUnwrap()
     return payment.payment
   }
 
@@ -423,9 +437,7 @@ describe('reconcilePendingPayments', () => {
 describe('confirmRefundByWebhookEvent', () => {
   async function seedPaidOrderWithRefundRow(status = 'processing') {
     const order = await seedPendingOrder('25.00')
-    const payment = (
-      await initiatePayment(order.id, createMockPaymentGateway(), db)
-    )._unsafeUnwrap().payment
+    const payment = (await startPayment(order))._unsafeUnwrap().payment
     const confirmed = await confirmOrderPayment(payment.id, db)
     if (confirmed.isErr()) throw new Error('seed confirm failed')
     const refund = await insertRefund(
@@ -577,7 +589,7 @@ describe('reconcilePendingRefunds', () => {
   async function seedProcessingRefund() {
     const order = await seedPendingOrder('25.00')
     const wechatGateway = { ...createMockPaymentGateway(), channel: 'wechat' as const }
-    const payment = (await initiatePayment(order.id, wechatGateway, db))._unsafeUnwrap().payment
+    const payment = (await startPayment(order, wechatGateway))._unsafeUnwrap().payment
     const confirmed = await confirmOrderPayment(payment.id, db)
     if (confirmed.isErr()) throw new Error('seed confirm failed')
     const refund = await insertRefund(

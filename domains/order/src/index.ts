@@ -3,6 +3,7 @@ export type {
   OrderLineInput,
   OrderShippedEvent,
   OrderShippingInput,
+  PayableOrderSnapshot,
   ShipOrderOptions,
 } from './service'
 export {
@@ -12,6 +13,7 @@ export {
   getOrderById,
   getOrderForUser,
   getOrderStatusCounts,
+  getPayableOrder,
   listOrders,
   listOrdersByUser,
   listShippedWithTracking,

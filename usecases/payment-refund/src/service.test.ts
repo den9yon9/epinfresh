@@ -35,11 +35,19 @@ async function seedOrder(status: 'pending' | 'paid' | 'shipped' | 'completed' = 
   return order
 }
 
+// 域函数 initiatePayment 收订单快照(编排层经 order 域快照传入); 测试直接构造。
+async function startPayment(order: typeof schema.orders.$inferSelect) {
+  return initiatePayment(
+    { id: order.id, totalAmount: order.totalAmount, currency: order.currency },
+    createMockPaymentGateway(),
+    db,
+  )
+}
+
 async function seedPaidOrderWithPayment() {
   // 订单须从 pending 发起支付, 再经支付确认联动为 paid
   const order = await seedOrder('pending')
-  const payment = (await initiatePayment(order.id, createMockPaymentGateway(), db))._unsafeUnwrap()
-    .payment
+  const payment = (await startPayment(order))._unsafeUnwrap().payment
   const confirmed = await confirmOrderPayment(payment.id, db)
   if (confirmed.isErr()) throw new Error('seed confirm failed')
   return { order, payment }
