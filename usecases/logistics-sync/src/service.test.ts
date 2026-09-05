@@ -45,7 +45,14 @@ async function seedShippedOrder(email = 'alice@example.com', slug = 'apple') {
   })
   const [address] = await db
     .insert(schema.addresses)
-    .values({ userId: user.id, recipientName: 'Alice', phone: '138', address: 'Shanghai' })
+    .values({
+      userId: user.id,
+      recipientName: 'Alice',
+      phone: '138',
+      province: 'Shanghai',
+      city: 'Shanghai',
+      detail: 'Downtown',
+    })
     .returning()
   const [order] = await db
     .insert(schema.orders)
