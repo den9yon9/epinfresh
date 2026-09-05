@@ -12,6 +12,7 @@ export {
   type TrackEvent,
   type TrackSnapshot,
 } from './model'
+export { createKuaidi100LogisticsProvider } from './providers/kuaidi100'
 export { createMockLogisticsProvider } from './providers/mock'
 export {
   getTrackByOrderId,
