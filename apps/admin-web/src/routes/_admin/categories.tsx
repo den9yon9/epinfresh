@@ -3,25 +3,31 @@ import { useState } from 'react'
 
 import { api } from '../../libs/api/client'
 
-// ponytail: 分类量小, 一页拉完不做分页 UI; 超过 100 个时再加分页
-const PAGE_SIZE = 100
+const PAGE_SIZE = 20
 
 type Category = Awaited<ReturnType<typeof loadCategories>>['items'][number]
 
-async function loadCategories() {
-  const res = await api.admin.categories.get({ query: { page: 1, pageSize: PAGE_SIZE } })
+async function loadCategories({ page }: { page: number }) {
+  const res = await api.admin.categories.get({
+    query: { page, pageSize: PAGE_SIZE },
+  })
   if (res.error) throw res.error
   return res.data
 }
 
 export const Route = createFileRoute('/_admin/categories')({
-  loader: loadCategories,
+  loaderDeps: ({ search }) => ({ page: search.page ?? 1 }),
+  validateSearch: (search: Record<string, unknown>): { page?: number } => ({
+    page: typeof search.page === 'number' && search.page > 0 ? search.page : undefined,
+  }),
+  loader: ({ deps }) => loadCategories(deps),
   component: CategoriesPage,
 })
 
 function CategoriesPage() {
   const categories = Route.useLoaderData()
   const router = useRouter()
+  const { page = 1 } = Route.useSearch()
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
@@ -32,6 +38,7 @@ function CategoriesPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const rows = buildRows(categories.items)
+  const totalPages = Math.max(1, Math.ceil(categories.total / PAGE_SIZE))
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
@@ -74,6 +81,27 @@ function CategoriesPage() {
           {error}
         </div>
       )}
+
+      {/* 分页导航 */}
+      <div className="flex items-center justify-end gap-2 text-sm text-gray-600">
+        <span>
+          共 {categories.total} 条 · 第 {page}/{totalPages} 页
+        </span>
+        <button
+          disabled={page <= 1}
+          onClick={() => void router.navigate({ to: '/categories', search: { page: page - 1 } })}
+          className="rounded-lg border border-gray-300 px-3 py-1 hover:bg-gray-100 disabled:opacity-40"
+        >
+          上一页
+        </button>
+        <button
+          disabled={page >= totalPages}
+          onClick={() => void router.navigate({ to: '/categories', search: { page: page + 1 } })}
+          className="rounded-lg border border-gray-300 px-3 py-1 hover:bg-gray-100 disabled:opacity-40"
+        >
+          下一页
+        </button>
+      </div>
 
       <div className="flex justify-end">
         <button

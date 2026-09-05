@@ -6,8 +6,8 @@ import {
 } from '@epinfresh/logistics'
 import {
   completeOrder,
+  getDashboardStats,
   getOrderById,
-  getOrderStatusCounts,
   listOrders,
   updateOrderStatus,
 } from '@epinfresh/order'
@@ -16,26 +16,45 @@ import { cancelOrder } from '@epinfresh/order-cancel'
 import { listPaymentsByOrder } from '@epinfresh/payment'
 import * as PaymentModel from '@epinfresh/payment/model'
 import { refundOrderWorkflow } from '@epinfresh/payment-refund'
+import { listLowStockSkus } from '@epinfresh/product'
 import { assertNever, ErrorResponse } from '@epinfresh/shared'
 import { shipOrder } from '@epinfresh/ship-order'
+import { countCustomerUsers } from '@epinfresh/user'
 import { Elysia, status, t } from 'elysia'
 
 import { type AdminPlugins } from '../plugins'
+
+// 低库存预警阈值(件): 库存 <= 阈值进入看板预警(生鲜运营可按需调)
+const LOW_STOCK_THRESHOLD = 10
 
 export function createOrderRoutes(plugins: AdminPlugins) {
   const { paymentGateways } = plugins
   return new Elysia({ name: 'order-admin', prefix: '/admin' })
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
-    .get('/dashboard', ({ db }) => getOrderStatusCounts(db), {
-      isAdmin: true,
-      response: { 200: OrderModel.DashboardResponseSchema },
-      detail: {
-        tags: ['Admin/Dashboard'],
-        summary: '订单状态统计',
-        description: '各订单状态的数量统计，用于管理后台首页。\n\n- 需要 admin 角色',
+    .get(
+      '/dashboard',
+      async ({ db }) => {
+        const dayStart = new Date()
+        dayStart.setHours(0, 0, 0, 0)
+        const [stats, lowStock, totalUsers] = await Promise.all([
+          getDashboardStats(dayStart, db),
+          listLowStockSkus(LOW_STOCK_THRESHOLD, db),
+          countCustomerUsers(db),
+        ])
+        return { ...stats, lowStock, totalUsers }
       },
-    })
+      {
+        isAdmin: true,
+        response: { 200: OrderModel.DashboardResponseSchema },
+        detail: {
+          tags: ['Admin/Dashboard'],
+          summary: '运营看板聚合',
+          description:
+            'GMV 与订单数(今日/累计)、订单状态分布、近 30 天热销 Top、低库存预警与用户数。\n\n- 需要 admin 角色',
+        },
+      },
+    )
     .get('/orders', ({ query, db }) => listOrders(query, db), {
       isAdmin: true,
       query: OrderModel.AdminOrderListQuerySchema,

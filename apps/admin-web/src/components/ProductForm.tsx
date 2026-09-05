@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import type { Category, CreateProductBody, ProductDetail, ProductStatus } from '../libs/api/types'
 
@@ -36,6 +36,8 @@ export function ProductForm({
 }: ProductFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState(initial?.name ?? '')
   const [slug, setSlug] = useState(initial?.slug ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -69,6 +71,33 @@ export function ProductForm({
       attrs[line.slice(0, eq).trim()] = line.slice(eq + 1).trim()
     }
     return attrs
+  }
+
+  function handleUpload() {
+    fileRef.current?.click()
+  }
+
+  async function onFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setError(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/admin/upload', { method: 'POST', body: form })
+      const data = (await res.json()) as { url?: string; error?: string; message?: string }
+      if (!res.ok || !data.url) {
+        setError(data.message ?? '上传失败，请重试')
+        return
+      }
+      setImagesText((prev) => `${prev.trimEnd()}${prev.trimEnd() ? '\n' : ''}${data.url}`)
+    } catch {
+      setError('上传失败，请重试')
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -182,6 +211,21 @@ export function ProductForm({
               rows={2}
               placeholder="https://example.com/a.jpg"
               className={inputCls}
+            />
+            <button
+              type="button"
+              onClick={handleUpload}
+              disabled={uploading}
+              className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            >
+              {uploading ? '上传中…' : '本地上传图片'}
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={onFileChosen}
             />
           </Field>
         </div>

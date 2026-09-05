@@ -8,6 +8,7 @@ export {
   getSkuViewsByIds,
   listAllProducts,
   listCategories,
+  listLowStockSkus,
   listPublishedProducts,
   reduceProductStock,
   removeCategory,

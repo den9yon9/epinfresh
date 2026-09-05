@@ -144,3 +144,12 @@ export async function listUsers(opts: Static<typeof UserListQuerySchema>, client
   const [{ total }] = await client.select({ total: count() }).from(schema.users)
   return { items: rows, total: Number(total), page, pageSize }
 }
+
+// 注册消费者总数(看板 KPI; 不含 admin 角色)
+export async function countCustomerUsers(client: DbClient): Promise<number> {
+  const [row] = await client
+    .select({ total: count() })
+    .from(schema.users)
+    .where(eq(schema.users.role, 'customer'))
+  return Number(row.total)
+}

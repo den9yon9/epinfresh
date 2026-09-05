@@ -9,6 +9,7 @@ import { createPlugins } from './plugins'
 import { createAuthRoutes } from './routes/auth'
 import { createOrderRoutes } from './routes/order'
 import { createProductRoutes } from './routes/product'
+import { createUploadRoutes } from './routes/upload'
 import { createUserRoutes } from './routes/user'
 
 export function buildApp(options: AdminAppOptions) {
@@ -35,6 +36,7 @@ export function buildApp(options: AdminAppOptions) {
     .use(createUserRoutes(plugins))
     .use(createProductRoutes(plugins))
     .use(createOrderRoutes(plugins))
+    .use(createUploadRoutes(plugins))
     .get('/health', ({ db, redis }) => healthCheck({ db, redis }))
 }
 

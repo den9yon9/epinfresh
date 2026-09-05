@@ -78,7 +78,9 @@ async function seedOrderWithStock(email: string, quantity = 2, stock = 10) {
       userId: user.id,
       recipientName: 'Alice',
       phone: '13800000000',
-      address: 'Shanghai Pudong',
+      province: 'Zhejiang',
+      city: 'Hangzhou',
+      detail: 'Shanghai Pudong',
     })
     .returning()
   const order = await createOrderRecord(
@@ -88,7 +90,10 @@ async function seedOrderWithStock(email: string, quantity = 2, stock = 10) {
       addressId: address.id,
       recipientName: address.recipientName,
       phone: address.phone,
-      address: address.address,
+      address: `${address.province}${address.city}${address.district}${address.detail}`,
+      province: address.province,
+      city: address.city,
+      district: address.district,
     },
     db,
   )
@@ -422,19 +427,73 @@ describe('admin refunds', () => {
 })
 
 describe('admin dashboard', () => {
-  test('returns zero-filled order status counts', async () => {
+  test('returns zero-filled order status counts plus gmv/low-stock aggregates', async () => {
     await seedUser('admin@example.com', 'admin')
     const { cookie } = await login('admin@example.com')
-    const { order } = await seedOrderWithStock('alice@example.com', 2, 10)
+    const { order, sku } = await seedOrderWithStock('alice@example.com', 2, 10)
     await updateOrderStatus(order.id, 'paid', db)
 
     const res = await api.admin.dashboard.get({ fetch: { headers: { cookie } } })
     expect(res.status).toBe(200)
     if (res.error !== null) throw res.error
-    expect(res.data.paid).toBe(1)
-    expect(res.data.pending).toBe(0)
-    expect(res.data.refunded).toBe(0)
-    expect(res.data.cancelled).toBe(0)
+    expect(res.data.orderCounts.paid).toBe(1)
+    expect(res.data.orderCounts.pending).toBe(0)
+    expect(res.data.orderCounts.refunded).toBe(0)
+    expect(res.data.orderCounts.cancelled).toBe(0)
+    // GMV: 已付订单 2×5 = 10.00
+    expect(res.data.totalGmv).toBe('10.00')
+    expect(res.data.todayGmv).toBe('10.00')
+    expect(res.data.todayOrders).toBe(1)
+    // 低库存: 扣减后 sku 剩 8 < 10 进入预警(校验条目存在)
+    expect(res.data.lowStock.some((s) => s.skuId === sku.id && s.stock === 8)).toBe(true)
+  })
+})
+
+describe('admin upload', () => {
+  test('uploads a png image and serves it back', async () => {
+    await seedUser('admin@example.com', 'admin')
+    const { cookie } = await login('admin@example.com')
+    // 1x1 透明 PNG
+    const png = Uint8Array.from(
+      atob(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      ),
+      (c) => c.charCodeAt(0),
+    )
+    const form = new FormData()
+    form.append('file', new File([png], 'pixel.png', { type: 'image/png' }))
+
+    const res = await app.handle(
+      new Request('http://localhost/admin/upload', {
+        method: 'POST',
+        headers: { cookie },
+        body: form,
+      }),
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { url: string }
+    expect(body.url).toMatch(/^\/uploads\/images\/[0-9a-f-]+\.png$/)
+
+    const served = await app.handle(new Request(`http://localhost${body.url}`))
+    expect(served.status).toBe(200)
+  })
+
+  test('rejects unsupported file type', async () => {
+    await seedUser('admin@example.com', 'admin')
+    const { cookie } = await login('admin@example.com')
+    const form = new FormData()
+    form.append('file', new File(['<svg></svg>'], 'x.svg', { type: 'image/svg+xml' }))
+
+    const res = await app.handle(
+      new Request('http://localhost/admin/upload', {
+        method: 'POST',
+        headers: { cookie },
+        body: form,
+      }),
+    )
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toBe('UNSUPPORTED_TYPE')
   })
 })
 

@@ -1,7 +1,20 @@
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, asc, count, eq, gte, ilike, inArray, isNull, type SQL, sql } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  lt,
+  ne,
+  type SQL,
+  sql,
+} from 'drizzle-orm'
 
 import type {
   AdminProductListQuerySchema,
@@ -332,6 +345,41 @@ export async function removeProduct(id: string, client: DbClient) {
     if (!product) return err('PRODUCT_NOT_FOUND')
     return ok()
   })
+}
+
+export interface LowStockSkuRow {
+  skuId: string
+  skuName: string
+  productId: string
+  productName: string
+  stock: number
+}
+
+// 低库存预警: 未软删 SKU + 所属商品非归档, 库存 <= threshold(含 0)按库存升序
+export async function listLowStockSkus(
+  threshold: number,
+  client: DbClient,
+  limit = 20,
+): Promise<LowStockSkuRow[]> {
+  return client
+    .select({
+      skuId: schema.productSkus.id,
+      skuName: schema.productSkus.name,
+      productId: schema.productSkus.productId,
+      productName: schema.products.name,
+      stock: schema.productSkus.stock,
+    })
+    .from(schema.productSkus)
+    .innerJoin(schema.products, eq(schema.productSkus.productId, schema.products.id))
+    .where(
+      and(
+        isNull(schema.productSkus.deletedAt),
+        lt(schema.productSkus.stock, threshold + 1),
+        ne(schema.products.status, 'archived'),
+      ),
+    )
+    .orderBy(schema.productSkus.stock)
+    .limit(limit)
 }
 
 export async function listCategories(opts: { page: number; pageSize: number }, client: DbClient) {
