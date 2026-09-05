@@ -35,7 +35,9 @@ async function seedAddress(userId: string) {
       userId,
       recipientName: 'Alice',
       phone: '13800000000',
-      address: 'Shanghai Pudong',
+      province: 'Zhejiang',
+      city: 'Hangzhou',
+      detail: 'Shanghai Pudong',
       isDefault: true,
     })
     .returning()
@@ -485,22 +487,77 @@ describe('checkout', () => {
 
 describe('computeShippingFee', () => {
   const cfg = { flatFeeCents: 600n, freeThresholdCents: 8800n }
+  const normalInput = (goodsCents: bigint) => ({
+    goodsCents,
+    totalWeightGrams: 0,
+    province: 'Zhejiang',
+  })
 
   test('charges flat fee below the free-shipping threshold', () => {
-    expect(computeShippingFee(8799n, cfg)).toBe(600n)
+    expect(computeShippingFee(normalInput(8799n), cfg)).toBe(600n)
   })
 
   test('waives the fee when goods total reaches the threshold', () => {
-    expect(computeShippingFee(8800n, cfg)).toBe(0n)
-    expect(computeShippingFee(10000n, cfg)).toBe(0n)
+    expect(computeShippingFee(normalInput(8800n), cfg)).toBe(0n)
+    expect(computeShippingFee(normalInput(10000n), cfg)).toBe(0n)
   })
 
   test('always charges when no threshold is configured', () => {
-    expect(computeShippingFee(100000n, { flatFeeCents: 600n, freeThresholdCents: null })).toBe(600n)
+    expect(
+      computeShippingFee(normalInput(100000n), { flatFeeCents: 600n, freeThresholdCents: null }),
+    ).toBe(600n)
   })
 
   test('zero flat fee means shipping is always free', () => {
-    expect(computeShippingFee(100n, { flatFeeCents: 0n, freeThresholdCents: null })).toBe(0n)
+    expect(
+      computeShippingFee(normalInput(100n), { flatFeeCents: 0n, freeThresholdCents: null }),
+    ).toBe(0n)
+  })
+
+  test('charges the flat fee even over the threshold for remote provinces', () => {
+    const remoteCfg = {
+      flatFeeCents: 600n,
+      freeThresholdCents: 8800n,
+      remoteProvinces: ['新疆维吾尔自治区'],
+      remoteFeeCents: 1200n,
+    }
+    expect(
+      computeShippingFee(
+        { goodsCents: 10000n, totalWeightGrams: 0, province: '新疆维吾尔自治区' },
+        remoteCfg,
+      ),
+    ).toBe(1200n)
+  })
+
+  test('adds weight-based fees beyond the base weight', () => {
+    const weightCfg = {
+      flatFeeCents: 600n,
+      freeThresholdCents: null,
+      weightBaseGrams: 1000,
+      weightAdditionalGrams: 1000,
+      weightAdditionalFeeCents: 300n,
+    }
+    // 1.5kg → 首重 1kg + 续重 1 段
+    expect(
+      computeShippingFee(
+        { goodsCents: 100n, totalWeightGrams: 1500, province: 'Zhejiang' },
+        weightCfg,
+      ),
+    ).toBe(900n)
+    // 2.3kg → 续重 2 段
+    expect(
+      computeShippingFee(
+        { goodsCents: 100n, totalWeightGrams: 2300, province: 'Zhejiang' },
+        weightCfg,
+      ),
+    ).toBe(1200n)
+    // 1kg 内不加收
+    expect(
+      computeShippingFee(
+        { goodsCents: 100n, totalWeightGrams: 999, province: 'Zhejiang' },
+        weightCfg,
+      ),
+    ).toBe(600n)
   })
 })
 

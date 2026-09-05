@@ -60,7 +60,14 @@ async function seedSku(name: string, slug: string, price = '5.00', stock = 10) {
 async function seedAddress(userId: string) {
   const [address] = await db
     .insert(schema.addresses)
-    .values({ userId, recipientName: 'Alice', phone: '13800000000', address: 'Shanghai Pudong' })
+    .values({
+      userId,
+      recipientName: 'Alice',
+      phone: '13800000000',
+      province: 'Shanghai',
+      city: 'Shanghai',
+      detail: 'Pudong',
+    })
     .returning()
   return address
 }
@@ -74,7 +81,10 @@ async function seedOrder(userId: string, skuId: string, quantity = 1, unitPrice 
       addressId: address.id,
       recipientName: address.recipientName,
       phone: address.phone,
-      address: address.address,
+      address: `${address.province}${address.city}${address.district}${address.detail}`,
+      province: address.province,
+      city: address.city,
+      district: address.district,
     },
     db,
   )
@@ -96,7 +106,10 @@ describe('createOrderRecord', () => {
         addressId: address.id,
         recipientName: address.recipientName,
         phone: address.phone,
-        address: address.address,
+        address: `${address.province}${address.city}${address.district}${address.detail}`,
+        province: address.province,
+        city: address.city,
+        district: address.district,
       },
       db,
     )
@@ -121,7 +134,10 @@ describe('createOrderRecord', () => {
         addressId: address.id,
         recipientName: address.recipientName,
         phone: address.phone,
-        address: address.address,
+        address: `${address.province}${address.city}${address.district}${address.detail}`,
+        province: address.province,
+        city: address.city,
+        district: address.district,
       },
       db,
       { shippingFeeCents: 600n },
@@ -144,7 +160,10 @@ describe('createOrderRecord', () => {
         addressId: address.id,
         recipientName: address.recipientName,
         phone: address.phone,
-        address: address.address,
+        address: `${address.province}${address.city}${address.district}${address.detail}`,
+        province: address.province,
+        city: address.city,
+        district: address.district,
       },
       db,
     )

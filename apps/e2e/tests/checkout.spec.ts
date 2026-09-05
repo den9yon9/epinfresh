@@ -37,6 +37,8 @@ test('加购 → 建地址 → 结算下单 → 跳转支付页', async ({ page 
   await page.goto('/addresses/new')
   await page.getByLabel('收件人').fill('李四')
   await page.getByLabel('手机号').fill('13700137000')
+  await page.getByLabel('省 / 直辖市').fill('上海市')
+  await page.getByLabel('城市').fill('上海市')
   await page.getByLabel('详细地址').fill('北京市朝阳区望京街 8 号')
   await page.getByLabel('设为默认地址').check()
   await page.getByRole('button', { name: '保存' }).click()

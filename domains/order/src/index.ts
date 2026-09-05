@@ -1,14 +1,17 @@
 export type {
+  DashboardStats,
   OrderDetail,
   OrderLineInput,
   OrderShippingInput,
   PayableOrderSnapshot,
   ShipOrderResult,
+  TopProductRow,
 } from './service'
 export {
   autoCompleteShippedOrders,
   completeOrder,
   createOrderRecord,
+  getDashboardStats,
   getOrderById,
   getOrderForUser,
   getOrderStatusCounts,
@@ -17,6 +20,7 @@ export {
   listOrdersByUser,
   listShippedWithTracking,
   listStalePendingOrders,
+  listTopProducts,
   markOrderRefunded,
   ORDER_AUTO_CANCEL_BATCH_SIZE,
   ORDER_AUTO_COMPLETE_BATCH_SIZE,

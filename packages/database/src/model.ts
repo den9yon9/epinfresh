@@ -52,7 +52,10 @@ export const table = {
     address: insert(schema.addresses, {
       recipientName: Type.String({ minLength: 1, maxLength: 100 }),
       phone: Type.String({ minLength: 1, maxLength: 50 }),
-      address: Type.String({ minLength: 1, maxLength: 500 }),
+      province: Type.String({ minLength: 1, maxLength: 50 }),
+      city: Type.Optional(Type.String({ maxLength: 50 })),
+      district: Type.Optional(Type.String({ maxLength: 50 })),
+      detail: Type.String({ minLength: 1, maxLength: 500 }),
     }),
     orderItem: insert(schema.orderItems),
     payment: insert(schema.payments),
@@ -75,7 +78,10 @@ export const table = {
     address: update(schema.addresses, {
       recipientName: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
       phone: Type.Optional(Type.String({ minLength: 1, maxLength: 50 })),
-      address: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+      province: Type.Optional(Type.String({ minLength: 1, maxLength: 50 })),
+      city: Type.Optional(Type.String({ maxLength: 50 })),
+      district: Type.Optional(Type.String({ maxLength: 50 })),
+      detail: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
     }),
     orderItem: update(schema.orderItems),
     payment: update(schema.payments),

@@ -31,6 +31,10 @@ export const orders = pgTable(
     recipientName: varchar('recipient_name', { length: 100 }).notNull().default(''),
     recipientPhone: varchar('recipient_phone', { length: 50 }).notNull().default(''),
     shippingAddress: varchar('shipping_address', { length: 500 }).notNull().default(''),
+    // 结构化快照(自包含): 后台按地域统计/运费分析不依赖地址表关联
+    province: varchar('province', { length: 50 }).notNull().default(''),
+    city: varchar('city', { length: 50 }).notNull().default(''),
+    district: varchar('district', { length: 50 }).notNull().default(''),
     trackingNumber: varchar('tracking_number', { length: 100 }),
     // 承运商标识(logistics 域 COURIER_COMPANIES 枚举值, varchar 存储; 空 = 未指定)
     courierCompany: varchar('courier_company', { length: 32 }),

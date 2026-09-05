@@ -115,7 +115,9 @@ async function seedAddress(userId: string) {
       userId,
       recipientName: 'Alice',
       phone: '13800000000',
-      address: 'Shanghai Pudong',
+      province: 'Zhejiang',
+      city: 'Hangzhou',
+      detail: 'Shanghai Pudong',
       isDefault: true,
     })
     .returning()
@@ -282,7 +284,13 @@ describe('addresses', () => {
     const cookie = await loginCookie(user.email)
 
     const created = await api.addresses.post(
-      { recipientName: 'Alice', phone: '13800000000', address: 'Shanghai Pudong' },
+      {
+        recipientName: 'Alice',
+        phone: '13800000000',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        detail: 'Pudong',
+      },
       { fetch: { headers: { cookie } } },
     )
     expect(created.status).toBe(201)
@@ -290,7 +298,14 @@ describe('addresses', () => {
     expect(created.data.isDefault).toBe(true)
 
     const second = await api.addresses.post(
-      { recipientName: 'Bob', phone: '13900000000', address: 'Beijing Haidian', isDefault: true },
+      {
+        recipientName: 'Bob',
+        phone: '13900000000',
+        province: 'Beijing',
+        city: 'Beijing',
+        detail: 'Haidian',
+        isDefault: true,
+      },
       { fetch: { headers: { cookie } } },
     )
     expect(second.status).toBe(201)
@@ -305,10 +320,10 @@ describe('addresses', () => {
 
     const updated = await api
       .addresses({ id: created.data.id })
-      .put({ address: 'Shanghai Minhang' }, { fetch: { headers: { cookie } } })
+      .put({ detail: 'Shanghai Minhang' }, { fetch: { headers: { cookie } } })
     expect(updated.status).toBe(200)
     if (updated.error !== null) throw updated.error
-    expect(updated.data.address).toBe('Shanghai Minhang')
+    expect(updated.data.detail).toBe('Shanghai Minhang')
 
     const deleted = await api
       .addresses({ id: created.data.id })
@@ -322,7 +337,7 @@ describe('addresses', () => {
     const other = await seedUser('bob@example.com')
     const otherCookie = await loginCookie(other.email)
     const created = await api.addresses.post(
-      { recipientName: 'Bob', phone: '1', address: 'Home' },
+      { recipientName: 'Bob', phone: '1', province: 'Zhejiang', city: 'Hangzhou', detail: 'Home' },
       { fetch: { headers: { cookie: otherCookie } } },
     )
     if (created.error !== null) throw created.error
@@ -345,7 +360,13 @@ describe('addresses', () => {
     const cookie = await loginCookie(user.email)
     const { sku } = await seedSku('apple', '5.00', 10)
     const created = await api.addresses.post(
-      { recipientName: 'Alice', phone: '13800000000', address: 'Shanghai Pudong' },
+      {
+        recipientName: 'Alice',
+        phone: '13800000000',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        detail: 'Pudong',
+      },
       { fetch: { headers: { cookie } } },
     )
     if (created.error !== null) throw created.error
@@ -357,7 +378,8 @@ describe('addresses', () => {
     expect(orderRes.status).toBe(201)
     if (orderRes.error !== null) throw orderRes.error
     expect(orderRes.data.recipientName).toBe('Alice')
-    expect(orderRes.data.shippingAddress).toBe('Shanghai Pudong')
+    expect(orderRes.data.shippingAddress).toBe('ZhejiangHangzhouPudong')
+    expect(orderRes.data.province).toBe('Zhejiang')
 
     const del = await api
       .addresses({ id: created.data.id })
@@ -369,7 +391,9 @@ describe('addresses', () => {
       .from(schema.orders)
       .where(eq(schema.orders.id, orderRes.data.id))
     expect(after.addressId).toBeNull()
-    expect(after.shippingAddress).toBe('Shanghai Pudong')
+    expect(after.shippingAddress).toBe('ZhejiangHangzhouPudong')
+    expect(after.province).toBe('Zhejiang')
+    expect(after.city).toBe('Hangzhou')
   })
 
   test('checkout with another user address returns 404', async () => {
@@ -379,7 +403,7 @@ describe('addresses', () => {
     const otherCookie = await loginCookie(other.email)
     const { sku } = await seedSku('apple', '5.00', 10)
     const created = await api.addresses.post(
-      { recipientName: 'Bob', phone: '1', address: 'Home' },
+      { recipientName: 'Bob', phone: '1', province: 'Zhejiang', city: 'Hangzhou', detail: 'Home' },
       { fetch: { headers: { cookie: otherCookie } } },
     )
     if (created.error !== null) throw created.error

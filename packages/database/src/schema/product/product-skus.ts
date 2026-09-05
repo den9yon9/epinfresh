@@ -24,6 +24,8 @@ export const productSkus = pgTable(
     skuCode: varchar('sku_code', { length: 100 }).notNull(),
     price: decimal('price', { precision: 10, scale: 2 }).notNull(),
     stock: integer('stock').default(0).notNull(),
+    // 规格净重(克): 运费引擎按总重量计算续重加价
+    weightGrams: integer('weight_grams').default(500).notNull(),
     attributes: jsonb('attributes').$type<Record<string, string>>().default({}).notNull(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

@@ -123,16 +123,29 @@ function CheckoutPage() {
   }
 
   const goodsTotal = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  // 运费预览(与服务端 computeShippingFee 同规则): 达阈值免运费, 否则固定运费
+  // 运费预览(与服务端 computeShippingFee 同规则): 满额包邮(非偏远) + 偏远加价 + 首重/续重。
+  // 购物车视图不含克重字段, 续重部分按每件默认 500g 估算总重, 以下单时服务端计算为准。
+  const selectedAddress = addresses.find((a) => a.id === addressId)
   const feeActive =
     feeConfig !== null &&
-    (Number(feeConfig.flatFee) > 0 || feeConfig.freeShippingThreshold !== null)
-  const shippingFee = feeActive
-    ? feeConfig!.freeShippingThreshold !== null &&
-      goodsTotal >= Number(feeConfig!.freeShippingThreshold)
-      ? 0
-      : Number(feeConfig!.flatFee)
-    : 0
+    (Number(feeConfig.flatFee) > 0 ||
+      feeConfig.freeShippingThreshold !== null ||
+      feeConfig.remoteProvinces.length > 0 ||
+      Number(feeConfig.weightAdditionalFee) > 0)
+  let shippingFee = 0
+  if (feeActive) {
+    const isRemote = feeConfig!.remoteProvinces.includes(selectedAddress?.province ?? '')
+    const threshold = feeConfig!.freeShippingThreshold
+    if (!isRemote && threshold !== null && goodsTotal >= Number(threshold)) {
+      shippingFee = 0
+    } else {
+      const baseFee = isRemote ? Number(feeConfig!.remoteFee) : Number(feeConfig!.flatFee)
+      const estWeight = cart.items.reduce((sum, item) => sum + 500 * item.quantity, 0)
+      const excess = Math.max(0, estWeight - feeConfig!.weightBaseGrams)
+      const units = Math.ceil(excess / Math.max(1, feeConfig!.weightAdditionalGrams))
+      shippingFee = baseFee + units * Number(feeConfig!.weightAdditionalFee)
+    }
+  }
 
   if (cart.items.length === 0) {
     return (
@@ -240,7 +253,12 @@ function CheckoutPage() {
                       </span>
                     )}
                   </span>
-                  <span className="block text-sm text-gray-600">{addr.address}</span>
+                  <span className="block text-sm text-gray-600">
+                    {addr.province}
+                    {addr.city}
+                    {addr.district}
+                    {addr.detail}
+                  </span>
                 </span>
               </label>
             ))}

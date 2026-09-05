@@ -27,6 +27,8 @@ test('新增地址 → 默认徽章 → 编辑 → 删除 → 空态', async ({ 
   await page.getByRole('link', { name: '新增地址' }).click()
   await page.getByLabel('收件人').fill('张三')
   await page.getByLabel('手机号').fill('13800138000')
+  await page.getByLabel('省 / 直辖市').fill('上海市')
+  await page.getByLabel('城市').fill('上海市')
   await page.getByLabel('详细地址').fill('上海市浦东新区世纪大道 100 号')
   await page.getByLabel('设为默认地址').check()
   await page.getByRole('button', { name: '保存' }).click()

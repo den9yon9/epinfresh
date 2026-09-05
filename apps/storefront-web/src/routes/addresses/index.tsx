@@ -1,6 +1,7 @@
 import { createFileRoute, Link, redirect, useNavigate, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 
+import { addressLineText } from '../../components/AddressForm'
 import { Toast } from '../../components/Toast'
 import { api } from '../../libs/api/client'
 import { clearSessionCache, isUnauthorized } from '../../libs/api/session'
@@ -84,7 +85,7 @@ function AddressesPage() {
             </div>
             <span className="text-sm text-gray-500">{addr.phone}</span>
           </div>
-          <p className="text-sm text-gray-600">{addr.address}</p>
+          <p className="text-sm text-gray-600">{addressLineText(addr)}</p>
           <div className="mt-3 flex gap-4 text-sm">
             <Link
               to="/addresses/$id/edit"

@@ -29,7 +29,10 @@ export async function createAddress(
     userId: string
     recipientName: string
     phone: string
-    address: string
+    province: string
+    city?: string
+    district?: string
+    detail: string
     isDefault?: boolean
   },
   client: DbClient,
@@ -55,7 +58,10 @@ export async function createAddress(
           userId: input.userId,
           recipientName: input.recipientName,
           phone: input.phone,
-          address: input.address,
+          province: input.province,
+          city: input.city ?? '',
+          district: input.district ?? '',
+          detail: input.detail,
           isDefault: effectiveDefault,
         })
         .returning()
@@ -89,7 +95,15 @@ export async function getAddressById(
 export async function updateAddress(
   userId: string,
   addressId: string,
-  input: Partial<{ recipientName: string; phone: string; address: string; isDefault: boolean }>,
+  input: Partial<{
+    recipientName: string
+    phone: string
+    province: string
+    city: string
+    district: string
+    detail: string
+    isDefault: boolean
+  }>,
   client: DbClient,
 ): Promise<Result<typeof schema.addresses.$inferSelect, AddressError>> {
   const { isDefault, ...rest } = input
@@ -128,4 +142,14 @@ export async function deleteAddress(
     .returning()
   if (!deleted) return err('ADDRESS_NOT_FOUND')
   return ok({ deleted: true })
+}
+
+// 拼接地址文本: 省市区做串接, 供订单快照/前端展示使用(未上线, 无需兼容旧单行地址)
+export function addressText(address: {
+  province: string
+  city: string
+  district: string
+  detail: string
+}): string {
+  return `${address.province}${address.city}${address.district}${address.detail}`
 }

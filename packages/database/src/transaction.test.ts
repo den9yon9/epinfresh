@@ -31,7 +31,13 @@ async function insertAddress(
   tx: Parameters<Parameters<typeof withTransaction>[1]>[0],
   userId: string,
 ) {
-  await tx.insert(schema.addresses).values({ userId, recipientName: 'A', phone: '1', address: 'x' })
+  await tx.insert(schema.addresses).values({
+    userId,
+    recipientName: 'A',
+    phone: '1',
+    province: 'ZJ',
+    detail: 'x',
+  })
 }
 
 async function addressCount(userId: string) {

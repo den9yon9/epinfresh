@@ -1,4 +1,4 @@
-import { getAddressById } from '@epinfresh/address'
+import { addressText, getAddressById } from '@epinfresh/address'
 import { removeCartItems } from '@epinfresh/cart'
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { createOrderRecord, getOrderById, type OrderDetail } from '@epinfresh/order'
@@ -94,13 +94,24 @@ export async function checkout(
           quantity: item.quantity,
         }))
 
-        // 运费按商品合计计: 达阈值免运费, 否则固定运费; 未注入策略 = 零运费
+        // 运费: 满额包邮(非偏远) + 偏远加价 + 首重/续重(按 SKU 克重累计); 未注入策略 = 零运费
         const goodsCents = validated.reduce(
           (sum, { item, sku }) => sum + toCents(sku.price) * BigInt(item.quantity),
           0n,
         )
+        const totalWeightGrams = validated.reduce(
+          (sum, { item, sku }) => sum + (sku.weightGrams ?? 0) * item.quantity,
+          0,
+        )
         const shippingFeeCents = opts.shippingFeeConfig
-          ? computeShippingFee(goodsCents, opts.shippingFeeConfig)
+          ? computeShippingFee(
+              {
+                goodsCents,
+                totalWeightGrams,
+                province: address.province,
+              },
+              opts.shippingFeeConfig,
+            )
           : 0n
 
         const order = await createOrderRecord(
@@ -110,7 +121,10 @@ export async function checkout(
             addressId: address.id,
             recipientName: address.recipientName,
             phone: address.phone,
-            address: address.address,
+            address: addressText(address),
+            province: address.province,
+            city: address.city,
+            district: address.district,
           },
           tx,
           { shippingFeeCents },

@@ -1,4 +1,5 @@
 export {
+  addressText,
   createAddress,
   deleteAddress,
   getAddressById,

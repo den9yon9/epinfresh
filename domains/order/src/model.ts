@@ -30,11 +30,42 @@ export const UpdateOrderStatusSchema = Type.Object({ status: patchableStatusLite
 export const ShippingFeePreviewSchema = Type.Object({
   flatFee: Type.String(),
   freeShippingThreshold: Type.Union([Type.String(), Type.Null()]),
+  remoteFee: Type.String(),
+  remoteProvinces: Type.Array(Type.String()),
+  weightBaseGrams: Type.Number(),
+  weightAdditionalGrams: Type.Number(),
+  weightAdditionalFee: Type.String(),
 })
 
-export const DashboardResponseSchema = Type.Object(
-  Object.fromEntries(ORDER_STATUS.map((s) => [s, Type.Number()])) as Record<
-    (typeof ORDER_STATUS)[number],
-    ReturnType<typeof Type.Number>
-  >,
-)
+export const LowStockSkuSchema = Type.Object({
+  skuId: Type.String({
+    format: 'uuid',
+  }),
+  skuName: Type.String(),
+  productId: Type.String({
+    format: 'uuid',
+  }),
+  productName: Type.String(),
+  stock: Type.Number(),
+})
+
+export const TopProductResponseSchema = Type.Object({
+  productName: Type.String(),
+  quantity: Type.Number(),
+})
+
+export const DashboardResponseSchema = Type.Object({
+  todayGmv: Type.String(),
+  totalGmv: Type.String(),
+  todayOrders: Type.Number(),
+  totalOrders: Type.Number(),
+  totalUsers: Type.Number(),
+  orderCounts: Type.Object(
+    Object.fromEntries(ORDER_STATUS.map((s) => [s, Type.Number()])) as Record<
+      (typeof ORDER_STATUS)[number],
+      ReturnType<typeof Type.Number>
+    >,
+  ),
+  lowStock: Type.Array(LowStockSkuSchema),
+  topProducts: Type.Array(TopProductResponseSchema),
+})

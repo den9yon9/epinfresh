@@ -30,6 +30,8 @@ test('下单 → 订单列表 → 详情 → 取消订单', async ({ page }) => 
   await page.goto('/addresses/new')
   await page.getByLabel('收件人').fill('王五')
   await page.getByLabel('手机号').fill('13600136000')
+  await page.getByLabel('省 / 直辖市').fill('上海市')
+  await page.getByLabel('城市').fill('上海市')
   await page.getByLabel('详细地址').fill('广州市天河区体育西路 1 号')
   await page.getByLabel('设为默认地址').check()
   await page.getByRole('button', { name: '保存' }).click()

@@ -1,7 +1,10 @@
 export {
   centsToYuan,
   computeShippingFee,
+  gramsOr,
+  parseCommaList,
   type ShippingFeeConfig,
+  type ShippingFeeInput,
   yuanToCentsOrNull,
   yuanToCentsOrZero,
 } from './fee'

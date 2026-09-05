@@ -1,4 +1,10 @@
-import { type ShippingFeeConfig, yuanToCentsOrNull, yuanToCentsOrZero } from '@epinfresh/checkout'
+import {
+  gramsOr,
+  parseCommaList,
+  type ShippingFeeConfig,
+  yuanToCentsOrNull,
+  yuanToCentsOrZero,
+} from '@epinfresh/checkout'
 import { createDb, type Db } from '@epinfresh/database'
 import {
   createPaymentGatewaysFromEnv,
@@ -55,10 +61,15 @@ export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
     emailQueue: createQueue<SendEmailJobData>(EMAIL_QUEUE_NAME, { connection: queueRedis }),
     // 渠道注册表由共享支付 env 助手构建(storefront/admin/worker 三进程同一来源)
     paymentGateways: createPaymentGatewaysFromEnv(process.env),
-    // 运费策略: env(元字符串) → 分; 阈值空 = 不启用包邮
+    // 运费策略: env(元字符串) → 分; 阈值空 = 不启用包邮; 偏远省份/首重续重同理
     shippingFeeConfig: {
       flatFeeCents: yuanToCentsOrZero(env.SHIPPING_FLAT_FEE),
       freeThresholdCents: yuanToCentsOrNull(env.FREE_SHIPPING_THRESHOLD),
+      remoteProvinces: parseCommaList(env.SHIPPING_REMOTE_PROVINCES),
+      remoteFeeCents: yuanToCentsOrZero(env.SHIPPING_REMOTE_FEE),
+      weightBaseGrams: gramsOr(env.SHIPPING_WEIGHT_BASE_GRAMS, 1000),
+      weightAdditionalGrams: gramsOr(env.SHIPPING_WEIGHT_ADDITIONAL_GRAMS, 1000),
+      weightAdditionalFeeCents: yuanToCentsOrZero(env.SHIPPING_WEIGHT_ADDITIONAL_FEE),
     },
     wechatOauth: {
       enabled:

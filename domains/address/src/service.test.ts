@@ -42,7 +42,14 @@ describe('createAddress', () => {
   test('creates an address and makes the first one default', async () => {
     const user = await seedUser()
     const address = await createAddress(
-      { userId: user.id, recipientName: 'Alice', phone: '13800000000', address: 'Shanghai Pudong' },
+      {
+        userId: user.id,
+        recipientName: 'Alice',
+        phone: '13800000000',
+        province: 'Shanghai',
+        city: 'Shanghai',
+        detail: 'Pudong',
+      },
       db,
     )
     expect(address.userId).toBe(user.id)
@@ -52,11 +59,29 @@ describe('createAddress', () => {
   test('only one default per user', async () => {
     const user = await seedUser()
     await createAddress(
-      { userId: user.id, recipientName: 'Alice', phone: '1', address: 'Home', isDefault: true },
+      {
+        userId: user.id,
+        recipientName: 'Alice',
+        phone: '1',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        district: 'Xihu',
+        detail: 'Home',
+        isDefault: true,
+      },
       db,
     )
     await createAddress(
-      { userId: user.id, recipientName: 'Bob', phone: '2', address: 'Office', isDefault: true },
+      {
+        userId: user.id,
+        recipientName: 'Bob',
+        phone: '2',
+        province: 'Jiangsu',
+        city: 'Nanjing',
+        district: 'Gulou',
+        detail: 'Office',
+        isDefault: true,
+      },
       db,
     )
     const items = await listAddressesByUser(user.id, db)
@@ -68,7 +93,16 @@ describe('createAddress', () => {
   test('partial unique index rejects a second concurrent default at the DB level', async () => {
     const user = await seedUser()
     await createAddress(
-      { userId: user.id, recipientName: 'Alice', phone: '1', address: 'Home', isDefault: true },
+      {
+        userId: user.id,
+        recipientName: 'Alice',
+        phone: '1',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        district: 'Xihu',
+        detail: 'Home',
+        isDefault: true,
+      },
       db,
     )
     // 绕过服务层直接写第二个默认地址: 部分唯一索引应拒绝(23505)
@@ -78,7 +112,10 @@ describe('createAddress', () => {
           userId: user.id,
           recipientName: 'Bob',
           phone: '2',
-          address: 'Office',
+          province: 'Jiangsu',
+          city: 'Nanjing',
+          district: 'Gulou',
+          detail: 'Office',
           isDefault: true,
         }),
       ),
@@ -91,24 +128,49 @@ describe('address queries', () => {
     const user = await seedUser()
     const other = await seedUser('bob@example.com')
     await createAddress(
-      { userId: user.id, recipientName: 'Alice', phone: '1', address: 'Home' },
+      {
+        userId: user.id,
+        recipientName: 'Alice',
+        phone: '1',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        district: 'Xihu',
+        detail: 'Home',
+      },
       db,
     )
     await createAddress(
-      { userId: other.id, recipientName: 'Bob', phone: '2', address: 'Other Home' },
+      {
+        userId: other.id,
+        recipientName: 'Bob',
+        phone: '2',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        district: 'Xihu',
+        detail: 'Other Home',
+      },
       db,
     )
 
     const { items } = await listAddressesByUser(user.id, db)
     expect(items).toHaveLength(1)
-    expect(items[0].address).toBe('Home')
+    expect(items[0].province).toBe('Zhejiang')
+    expect(items[0].detail).toBe('Home')
   })
 
   test('getAddressById returns ADDRESS_NOT_FOUND for another user address', async () => {
     const user = await seedUser()
     const other = await seedUser('bob@example.com')
     const otherAddress = await createAddress(
-      { userId: other.id, recipientName: 'Bob', phone: '2', address: 'Other Home' },
+      {
+        userId: other.id,
+        recipientName: 'Bob',
+        phone: '2',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        district: 'Xihu',
+        detail: 'Other Home',
+      },
       db,
     )
 
@@ -122,11 +184,28 @@ describe('updateAddress', () => {
   test('updates fields and switches default', async () => {
     const user = await seedUser()
     const first = await createAddress(
-      { userId: user.id, recipientName: 'Alice', phone: '1', address: 'Home', isDefault: true },
+      {
+        userId: user.id,
+        recipientName: 'Alice',
+        phone: '1',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        district: 'Xihu',
+        detail: 'Home',
+        isDefault: true,
+      },
       db,
     )
     const second = await createAddress(
-      { userId: user.id, recipientName: 'Bob', phone: '2', address: 'Office' },
+      {
+        userId: user.id,
+        recipientName: 'Bob',
+        phone: '2',
+        province: 'Jiangsu',
+        city: 'Nanjing',
+        district: 'Gulou',
+        detail: 'Office',
+      },
       db,
     )
 
@@ -143,7 +222,15 @@ describe('updateAddress', () => {
     const user = await seedUser()
     const other = await seedUser('bob@example.com')
     const otherAddress = await createAddress(
-      { userId: other.id, recipientName: 'Bob', phone: '2', address: 'Other Home' },
+      {
+        userId: other.id,
+        recipientName: 'Bob',
+        phone: '2',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        district: 'Xihu',
+        detail: 'Other Home',
+      },
       db,
     )
 
@@ -157,7 +244,16 @@ describe('deleteAddress', () => {
   test('deletes an address and releases the default', async () => {
     const user = await seedUser()
     const address = await createAddress(
-      { userId: user.id, recipientName: 'Alice', phone: '1', address: 'Home', isDefault: true },
+      {
+        userId: user.id,
+        recipientName: 'Alice',
+        phone: '1',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        district: 'Xihu',
+        detail: 'Home',
+        isDefault: true,
+      },
       db,
     )
 
@@ -170,7 +266,15 @@ describe('deleteAddress', () => {
     const user = await seedUser()
     const other = await seedUser('bob@example.com')
     const otherAddress = await createAddress(
-      { userId: other.id, recipientName: 'Bob', phone: '2', address: 'Other Home' },
+      {
+        userId: other.id,
+        recipientName: 'Bob',
+        phone: '2',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        district: 'Xihu',
+        detail: 'Other Home',
+      },
       db,
     )
 
@@ -183,7 +287,15 @@ describe('deleteAddress', () => {
   test('orders snapshot keeps address data after deletion', async () => {
     const user = await seedUser()
     const address = await createAddress(
-      { userId: user.id, recipientName: 'Alice', phone: '1', address: 'Home' },
+      {
+        userId: user.id,
+        recipientName: 'Alice',
+        phone: '1',
+        province: 'Zhejiang',
+        city: 'Hangzhou',
+        district: 'Xihu',
+        detail: 'Home',
+      },
       db,
     )
     const [order] = await db
@@ -194,7 +306,10 @@ describe('deleteAddress', () => {
         addressId: address.id,
         recipientName: address.recipientName,
         recipientPhone: address.phone,
-        shippingAddress: address.address,
+        shippingAddress: `${address.province}${address.city}${address.district}${address.detail}`,
+        province: address.province,
+        city: address.city,
+        district: address.district,
       })
       .returning()
 
@@ -203,7 +318,9 @@ describe('deleteAddress', () => {
 
     const [after] = await db.select().from(schema.orders).where(eq(schema.orders.id, order.id))
     expect(after.addressId).toBeNull()
-    expect(after.shippingAddress).toBe('Home')
+    expect(after.shippingAddress).toBe('ZhejiangHangzhouXihuHome')
+    expect(after.province).toBe('Zhejiang')
+    expect(after.city).toBe('Hangzhou')
     expect(after.recipientName).toBe('Alice')
   })
 })

@@ -1,7 +1,7 @@
 import { type DbClient, ORDER_STATUS, type OrderStatus, schema } from '@epinfresh/database'
 import { err, fromCents, ok, type Result, toCents } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, count, eq, inArray, isNotNull, lt } from 'drizzle-orm'
+import { and, count, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 
 import type { AdminOrderListQuerySchema, OrderDetailSchema, OrderListQuerySchema } from './model'
 export type OrderDetail = Static<typeof OrderDetailSchema>
@@ -18,7 +18,12 @@ export interface OrderShippingInput {
   addressId: string
   recipientName: string
   phone: string
+  // 地址文本快照(省市区+详情的拼接, 由编排层用 addressText 生成)
   address: string
+  // 结构化快照: 订单自包含, 后台按地域统计不依赖地址表关联
+  province: string
+  city: string
+  district: string
 }
 
 const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -68,6 +73,9 @@ export async function createOrderRecord(
       recipientName: shipping.recipientName,
       recipientPhone: shipping.phone,
       shippingAddress: shipping.address,
+      province: shipping.province,
+      city: shipping.city,
+      district: shipping.district,
     })
     .returning()
   await client.insert(schema.orderItems).values(rows.map((row) => ({ ...row, orderId: order.id })))
@@ -392,4 +400,84 @@ export async function listStalePendingOrders(
     .where(and(eq(schema.orders.status, 'pending'), lt(schema.orders.createdAt, olderThan)))
     .orderBy(schema.orders.createdAt)
     .limit(limit)
+}
+
+// --- 运营看板聚合原语 ---
+
+// GMV 口径订单状态: 已支付/已发货/已完成(取消/退款不计入销售额)
+const GMV_STATUSES: OrderStatus[] = ['paid', 'shipped', 'completed']
+
+export interface TopProductRow {
+  productName: string
+  quantity: number
+}
+
+export interface DashboardStats {
+  // 元字符串
+  todayGmv: string
+  totalGmv: string
+  todayOrders: number
+  totalOrders: number
+  orderCounts: Record<OrderStatus, number>
+  topProducts: TopProductRow[]
+}
+
+async function sumGmv(client: DbClient, since?: Date): Promise<string> {
+  const conditions = [inArray(schema.orders.status, GMV_STATUSES)]
+  if (since) conditions.push(gte(schema.orders.createdAt, since))
+  const [row] = await client
+    .select({ total: sql<string>`coalesce(sum(${schema.orders.totalAmount}), 0)::text` })
+    .from(schema.orders)
+    .where(and(...conditions))
+  return row.total
+}
+
+async function countOrders(client: DbClient, since?: Date): Promise<number> {
+  const conditions = [inArray(schema.orders.status, GMV_STATUSES)]
+  if (since) conditions.push(gte(schema.orders.createdAt, since))
+  const [row] = await client
+    .select({ total: count() })
+    .from(schema.orders)
+    .where(and(...conditions))
+  return Number(row.total)
+}
+
+// 近 30 天热销: order_items 按商品名聚合销量(快照字段, 无需关联商品域)
+export async function listTopProducts(
+  since: Date,
+  client: DbClient,
+  limit = 5,
+): Promise<TopProductRow[]> {
+  const rows = await client
+    .select({
+      productName: schema.orderItems.productName,
+      quantity: sql<string>`sum(${schema.orderItems.quantity})`,
+    })
+    .from(schema.orderItems)
+    .innerJoin(schema.orders, eq(schema.orderItems.orderId, schema.orders.id))
+    .where(gte(schema.orders.createdAt, since))
+    .groupBy(schema.orderItems.productName)
+    .orderBy(sql`sum(${schema.orderItems.quantity}) desc`)
+    .limit(limit)
+  // postgres sum(numeric) 返回字符串, 转换为 Number 满足响应 schema
+  return rows.map((row) => ({ productName: row.productName, quantity: Number(row.quantity) }))
+}
+
+// 看板聚合: 今日/累计 GMV 与订单数 + 状态分布 + 近 30 天热销 Top
+export async function getDashboardStats(
+  dayStart: Date,
+  client: DbClient,
+  opts: { topLimit?: number } = {},
+): Promise<DashboardStats> {
+  const sinceDays30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const [todayGmv, totalGmv, todayOrders, totalOrders, orderCounts, topProducts] =
+    await Promise.all([
+      sumGmv(client, dayStart),
+      sumGmv(client),
+      countOrders(client, dayStart),
+      countOrders(client),
+      getOrderStatusCounts(client),
+      listTopProducts(sinceDays30, client, opts.topLimit ?? 5),
+    ])
+  return { todayGmv, totalGmv, todayOrders, totalOrders, orderCounts, topProducts }
 }

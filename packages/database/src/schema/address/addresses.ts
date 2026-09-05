@@ -12,7 +12,10 @@ export const addresses = pgTable(
       .notNull(),
     recipientName: varchar('recipient_name', { length: 100 }).notNull(),
     phone: varchar('phone', { length: 50 }).notNull(),
-    address: varchar('address', { length: 500 }).notNull(),
+    province: varchar('province', { length: 50 }).notNull(),
+    city: varchar('city', { length: 50 }).notNull().default(''),
+    district: varchar('district', { length: 50 }).notNull().default(''),
+    detail: varchar('detail', { length: 500 }).notNull(),
     isDefault: boolean('is_default').default(false).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true })

@@ -49,6 +49,16 @@ export const storefrontEnvSchema = Type.Object({
   SHIPPING_FLAT_FEE: Type.String({ default: '0.00' }),
   // 满额包邮阈值(元, 按商品合计计); 空 = 不启用包邮
   FREE_SHIPPING_THRESHOLD: Type.String({ default: '' }),
+  // 偏远省份名单(逗号分隔, 订单地址 province 精确匹配): 不参与包邮并加收 SHIPPING_REMOTE_FEE
+  SHIPPING_REMOTE_PROVINCES: Type.String({ default: '' }),
+  // 偏远省份加收运费(元)
+  SHIPPING_REMOTE_FEE: Type.String({ default: '0.00' }),
+  // 首重克数(默认 1000)
+  SHIPPING_WEIGHT_BASE_GRAMS: Type.String({ pattern: '^\\d+$', default: '1000' }),
+  // 续重分段克数(默认 1000)
+  SHIPPING_WEIGHT_ADDITIONAL_GRAMS: Type.String({ pattern: '^\\d+$', default: '1000' }),
+  // 每续重分段加收运费(元)
+  SHIPPING_WEIGHT_ADDITIONAL_FEE: Type.String({ default: '0.00' }),
 })
 
 export type StorefrontEnv = StaticDecode<typeof storefrontEnvSchema>

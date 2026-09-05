@@ -29,6 +29,8 @@ async function orderAndPay(page: Page): Promise<string> {
   await page.goto('/addresses/new')
   await page.getByLabel('收件人').fill('支付链路')
   await page.getByLabel('手机号').fill('13500135000')
+  await page.getByLabel('省 / 直辖市').fill('上海市')
+  await page.getByLabel('城市').fill('上海市')
   await page.getByLabel('详细地址').fill('上海市浦东新区支付链路 1 号')
   await page.getByLabel('设为默认地址').check()
   await page.getByRole('button', { name: '保存' }).click()

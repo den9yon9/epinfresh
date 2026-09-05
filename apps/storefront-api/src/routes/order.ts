@@ -93,6 +93,11 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           shippingFeeConfig.freeThresholdCents === null
             ? null
             : centsToYuan(shippingFeeConfig.freeThresholdCents),
+        remoteFee: centsToYuan(shippingFeeConfig.remoteFeeCents ?? 0n),
+        remoteProvinces: shippingFeeConfig.remoteProvinces ?? [],
+        weightBaseGrams: shippingFeeConfig.weightBaseGrams ?? 1000,
+        weightAdditionalGrams: shippingFeeConfig.weightAdditionalGrams ?? 1000,
+        weightAdditionalFee: centsToYuan(shippingFeeConfig.weightAdditionalFeeCents ?? 0n),
       }),
       {
         isAuth: true,
@@ -101,7 +106,7 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           tags: ['Orders'],
           summary: '运费预览配置',
           description:
-            '获取当前生效的运费策略（固定运费与满额包邮阈值），供结算页预览。\n\n- 需要登录\n- 最终运费以下单时服务端计算为准',
+            '获取当前生效的运费策略（基础运费、满额包邮阈值、偏远省份与续重规则），供结算页预览。\n\n- 需要登录\n- 最终运费以下单时服务端计算为准',
         },
       },
     )
