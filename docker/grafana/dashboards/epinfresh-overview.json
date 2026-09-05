@@ -1,0 +1,120 @@
+{
+  "title": "epinfresh 总览",
+  "uid": "epinfresh-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["epinfresh"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "请求量（每分钟，按接口）",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "custom": { "showLegend": true, "lineWidth": 1, "fillOpacity": 10 } }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[1m])) by (path)",
+          "legendFormat": "{{path}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "错误请求量（4xx/5xx，每分钟）",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "custom": { "showLegend": true, "lineWidth": 1 } }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"4[0-9][0-9]|5[0-9][0-9]\"}[1m])) by (status)",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "P95 响应延迟（秒，按接口）",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "showLegend": true, "lineWidth": 1 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95 全部",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "支付回调验签（每分钟，按渠道/结果）",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "fieldConfig": {
+        "defaults": { "custom": { "showLegend": true, "lineWidth": 1 } }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(payment_webhook_results_total[1m])) by (channel, result)",
+          "legendFormat": "{{channel}} {{result}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "BullMQ 队列任务数（按队列/状态）",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 18 },
+      "fieldConfig": {
+        "defaults": { "custom": { "showLegend": true, "lineWidth": 1 } }
+      },
+      "targets": [
+        {
+          "expr": "bullmq_queue_jobs",
+          "legendFormat": "{{queue}} {{state}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "进程内存占用（字节）",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 18 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "showLegend": true, "lineWidth": 1 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

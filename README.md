@@ -72,6 +72,22 @@ pnpm dev                # 自动迁移 + 全部服务 watch
 
 接入监控平台（Prometheus/Grafana 等）直接抓取即可；`/metrics` 无鉴权，生产建议内网或监控白名单访问。
 
+### 本地监控面板（可选，一条命令起）
+
+仓库内置本地监控栈（Prometheus + Grafana），与业务容器完全独立：
+
+```bash
+# 本地开发时先确保业务服务在跑(pnpm dev), worker 面板需在 .env 启用 HEALTH_PORT=3100
+docker compose -f docker/docker-compose.observability.yml up -d
+# 打开 http://localhost:3005 → 控制台 admin/admin, "epinfresh 总览" 大屏已自动导入
+```
+
+- Prometheus 界面（自查询）：http://localhost:9090/graph
+- 预设 6 块面板：请求量、错误量、P95 延迟、支付回调验签、BullMQ 队列堆积、进程内存
+- 端口可调：`docker/prometheus.yml` 的 `*_METRICS_TARGET` 环境变量
+- 不用 Docker 的替代：`brew install prometheus && prometheus --config.file docker/prometheus.yml`（本机时 targets 里的 host.docker.internal 换成 localhost），在 9090 手动查询
+- 监控栈不写进 `docker/docker-compose.yml`，避免污染业务编排；跑完删除镜像/容器即可（`docker compose -f docker/docker-compose.observability.yml down`）
+
 ### k6 压测（结算下单链路）
 
 前置：本地起 `pnpm dev`，并用验收账号（`buyer@example.com` / `buyer123456`）登录商城往购物车加 1 件商品（脚本默认从购物车读取结算项）。

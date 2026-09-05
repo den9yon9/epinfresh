@@ -1,0 +1,29 @@
+# 本地监控栈: Prometheus + Grafana(独立于业务 compose, 一条命令起)
+#   docker compose -f docker/docker-compose.observability.yml up -d
+# 抓取目标为宿主机上已运行的 storefront-api(3000)/admin-api(3001)/worker(HEALTH_PORT, 默认 3100)
+# Grafana: http://localhost:3005 (admin/admin), 大屏已 provisioning 自动导入
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    # Linux 宿主机也支持 host.docker.internal(Compose 自动写入 host-gateway)
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    ports:
+      - '3005:3000'
+    environment:
+      # 默认本地账号 admin/admin(配置仅供本地, 生产监控请另见运维口径)
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
