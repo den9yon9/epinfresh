@@ -10,7 +10,14 @@ const ProductResponseSchema = Type.Intersect([
 ])
 
 const skuInput = Type.Intersect([
-  Type.Omit(table.insert.productSku, ['id', 'productId', 'price', 'createdAt', 'updatedAt']),
+  Type.Omit(table.insert.productSku, [
+    'id',
+    'productId',
+    'price',
+    'createdAt',
+    'updatedAt',
+    'deletedAt',
+  ]),
   Type.Object({
     price: Type.Number({ minimum: 0 }),
   }),

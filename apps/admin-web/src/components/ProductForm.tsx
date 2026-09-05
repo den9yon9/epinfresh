@@ -263,8 +263,6 @@ export function ProductForm({
             </Field>
           </div>
         ))}
-        {/* ponytail: SKU 行可改可增不可删——order_items.sku_id 是 restrict 外键, 删除会被 DB 拒绝 */}
-        <p className="text-xs text-gray-400">已有 SKU 可修改或新增; 删除请直接删商品重建</p>
       </section>
 
       <div className="flex justify-end gap-2">

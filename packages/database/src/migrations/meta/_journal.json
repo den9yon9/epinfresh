@@ -148,6 +148,13 @@
       "when": 1788067991811,
       "tag": "0020_quiet_post",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788567106299,
+      "tag": "0021_same_black_panther",
+      "breakpoints": true
     }
   ]
 }

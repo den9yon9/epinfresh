@@ -6,6 +6,9 @@ import { eq } from 'drizzle-orm'
 import {
   createCategory,
   createProduct,
+  getProductById,
+  getSkuPurchaseInfo,
+  getSkusByIds,
   listPublishedProducts,
   reduceProductStock,
   removeCategory,
@@ -223,6 +226,67 @@ describe('updateProduct', () => {
       .from(schema.products)
       .where(eq(schema.products.id, product.id))
     expect(after.name).toBe('Orange')
+  })
+
+  test('updateProduct soft-deletes omitted SKUs while preserving them in DB', async () => {
+    const product = await createProduct(
+      {
+        name: 'Apple',
+        slug: 'apple-test',
+        images: [],
+        skus: [
+          { name: '1kg', skuCode: 'APPLE-1KG', price: 5 },
+          { name: '2kg', skuCode: 'APPLE-2KG', price: 9 },
+        ],
+      },
+      db,
+    )
+    const [sku1, sku2] = product.skus
+
+    // 更新商品，只保留 sku1，排除 sku2
+    const updated = await updateProduct(
+      product.id,
+      {
+        skus: [{ id: sku1.id, name: '1kg', skuCode: 'APPLE-1KG', price: 5.5 }],
+      },
+      db,
+    )
+    expect(updated.isOk()).toBe(true)
+    expect(updated._unsafeUnwrap().skus).toHaveLength(1)
+    expect(updated._unsafeUnwrap().skus[0].id).toBe(sku1.id)
+
+    // DB 校验: sku2 记录依然存在, 但被置上 deleted_at (不破坏 order_items 历史引用)
+    const [dbSku2] = await db
+      .select()
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, sku2.id))
+    expect(dbSku2).toBeDefined()
+    expect(dbSku2.deletedAt).not.toBeNull()
+
+    // 读接口校验: 软删除的 SKU 在 getProductById / getSkuPurchaseInfo / getSkusByIds 中被过滤
+    const prod = await getProductById(product.id, db)
+    expect(prod._unsafeUnwrap().skus).toHaveLength(1)
+
+    const purchaseInfo = await getSkuPurchaseInfo(sku2.id, db)
+    expect(purchaseInfo.isErr()).toBe(true)
+    expect(purchaseInfo._unsafeUnwrapErr()).toBe('SKU_NOT_FOUND')
+
+    const byIds = await getSkusByIds([sku2.id], db)
+    expect(byIds).toHaveLength(0)
+
+    // 部分唯一索引校验: 允许重新添加相同 sku_code 的新 SKU
+    const readded = await updateProduct(
+      product.id,
+      {
+        skus: [
+          { id: sku1.id, name: '1kg', skuCode: 'APPLE-1KG', price: 5.5 },
+          { name: '2kg New', skuCode: 'APPLE-2KG', price: 10 },
+        ],
+      },
+      db,
+    )
+    expect(readded.isOk()).toBe(true)
+    expect(readded._unsafeUnwrap().skus).toHaveLength(2)
   })
 })
 

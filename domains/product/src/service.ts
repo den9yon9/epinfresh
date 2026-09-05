@@ -1,7 +1,7 @@
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { err, ok, type Result } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
-import { and, asc, count, eq, gte, ilike, inArray, type SQL, sql } from 'drizzle-orm'
+import { and, asc, count, eq, gte, ilike, inArray, isNull, type SQL, sql } from 'drizzle-orm'
 
 import type {
   AdminProductListQuerySchema,
@@ -47,9 +47,12 @@ async function attachSkus<T extends { id: string }>(products: T[], client: DbCli
     .select()
     .from(schema.productSkus)
     .where(
-      inArray(
-        schema.productSkus.productId,
-        products.map((p) => p.id),
+      and(
+        inArray(
+          schema.productSkus.productId,
+          products.map((p) => p.id),
+        ),
+        isNull(schema.productSkus.deletedAt),
       ),
     )
     .orderBy(asc(schema.productSkus.createdAt))
@@ -90,7 +93,7 @@ export async function getProductByIdPublic(id: string, client: DbClient) {
 export async function getSkusByIds(skuIds: string[], client: DbClient) {
   if (skuIds.length === 0) return []
   return client.query.productSkus.findMany({
-    where: inArray(schema.productSkus.id, skuIds),
+    where: and(inArray(schema.productSkus.id, skuIds), isNull(schema.productSkus.deletedAt)),
     with: { product: true },
   })
 }
@@ -107,7 +110,7 @@ export async function getSkuPurchaseInfo(
     })
     .from(schema.productSkus)
     .innerJoin(schema.products, eq(schema.productSkus.productId, schema.products.id))
-    .where(eq(schema.productSkus.id, skuId))
+    .where(and(eq(schema.productSkus.id, skuId), isNull(schema.productSkus.deletedAt)))
   if (!sku) return err('SKU_NOT_FOUND')
   return ok(sku)
 }
@@ -280,6 +283,23 @@ export async function updateProduct(
             })
             .where(eq(schema.productSkus.id, sku.id!))
         }
+
+        // 软删除未在提交列表中的现有活跃 SKU(结清 tech-debt #11)
+        // 仅当明确提供了现有 SKU 时比对差异并软删; 若只传新 SKU 则为纯追加语义
+        const updatedIds = new Set(toUpdate.map((s) => s.id!))
+        const currentActive = await tx
+          .select({ id: schema.productSkus.id })
+          .from(schema.productSkus)
+          .where(and(eq(schema.productSkus.productId, id), isNull(schema.productSkus.deletedAt)))
+        const toDeleteIds = currentActive
+          .map((row) => row.id)
+          .filter((existingId) => !updatedIds.has(existingId))
+        if (toDeleteIds.length > 0) {
+          await tx
+            .update(schema.productSkus)
+            .set({ deletedAt: new Date() })
+            .where(inArray(schema.productSkus.id, toDeleteIds))
+        }
       }
 
       if (toInsert.length > 0) {
@@ -299,7 +319,9 @@ export async function updateProduct(
     const skusAfter = await tx
       .select()
       .from(schema.productSkus)
-      .where(eq(schema.productSkus.productId, product.id))
+      .where(
+        and(eq(schema.productSkus.productId, product.id), isNull(schema.productSkus.deletedAt)),
+      )
     return ok({ ...product, skus: skusAfter })
   })
 }
