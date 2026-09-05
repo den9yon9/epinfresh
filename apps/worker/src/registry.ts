@@ -21,7 +21,10 @@ export function registerWorkers(env: WorkerEnv, logger: Logger): WorkerRegistrat
   // 邮件发送能力: console/smtp 由 MAIL_TRANSPORT 决定, 注入 email worker
   const mailer = createMailer(env, logger)
   const email = registerEmailWorker(env, mailer, logger)
-  const maintenance = registerMaintenanceWorker(env.REDIS_URL, env.DATABASE_URL, logger)
+  const maintenance = registerMaintenanceWorker(env.REDIS_URL, env.DATABASE_URL, logger, gateways, {
+    timeoutMinutes: Number(env.ORDER_AUTO_CANCEL_TIMEOUT_MINUTES),
+    intervalMs: Number(env.ORDER_AUTO_CANCEL_INTERVAL_MS),
+  })
   const outbox = registerOutboxWorker(env.REDIS_URL, env.DATABASE_URL, logger)
   const reconciliation = registerReconciliationWorker(
     env.REDIS_URL,

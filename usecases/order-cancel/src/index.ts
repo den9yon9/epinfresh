@@ -1,2 +1,2 @@
-export type { CancelOrderError } from './service'
-export { cancelOrder } from './service'
+export type { AutoCancelSummary, CancelOrderError } from './service'
+export { autoCancelStaleOrders, cancelOrder } from './service'

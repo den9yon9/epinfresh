@@ -376,3 +376,20 @@ export async function listShippedWithTracking(
     shippedAt: row.shippedAt as Date,
   }))
 }
+
+// 超时未支付订单批处理上限
+export const ORDER_AUTO_CANCEL_BATCH_SIZE = 200
+
+// 超时未支付订单扫描: 圈定创建时间早于 olderThan 且仍处于 pending 状态的订单
+export async function listStalePendingOrders(
+  olderThan: Date,
+  client: DbClient,
+  limit = ORDER_AUTO_CANCEL_BATCH_SIZE,
+): Promise<{ id: string }[]> {
+  return client
+    .select({ id: schema.orders.id })
+    .from(schema.orders)
+    .where(and(eq(schema.orders.status, 'pending'), lt(schema.orders.createdAt, olderThan)))
+    .orderBy(schema.orders.createdAt)
+    .limit(limit)
+}

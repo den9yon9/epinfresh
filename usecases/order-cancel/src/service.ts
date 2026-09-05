@@ -1,7 +1,13 @@
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
-import { type OrderDetail, updateOrderStatus } from '@epinfresh/order'
+import {
+  listStalePendingOrders,
+  ORDER_AUTO_CANCEL_BATCH_SIZE,
+  type OrderDetail,
+  updateOrderStatus,
+} from '@epinfresh/order'
 import { insertOutboxEvent } from '@epinfresh/outbox'
 import {
+  cancelPendingPayment,
   getRefundByOutRefundNo,
   insertRefund,
   listPaymentsByOrder,
@@ -134,6 +140,44 @@ export async function cancelOrder(
         })
       }
     }
+    const { items: payments } = await listPaymentsByOrder(orderId, tx)
+    for (const payment of payments) {
+      if (payment.status === 'pending') {
+        const cancelledPay = await cancelPendingPayment(payment.id, tx)
+        if (cancelledPay.isErr()) {
+          throw new InvariantViolation('cancel order: cancel pending payment failed', {
+            cause: cancelledPay.error,
+          })
+        }
+      }
+    }
     return ok(order)
   })
+}
+
+export interface AutoCancelSummary {
+  scanned: number
+  cancelled: number
+  failed: number
+}
+
+// 超时自动关单编排: 扫描超时仍为 pending 的订单, 逐单调用 cancelOrder(原子回滚库存 + 作废待付单)。
+// 某单并发已被用户支付/取消时仅记录 failed+1, 不阻断整批任务。
+export async function autoCancelStaleOrders(
+  olderThan: Date,
+  gateways: Partial<Record<PaymentChannel, PaymentGateway>>,
+  client: DbClient,
+  limit = ORDER_AUTO_CANCEL_BATCH_SIZE,
+): Promise<AutoCancelSummary> {
+  const stale = await listStalePendingOrders(olderThan, client, limit)
+  const summary: AutoCancelSummary = { scanned: stale.length, cancelled: 0, failed: 0 }
+  for (const { id } of stale) {
+    const result = await cancelOrder(id, gateways, client)
+    if (result.isOk()) {
+      summary.cancelled += 1
+    } else {
+      summary.failed += 1
+    }
+  }
+  return summary
 }

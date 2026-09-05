@@ -8,10 +8,14 @@ import { closeDb, createDb } from '@epinfresh/database'
 import { listExceptionOrderIds } from '@epinfresh/logistics'
 import { autoCompleteShippedOrders } from '@epinfresh/order'
 import {
+  ORDER_AUTO_CANCEL_INTERVAL_MS,
+  ORDER_AUTO_CANCEL_TIMEOUT_MINUTES,
   ORDER_AUTO_COMPLETE_AFTER_DAYS,
   ORDER_AUTO_COMPLETE_CRON,
   ORDER_MAINTENANCE_JOB_NAMES,
 } from '@epinfresh/order/jobs'
+import { autoCancelStaleOrders } from '@epinfresh/order-cancel'
+import { type PaymentChannel, type PaymentGateway } from '@epinfresh/payment'
 import { createDispatcher, createQueue, createWorker, type Worker } from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
 
@@ -24,10 +28,12 @@ export function registerMaintenanceWorker(
   redisUrl: string,
   databaseUrl: string,
   logger: Logger,
+  gateways: Partial<Record<PaymentChannel, PaymentGateway>> = {},
+  options: { timeoutMinutes?: number; intervalMs?: number } = {},
 ): MaintenanceWorker {
   const db = createDb(databaseUrl, { logger })
 
-  // repeatable job: 每天 03:00 UTC 清理幂等键; 04:00 UTC 自动完成超时收货订单。
+  // repeatable job: 每天 03:00 UTC 清理幂等键; 04:00 UTC 自动完成超时收货订单; 每分钟扫描超时未支付订单。
   // upsertJobScheduler 幂等: 重复启动不会重复注册(以 id 覆盖)。
   // 注册失败只记日志: 调度器缺失的后果是当天少跑一次清理, 不应拖垮进程。
   const queue = createQueue(MAINTENANCE_QUEUE_NAME, { redisUrl })
@@ -48,6 +54,15 @@ export function registerMaintenanceWorker(
     )
     .catch((err) => {
       logger.error({ err }, 'failed to register order auto-complete scheduler')
+    })
+  queue
+    .upsertJobScheduler(
+      ORDER_MAINTENANCE_JOB_NAMES.AUTO_CANCEL_PENDING,
+      { every: options.intervalMs ?? ORDER_AUTO_CANCEL_INTERVAL_MS },
+      { name: ORDER_MAINTENANCE_JOB_NAMES.AUTO_CANCEL_PENDING, data: {} },
+    )
+    .catch((err) => {
+      logger.error({ err }, 'failed to register order auto-cancel scheduler')
     })
 
   const processor = createDispatcher(
@@ -75,6 +90,14 @@ export function registerMaintenanceWorker(
             { orderIds: excludeOrderIds },
             'rejected/failed-delivery orders excluded from auto-complete; manual refund needed',
           )
+        }
+      },
+      [ORDER_MAINTENANCE_JOB_NAMES.AUTO_CANCEL_PENDING]: async (_data, logger) => {
+        const timeoutMinutes = options.timeoutMinutes ?? ORDER_AUTO_CANCEL_TIMEOUT_MINUTES
+        const olderThan = new Date(Date.now() - timeoutMinutes * 60 * 1000)
+        const summary = await autoCancelStaleOrders(olderThan, gateways, db)
+        if (summary.scanned > 0) {
+          logger.info(summary, 'auto-cancelled stale pending orders')
         }
       },
     },

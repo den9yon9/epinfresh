@@ -12,6 +12,7 @@ import {
   getOrderStatusCounts,
   listOrders,
   listOrdersByUser,
+  listStalePendingOrders,
   shipOrder,
   updateOrderStatus,
 } from './service'
@@ -522,5 +523,34 @@ describe('autoCompleteShippedOrders', () => {
     expect(rejectedRow.status).toBe('shipped')
     const [normalRow] = await db.select().from(schema.orders).where(eq(schema.orders.id, normal.id))
     expect(normalRow.status).toBe('completed')
+  })
+})
+
+describe('listStalePendingOrders', () => {
+  test('lists only pending orders older than the cutoff', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const stale = await seedOrder(user.id, sku.id)
+    const fresh = await seedOrder(user.id, sku.id)
+    const paid = await seedOrder(user.id, sku.id)
+    await updateOrderStatus(paid.id, 'paid', db)
+
+    // 把 stale 和 paid 拨老到 30 分钟前
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000)
+    await db
+      .update(schema.orders)
+      .set({ createdAt: thirtyMinAgo })
+      .where(eq(schema.orders.id, stale.id))
+    await db
+      .update(schema.orders)
+      .set({ createdAt: thirtyMinAgo })
+      .where(eq(schema.orders.id, paid.id))
+
+    const cutoff = new Date(Date.now() - 15 * 60 * 1000)
+    const result = await listStalePendingOrders(cutoff, db)
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe(stale.id)
+    expect(result.map((r) => r.id)).not.toContain(fresh.id)
   })
 })

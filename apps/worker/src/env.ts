@@ -33,6 +33,10 @@ export const workerEnvSchema = Type.Object({
 
   // 轨迹轮询间隔(ms, 字符串数字); e2e 置小加速签收自动完成
   LOGISTICS_POLL_INTERVAL_MS: Type.String({ pattern: '^\\d+$', default: '600000' }),
+  // 超时未支付关单时长(分钟, 字符串数字); 默认 15 分钟
+  ORDER_AUTO_CANCEL_TIMEOUT_MINUTES: Type.String({ pattern: '^\\d+$', default: '15' }),
+  // 超时未支付扫描间隔(ms, 字符串数字); 默认 60000ms
+  ORDER_AUTO_CANCEL_INTERVAL_MS: Type.String({ pattern: '^\\d+$', default: '60000' }),
   // 可选健康端口: 设置后起一个极简 HTTP /health(容器健康检查与 e2e 就绪探测用)
   HEALTH_PORT: Type.Optional(Type.String({ pattern: '^\\d+$' })),
 })

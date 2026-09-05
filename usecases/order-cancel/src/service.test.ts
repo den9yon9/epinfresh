@@ -8,7 +8,7 @@ import { err, ok } from '@epinfresh/shared'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
-import { cancelOrder } from './service'
+import { autoCancelStaleOrders, cancelOrder } from './service'
 
 let db: Db
 
@@ -96,6 +96,24 @@ describe('cancelOrder', () => {
 
     expect(result.isOk()).toBe(true)
     expect(result._unsafeUnwrap().status).toBe('cancelled')
+    expect(await skuStock(sku.id)).toBe(10)
+  })
+
+  test('cancels a pending order with initiated payment: marks payment as cancelled and restores stock', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    const order = await seedOrder(user.id, sku.id, 2)
+    const payment = (await startPayment(order))._unsafeUnwrap().payment
+    expect(payment.status).toBe('pending')
+
+    const result = await cancelOrder(order.id, mockGateways, db)
+    expect(result.isOk()).toBe(true)
+
+    const [afterPayment] = await db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, payment.id))
+    expect(afterPayment.status).toBe('cancelled')
     expect(await skuStock(sku.id)).toBe(10)
   })
 
@@ -249,5 +267,44 @@ describe('cancelOrder', () => {
     const result = await cancelOrder('00000000-0000-4000-8000-000000000000', mockGateways, db)
     expect(result.isErr()).toBe(true)
     expect(result._unsafeUnwrapErr()).toBe('ORDER_NOT_FOUND')
+  })
+})
+
+describe('autoCancelStaleOrders', () => {
+  test('cancels only pending orders created before the cutoff and restores stock', async () => {
+    const user = await seedUser()
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+    // 两个待付订单
+    const order1 = await seedOrder(user.id, sku.id, 2)
+    const order2 = await seedOrder(user.id, sku.id, 3)
+    expect(await skuStock(sku.id)).toBe(5)
+
+    // 将 order1 的 createdAt 模拟为 30 分钟前
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000)
+    await db
+      .update(schema.orders)
+      .set({ createdAt: thirtyMinAgo })
+      .where(eq(schema.orders.id, order1.id))
+
+    // 截止时间为 15 分钟前
+    const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
+    const summary = await autoCancelStaleOrders(fifteenMinAgo, mockGateways, db)
+
+    expect(summary.scanned).toBe(1)
+    expect(summary.cancelled).toBe(1)
+    expect(summary.failed).toBe(0)
+
+    // order1 已被取消, 2件库存回滚; order2 依然 pending, 3件库存依然扣除
+    const [afterOrder1] = await db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.id, order1.id))
+    const [afterOrder2] = await db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.id, order2.id))
+    expect(afterOrder1.status).toBe('cancelled')
+    expect(afterOrder2.status).toBe('pending')
+    expect(await skuStock(sku.id)).toBe(7)
   })
 })
