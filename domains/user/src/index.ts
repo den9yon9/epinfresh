@@ -1,4 +1,4 @@
-export { createEmailHandlers, type EmailJobHandler } from './handlers'
+export { createUserEmailHandlers, type EmailJobHandler } from './handlers'
 export {
   consumePasswordResetToken,
   countCustomerUsers,

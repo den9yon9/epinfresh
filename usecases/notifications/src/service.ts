@@ -1,7 +1,8 @@
 import { type DbClient, schema } from '@epinfresh/database'
 import { InvariantViolation } from '@epinfresh/shared'
-import { EMAIL_JOB_NAMES, type SendEmailJobData } from '@epinfresh/user/jobs'
 import { eq } from 'drizzle-orm'
+
+import { EMAIL_JOB_NAMES, type SendEmailJobData } from './jobs'
 
 // 邮件队列端口(结构化类型, 不依赖 infrastructure): BullMQ Queue.add 天然满足此形状
 export interface EmailQueuePort {

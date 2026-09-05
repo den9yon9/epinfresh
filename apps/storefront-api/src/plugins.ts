@@ -1,11 +1,11 @@
 import { type ShippingFeeConfig } from '@epinfresh/checkout'
 import { dbPlugin, redisPlugin } from '@epinfresh/http'
+import { type SendEmailJobData } from '@epinfresh/notifications/jobs'
 import { type PaymentChannel, type PaymentGateway } from '@epinfresh/payment'
 import { type Queue } from '@epinfresh/queue'
 import { type Redis } from '@epinfresh/redis'
 import { authRateLimit, createSessionPlugin } from '@epinfresh/session'
 import { type Logger } from '@epinfresh/shared'
-import { type SendEmailJobData } from '@epinfresh/user/jobs'
 import { Elysia } from 'elysia'
 
 import { type StorefrontAppOptions, type WechatOauthConfig } from './deps'

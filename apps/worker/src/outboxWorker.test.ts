@@ -1,6 +1,7 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
 import { sendPaymentSucceededEmail } from '@epinfresh/notifications'
+import type { SendEmailJobData } from '@epinfresh/notifications/jobs'
 import type { OutboxEventHandler } from '@epinfresh/outbox'
 import {
   claimOutboxBatch,
@@ -9,7 +10,6 @@ import {
   OUTBOX_STALE_THRESHOLD_MS,
 } from '@epinfresh/outbox'
 import { createLogger } from '@epinfresh/shared'
-import type { SendEmailJobData } from '@epinfresh/user/jobs'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 

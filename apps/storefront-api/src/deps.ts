@@ -6,6 +6,7 @@ import {
   yuanToCentsOrZero,
 } from '@epinfresh/checkout'
 import { createDb, type Db } from '@epinfresh/database'
+import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/notifications/jobs'
 import {
   createPaymentGatewaysFromEnv,
   type PaymentChannel,
@@ -15,7 +16,6 @@ import {
 import { createQueue, type Queue } from '@epinfresh/queue'
 import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { createLogger, type Logger, parseEnv } from '@epinfresh/shared'
-import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 
 import { type StorefrontEnv } from './env'
 

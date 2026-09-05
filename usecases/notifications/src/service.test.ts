@@ -1,8 +1,8 @@
 import { closeDb, type Db, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
-import { EMAIL_JOB_NAMES, type SendEmailJobData } from '@epinfresh/user/jobs'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 
+import { EMAIL_JOB_NAMES, type SendEmailJobData } from './jobs'
 import {
   type EmailQueuePort,
   sendOrderShippedEmail,

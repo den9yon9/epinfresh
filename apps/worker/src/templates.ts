@@ -1,4 +1,8 @@
-import type { EmailTemplate } from '@epinfresh/user/jobs'
+import type { TransactionalEmailTemplate } from '@epinfresh/notifications/jobs'
+import type { UserEmailTemplate } from '@epinfresh/user/jobs'
+
+// 生效模板 = 用户域(welcome/reset) ∪ 交易履约(payment/refund/order)
+export type EmailTemplate = UserEmailTemplate | TransactionalEmailTemplate
 
 export interface RenderedEmail {
   subject: string

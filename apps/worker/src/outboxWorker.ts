@@ -4,6 +4,7 @@ import {
   sendPaymentSucceededEmail,
   sendRefundSucceededEmail,
 } from '@epinfresh/notifications'
+import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/notifications/jobs'
 import {
   claimOutboxBatch,
   completeOutboxEvent,
@@ -20,7 +21,6 @@ import {
 } from '@epinfresh/outbox/jobs'
 import { createDispatcher, createQueue, createWorker, type Worker } from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
-import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 
 export interface OutboxWorker {
   worker: Worker

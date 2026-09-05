@@ -12,7 +12,8 @@ export interface EmailHandlerOptions {
 // 工厂注入 EmailSender (worker 侧 console/smtp 实现) + 部署配置;
 // handler 只做 job → 模板 vars 的映射, 渲染与传输都在 sender 内部。
 // 发送失败抛错 → BullMQ 重试 (默认 3 次指数退避)。
-export function createEmailHandlers(
+// 交易/履约模板 handler 见 @epinfresh/notifications/handlers(tech-debt #27)。
+export function createUserEmailHandlers(
   sender: EmailSender,
   opts: EmailHandlerOptions,
 ): Record<string, EmailJobHandler> {
@@ -28,11 +29,5 @@ export function createEmailHandlers(
         resetLink: `${opts.webBaseUrl}/reset-password?token=${token}`,
       })
     },
-    [EMAIL_JOB_NAMES.PAYMENT_SUCCEEDED]: (data) =>
-      sender.send(EMAIL_JOB_NAMES.PAYMENT_SUCCEEDED, data.to, data.payload),
-    [EMAIL_JOB_NAMES.REFUND_SUCCEEDED]: (data) =>
-      sender.send(EMAIL_JOB_NAMES.REFUND_SUCCEEDED, data.to, data.payload),
-    [EMAIL_JOB_NAMES.ORDER_SHIPPED]: (data) =>
-      sender.send(EMAIL_JOB_NAMES.ORDER_SHIPPED, data.to, data.payload),
   }
 }

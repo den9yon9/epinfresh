@@ -226,6 +226,9 @@ importers:
       '@epinfresh/logistics':
         specifier: workspace:*
         version: link:../../domains/logistics
+      '@epinfresh/notifications':
+        specifier: workspace:*
+        version: link:../../usecases/notifications
       '@epinfresh/order':
         specifier: workspace:*
         version: link:../../domains/order

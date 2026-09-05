@@ -1,9 +1,14 @@
+import type { TransactionalEmailTemplate } from '@epinfresh/notifications/jobs'
 import type { Logger } from '@epinfresh/shared'
-import type { EmailSender, EmailTemplate } from '@epinfresh/user/jobs'
+import type { EmailSender } from '@epinfresh/user/jobs'
+import type { UserEmailTemplate } from '@epinfresh/user/jobs'
 import nodemailer from 'nodemailer'
 
 import type { WorkerEnv } from './env'
 import { renderEmail } from './templates'
+
+// 生效模板 = 用户域 ∪ 交易履约域(与 worker dispatcher 全量注册一致)
+export type EmailTemplate = UserEmailTemplate | TransactionalEmailTemplate
 
 export type MailTransport = 'console' | 'smtp'
 
@@ -19,7 +24,9 @@ export function createMailer(env: WorkerEnv, logger: Logger): Mailer {
       transport: 'console',
       async send(template, to, vars) {
         // 渲染照常执行: 让模板 vars 缺失在开发期就暴露, 而不是上生产才炸
-        const rendered = renderEmail(template, vars)
+        // template 来自 EmailSender(string 端口); 渲染层按 EmailTemplate 联合收口,
+        // 未知模板由 renderEmail 的 default 分支 throw (job 名与模板漂移防护)
+        const rendered = renderEmail(template as EmailTemplate, vars)
         logger.info(
           { to, template, subject: rendered.subject, text: rendered.text },
           'email sent (console transport)',
