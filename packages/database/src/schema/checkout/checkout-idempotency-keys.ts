@@ -11,6 +11,8 @@ export const checkoutIdempotencyKeys = pgTable(
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
     key: varchar('key', { length: 128 }).notNull(),
+    // 请求体摘要(地址+商品规范化 sha256): 同 key 不同 body 重放时拒绝, 防漂移(tech-debt #29)
+    bodyHash: varchar('body_hash', { length: 64 }).notNull().default(''),
     orderId: uuid('order_id')
       .references(() => orders.id, { onDelete: 'cascade' })
       .notNull(),

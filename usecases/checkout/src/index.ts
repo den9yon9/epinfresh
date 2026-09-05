@@ -9,4 +9,4 @@ export {
   yuanToCentsOrZero,
 } from './fee'
 export type { CheckoutError, CheckoutOptions } from './service'
-export { checkout, pruneIdempotencyKeys } from './service'
+export { buildBodyHash, checkout, pruneIdempotencyKeys } from './service'

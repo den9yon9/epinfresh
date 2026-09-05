@@ -194,6 +194,7 @@ function CheckoutPage() {
         SKU_NOT_FOUND: '部分商品不存在，请返回重新选择',
         PRODUCT_UNAVAILABLE: '部分商品已下架，请返回重新选择',
         ADDRESS_NOT_FOUND: '收货地址无效，请重新选择',
+        BODY_MISMATCH: '提交内容已变化，请重新点击提交',
       }
       const code = 'error' in value ? value.error : undefined
       setError((code ? messages[code] : undefined) ?? '下单失败，请稍后重试')

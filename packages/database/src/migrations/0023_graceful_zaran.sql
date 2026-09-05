@@ -1,0 +1,1 @@
+ALTER TABLE "checkout_idempotency_keys" ADD COLUMN "body_hash" varchar(64) DEFAULT '' NOT NULL;

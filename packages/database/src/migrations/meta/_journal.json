@@ -162,6 +162,13 @@
       "when": 1788570871597,
       "tag": "0022_thick_unus",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788599443527,
+      "tag": "0023_graceful_zaran",
+      "breakpoints": true
     }
   ]
 }

@@ -310,6 +310,80 @@ describe('checkout', () => {
     expect(Number(after.stock)).toBe(8)
   })
 
+  test('same idempotency key with a different body returns BODY_MISMATCH without side effects', async () => {
+    const user = await seedUser()
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('Apple', 'apple', '5.00', 10)
+
+    const first = await checkout(
+      {
+        userId: user.id,
+        idempotencyKey: 'body-key',
+        addressId: address.id,
+        items: [{ skuId: sku.id, quantity: 2 }],
+      },
+      db,
+    )
+    expect(first.isOk()).toBe(true)
+
+    // 同 key、不同数量: 拒绝重放
+    const drifted = await checkout(
+      {
+        userId: user.id,
+        idempotencyKey: 'body-key',
+        addressId: address.id,
+        items: [{ skuId: sku.id, quantity: 3 }],
+      },
+      db,
+    )
+    expect(drifted.isErr()).toBe(true)
+    expect(drifted._unsafeUnwrapErr()).toBe('BODY_MISMATCH')
+
+    // 无副作用: 库存未被扣减, 订单数不变
+    expect(await orderCount()).toBe(1)
+    const [after] = await db
+      .select()
+      .from(schema.productSkus)
+      .where(eq(schema.productSkus.id, sku.id))
+    expect(Number(after.stock)).toBe(8)
+  })
+
+  test('same body with different item order still replays (normalized hash)', async () => {
+    const user = await seedUser()
+    const address = await seedAddress(user.id)
+    const { sku: skuA } = await seedSku('Apple', 'apple', '5.00', 10)
+    const { sku: skuB } = await seedSku('Banana', 'banana', '3.00', 10)
+
+    const first = await checkout(
+      {
+        userId: user.id,
+        idempotencyKey: 'order-key',
+        addressId: address.id,
+        items: [
+          { skuId: skuA.id, quantity: 1 },
+          { skuId: skuB.id, quantity: 1 },
+        ],
+      },
+      db,
+    )
+    expect(first.isOk()).toBe(true)
+
+    const replay = await checkout(
+      {
+        userId: user.id,
+        idempotencyKey: 'order-key',
+        addressId: address.id,
+        items: [
+          { skuId: skuB.id, quantity: 1 },
+          { skuId: skuA.id, quantity: 1 },
+        ],
+      },
+      db,
+    )
+    expect(replay.isOk()).toBe(true)
+    expect(replay._unsafeUnwrap().replayed).toBe(true)
+  })
+
   test('idempotency keys are scoped per user', async () => {
     const alice = await seedUser('alice@example.com')
     const aliceAddress = await seedAddress(alice.id)

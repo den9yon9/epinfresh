@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import { addressText, getAddressById } from '@epinfresh/address'
 import { removeCartItems } from '@epinfresh/cart'
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
@@ -14,11 +16,27 @@ export type CheckoutError =
   | 'SKU_NOT_FOUND'
   | 'PRODUCT_UNAVAILABLE'
   | 'ADDRESS_NOT_FOUND'
+  | 'BODY_MISMATCH'
   | { code: 'INSUFFICIENT_STOCK'; skuId: string; available: number }
 
 export interface CheckoutOptions {
   // 运费策略由 app 层从 env 组装注入; 不传 = 零运费(向后兼容, 测试便捷)
   shippingFeeConfig?: ShippingFeeConfig
+}
+
+// 幂等键请求体摘要: 商品按 skuId 排序 + 地址, 规范化序列化后 sha256。
+// 同 key 不同 body 的重放必须拒绝(前端已重生成 key, 此处兜底防漂移路径)。
+export function buildBodyHash(input: {
+  addressId: string
+  items: { skuId: string; quantity: number }[]
+}): string {
+  const normalized = {
+    addressId: input.addressId,
+    items: [...input.items]
+      .sort((a, b) => a.skuId.localeCompare(b.skuId))
+      .map((i) => ({ skuId: i.skuId, quantity: i.quantity })),
+  }
+  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex')
 }
 
 function isUniqueViolation(caught: unknown): boolean {
@@ -37,8 +55,6 @@ export async function checkout(
 ): Promise<Result<{ order: OrderDetail; replayed: boolean }, CheckoutError>> {
   const { userId, idempotencyKey } = input
 
-  // 幂等键表(checkout_idempotency_keys)归属 checkout 用例自身: 目录 schema/checkout/ 无对应
-  // domain, 该表是"编排状态"而非业务实体, 读写保留在本用例内(table-ownership 规则不约束 usecases)。
   if (idempotencyKey) {
     const [existing] = await client
       .select()
@@ -50,6 +66,8 @@ export async function checkout(
         ),
       )
     if (existing) {
+      // 同 key 不同 body: 用户意图已变, 拒绝重放而非返回旧订单(防漂移)
+      if (existing.bodyHash !== buildBodyHash(input)) return err('BODY_MISMATCH')
       const order = await getOrderById(existing.orderId, client)
       if (order.isOk()) return ok({ order: order.value, replayed: true })
     }
@@ -134,9 +152,12 @@ export async function checkout(
         if (idempotencyKey) {
           // 故意不用 onConflictDoNothing：冲突必须抛 23505 让本事务回滚（含扣库存），
           // 否则并发同 key 会静默跳过并各自提交重复订单
-          await tx
-            .insert(schema.checkoutIdempotencyKeys)
-            .values({ userId, key: idempotencyKey, orderId: order.id })
+          await tx.insert(schema.checkoutIdempotencyKeys).values({
+            userId,
+            key: idempotencyKey,
+            orderId: order.id,
+            bodyHash: buildBodyHash(input),
+          })
         }
         return ok(order)
       },

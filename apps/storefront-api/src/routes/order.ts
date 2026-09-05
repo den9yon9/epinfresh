@@ -51,6 +51,11 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
                 return status(409, { error: e, message: 'Product not available' })
               case 'ADDRESS_NOT_FOUND':
                 return status(404, { error: e, message: 'Address not found' })
+              case 'BODY_MISMATCH':
+                return status(422, {
+                  error: e,
+                  message: 'Idempotency key reused with a different request body; please resubmit',
+                })
               default:
                 return assertNever(e)
             }
@@ -66,6 +71,7 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           201: OrderModel.OrderResponseSchema,
           404: ErrorResponse,
           409: CheckoutErrorResponseSchema,
+          422: ErrorResponse,
         },
         detail: {
           tags: ['Orders'],

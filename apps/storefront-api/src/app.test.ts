@@ -1,6 +1,7 @@
 import { treaty } from '@elysiajs/eden'
 import { closeDb, type Db, type ProductStatus, schema } from '@epinfresh/database'
 import { prepareTestDb, resetDb } from '@epinfresh/database/testing'
+import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/notifications/jobs'
 import {
   buildSimulatedCallback,
   type PayMockServer,
@@ -18,7 +19,6 @@ import { createRedisClient, type Redis } from '@epinfresh/redis'
 import { flushTestRedis } from '@epinfresh/redis/testing'
 import { createLogger, hashPassword } from '@epinfresh/shared'
 import { getTestEnv } from '@epinfresh/shared/testing'
-import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/user/jobs'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
@@ -724,6 +724,29 @@ describe('orders', () => {
       .from(schema.productSkus)
       .where(eq(schema.productSkus.id, sku.id))
     expect(Number(after.stock)).toBe(8)
+  })
+
+  test('same Idempotency-Key with a different body returns 422 BODY_MISMATCH', async () => {
+    const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+    const opts = { fetch: { headers: { cookie, 'idempotency-key': 'idem-body' } } }
+
+    const first = await api.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 2 }] },
+      opts,
+    )
+    expect(first.status).toBe(201)
+    if (first.error !== null) throw first.error
+
+    const drifted = await api.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 3 }] },
+      opts,
+    )
+    expect(drifted.status).toBe(422)
+    if (drifted.error === null) throw new Error('expected error response')
+    expect(drifted.error.value).toMatchObject({ error: 'BODY_MISMATCH' })
   })
 })
 
