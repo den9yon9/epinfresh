@@ -21,6 +21,7 @@ export default [
       'repomix-output.xml',
       'skills-lock.json',
       'pnpm-lock.yaml',
+      'scripts/k6/**',
     ],
   },
   js.configs.recommended,

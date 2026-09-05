@@ -1,5 +1,5 @@
 import { createPaymentGatewaysFromEnv } from '@epinfresh/payment'
-import type { Worker } from '@epinfresh/queue'
+import type { Queue, Worker } from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
 
 import type { WorkerEnv } from './env'
@@ -12,6 +12,8 @@ import { registerEmailWorker } from './userWorker'
 
 export interface WorkerRegistration {
   workers: Worker[]
+  // 队列名 → 实例: /metrics 端点采集 BullMQ job counts
+  queues: { name: string; queue: Queue }[]
   close: () => Promise<void>
 }
 
@@ -40,6 +42,13 @@ export function registerWorkers(env: WorkerEnv, logger: Logger): WorkerRegistrat
   )
   return {
     workers: [email, maintenance.worker, outbox.worker, reconciliation.worker, logistics.worker],
+    queues: [
+      { name: 'email-tasks', queue: outbox.emailQueue },
+      { name: 'maintenance-tasks', queue: maintenance.queue },
+      { name: 'outbox', queue: outbox.queue },
+      { name: 'reconcile', queue: reconciliation.queue },
+      { name: 'logistics', queue: logistics.queue },
+    ],
     close: async () => {
       await maintenance.close()
       await outbox.close()

@@ -2,11 +2,18 @@ import { closeDb, createDb } from '@epinfresh/database'
 import { createLogisticsProviderFromEnv, LOGISTICS_JOB_NAMES } from '@epinfresh/logistics'
 import { LOGISTICS_POLL_INTERVAL_MS, LOGISTICS_QUEUE_NAME } from '@epinfresh/logistics/jobs'
 import { pollAndSyncShippedOrders } from '@epinfresh/logistics-sync'
-import { createDispatcher, createQueue, createWorker, type Worker } from '@epinfresh/queue'
+import {
+  createDispatcher,
+  createQueue,
+  createWorker,
+  type Queue,
+  type Worker,
+} from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
 
 export interface LogisticsWorker {
   worker: Worker
+  queue: Queue
   close: () => Promise<void>
 }
 
@@ -62,6 +69,7 @@ export function registerLogisticsWorker(
 
   return {
     worker,
+    queue,
     close: async () => {
       await queue.close()
       await closeDb(db)

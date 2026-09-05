@@ -25,7 +25,7 @@ function getClientIp(request: Request): string {
 }
 
 export function createPaymentRoutes(plugins: StorefrontPlugins) {
-  const { dbPlugin, sessionPlugin, paymentGateways } = plugins
+  const { dbPlugin, sessionPlugin, paymentGateways, metrics } = plugins
   return new Elysia({ name: 'payment-storefront' })
     .use(dbPlugin)
     .use(sessionPlugin)
@@ -157,8 +157,11 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
         // parse hook 将原始 body 作为字符串传入(见下方 parse), 验签必须用未改动的原文
         const verified = await gateway.verifyWebhook({ headers, rawBody: body as string })
         if (verified.isErr()) {
+          // 验签拒绝: 计数(rejected) 并让渠道重试
+          metrics.paymentWebhook.inc({ channel: params.channel, result: 'rejected' })
           return status(400, 'FAIL')
         }
+        metrics.paymentWebhook.inc({ channel: params.channel, result: 'accepted' })
         const result = await confirmByWebhookEvent(verified.value, db)
         if (result.isErr()) {
           // 校验失败不回成功应答, 让渠道平台稍后重试

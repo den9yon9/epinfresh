@@ -58,6 +58,33 @@ pnpm dev                # 自动迁移 + 全部服务 watch
 
 测试需要本地 postgres + redis（`TESTING_*` 配置见 `.env.example`）。
 
+## 监控与压测
+
+### Prometheus 指标端点（/metrics）
+
+三个服务均暴露 Prometheus 文本格式指标（HTTP 全量请求计数/耗时直方图 + 运行时指标；worker 另含 BullMQ 队列 job counts）：
+
+| 服务           | 端点                                                | 说明                                                    |
+| -------------- | --------------------------------------------------- | ------------------------------------------------------- |
+| storefront-api | `http://localhost:3000/metrics`                     | 含支付回调验签计数（`payment_webhook_results_total`）   |
+| admin-api      | `http://localhost:3001/metrics`                     | 后台接口计数                                            |
+| worker         | `HEALTH_PORT`（如 `http://localhost:8088/metrics`） | 含各队列 waiting/active/failed 等计数（每次抓取时刷新） |
+
+接入监控平台（Prometheus/Grafana 等）直接抓取即可；`/metrics` 无鉴权，生产建议内网或监控白名单访问。
+
+### k6 压测（结算下单链路）
+
+前置：本地起 `pnpm dev`，并用验收账号（`buyer@example.com` / `buyer123456`）登录商城往购物车加 1 件商品（脚本默认从购物车读取结算项）。
+
+```bash
+# 默认 25 并发 1 分钟(错误率<1%, P95<800ms 阈值)
+k6 run scripts/k6/checkout.js
+# 50 并发 2 分钟
+k6 run --vus 50 --duration 2m scripts/k6/checkout.js
+```
+
+脚本关键点：每迭代新建 `Idempotency-Key`（订单写入为主）、自动断言 422（幂等漂移）与 409（库存不足）为异常命中。k6 为独立二进制，未写入 devDependencies。
+
 ## 支付联调
 
 没有真实商户账号也能完整联调——`pay-mock-server` 是本地"假支付平台"，模拟微信 APIv3（签名/验签/证书）与支付宝 RSA2 网关及回调：

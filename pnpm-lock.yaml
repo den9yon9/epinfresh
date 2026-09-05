@@ -119,7 +119,7 @@ importers:
         version: 1.4.9(elysia@1.4.29(@sinclair/typebox@0.34.52)(@types/bun@1.3.14)(exact-mirror@1.2.2)(file-type@22.0.1)(openapi-types@12.1.3)(typescript@5.9.3))
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   apps/admin-web:
     dependencies:
@@ -195,7 +195,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   apps/storefront-api:
     dependencies:
@@ -277,7 +277,7 @@ importers:
         version: link:../pay-mock-server
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   apps/storefront-web:
     dependencies:
@@ -339,6 +339,9 @@ importers:
       '@epinfresh/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@epinfresh/http':
+        specifier: workspace:^
+        version: link:../../packages/http
       '@epinfresh/logistics':
         specifier: workspace:*
         version: link:../../domains/logistics
@@ -383,7 +386,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
       nodemailer:
         specifier: ^7.0.0
         version: 7.0.13
@@ -405,7 +408,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
       neverthrow:
         specifier: ^8.2.0
         version: 8.2.0
@@ -423,7 +426,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
       neverthrow:
         specifier: ^8.2.0
         version: 8.2.0
@@ -441,7 +444,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   domains/order:
     dependencies:
@@ -456,7 +459,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   domains/outbox:
     dependencies:
@@ -468,7 +471,7 @@ importers:
         version: link:../../packages/shared
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   domains/payment:
     dependencies:
@@ -483,7 +486,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   domains/product:
     dependencies:
@@ -498,7 +501,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
       neverthrow:
         specifier: ^8.2.0
         version: 8.2.0
@@ -516,7 +519,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
       neverthrow:
         specifier: ^8.2.0
         version: 8.2.0
@@ -531,10 +534,10 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
       drizzle-typebox:
         specifier: ^0.3.0
-        version: 0.3.3(@sinclair/typebox@0.34.52)(drizzle-orm@0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9))
+        version: 0.3.3(@sinclair/typebox@0.34.52)(drizzle-orm@0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9))
       postgres:
         specifier: ^3.4.0
         version: 3.4.9
@@ -557,6 +560,9 @@ importers:
       elysia:
         specifier: ^1.2.0
         version: 1.4.29(@sinclair/typebox@0.34.52)(@types/bun@1.3.14)(exact-mirror@1.2.2)(file-type@22.0.1)(openapi-types@12.1.3)(typescript@5.9.3)
+      prom-client:
+        specifier: ^15
+        version: 15.1.3
 
   packages/queue:
     dependencies:
@@ -633,7 +639,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   usecases/checkout:
     dependencies:
@@ -660,7 +666,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   usecases/logistics-sync:
     dependencies:
@@ -678,7 +684,7 @@ importers:
         version: link:../../packages/shared
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   usecases/notifications:
     dependencies:
@@ -693,7 +699,7 @@ importers:
         version: link:../../domains/user
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   usecases/order-cancel:
     dependencies:
@@ -723,7 +729,7 @@ importers:
         version: 0.34.52
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   usecases/payment-confirm:
     dependencies:
@@ -744,7 +750,7 @@ importers:
         version: link:../../packages/shared
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   usecases/payment-initiate:
     dependencies:
@@ -780,7 +786,7 @@ importers:
         version: link:../../packages/shared
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
     devDependencies:
       '@epinfresh/payment-confirm':
         specifier: workspace:*
@@ -802,7 +808,7 @@ importers:
         version: link:../../packages/shared
       drizzle-orm:
         specifier: ^0.40.0
-        version: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+        version: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
 packages:
 
@@ -1531,6 +1537,10 @@ packages:
     cpu: [x64]
     os: [linux]
 
+  '@opentelemetry/api@1.9.1':
+    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
+    engines: {node: '>=8.0.0'}
+
   '@petamoriken/float16@3.9.3':
     resolution: {integrity: sha512-8awtpHXCx/bNpFt4mt2xdkgtgVvKqty8VbjHI/WWWQuEw+KLzFot3f4+LkQY9YmOtq7A5GdOnqoIC8Pdygjk2g==}
 
@@ -2029,6 +2039,9 @@ packages:
     resolution: {integrity: sha512-r7WnVImvVCeFpf2DOXfy41aPWzeNg3H/A2X4dKmy1QL0MSyyk/e7z8ihJ3N6Nn2PsdhkVlqnEfnUE4a05P2aTA==}
     engines: {node: '>=6.0.0'}
     hasBin: true
+
+  bintrees@1.0.2:
+    resolution: {integrity: sha512-VOMgTMwjAaUG580SXn3LacVgjurrbMme7ZZNYGSSV7mmtY6QQRh0Eg3pwIcntQ77DErK1L0NxkbetjcoXzVwKw==}
 
   brace-expansion@5.0.8:
     resolution: {integrity: sha512-JZyDyq3D4AUifKTPOB7DELf6XsB3WdPuNxCtob1vFXPsSXhdAiHBWJ/tJ8HAc9aH84BK+5JFZLNkJKx3G9kzQg==}
@@ -3060,6 +3073,11 @@ packages:
   process-warning@5.0.0:
     resolution: {integrity: sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==}
 
+  prom-client@15.1.3:
+    resolution: {integrity: sha512-6ZiOBfCywsD4k1BN9IX0uZhF+tJkV8q8llP64G5Hajs4JOeVLPCwpPVcpXy3BwYiUGgyJzsJJQeOIv7+hDSq8g==}
+    engines: {node: ^16 || ^18 || >=20}
+    deprecated: prom-client has been replaced by @prometheus-io/client
+
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
@@ -3224,6 +3242,9 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
+
+  tdigest@0.1.3:
+    resolution: {integrity: sha512-zbRt+lT+/H4fRItHshczHErVCQnitJk8MfMT24MqFJf3YL7SJJPqGIGeuOdvxXxM/AHFzKBl7WoyaYwqO9s3Kw==}
 
   text-extensions@2.4.0:
     resolution: {integrity: sha512-te/NtwBwfiNRLf9Ijqx3T0nlqZiQ2XrrtBvu+cLL8ZRrGkO0NHTug8MYFKyoSrv/sHTaSKfilUkizV6XhxMJ3g==}
@@ -4022,6 +4043,8 @@ snapshots:
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
 
+  '@opentelemetry/api@1.9.1': {}
+
   '@petamoriken/float16@3.9.3': {}
 
   '@pinojs/redact@0.4.0': {}
@@ -4504,6 +4527,8 @@ snapshots:
 
   baseline-browser-mapping@2.11.12: {}
 
+  bintrees@1.0.2: {}
+
   brace-expansion@5.0.8:
     dependencies:
       balanced-match: 4.0.4
@@ -4664,16 +4689,17 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9):
+  drizzle-orm@0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9):
     optionalDependencies:
+      '@opentelemetry/api': 1.9.1
       bun-types: 1.3.14
       gel: 2.2.0
       postgres: 3.4.9
 
-  drizzle-typebox@0.3.3(@sinclair/typebox@0.34.52)(drizzle-orm@0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)):
+  drizzle-typebox@0.3.3(@sinclair/typebox@0.34.52)(drizzle-orm@0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)):
     dependencies:
       '@sinclair/typebox': 0.34.52
-      drizzle-orm: 0.40.1(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
+      drizzle-orm: 0.40.1(@opentelemetry/api@1.9.1)(bun-types@1.3.14)(gel@2.2.0)(postgres@3.4.9)
 
   electron-to-chromium@1.5.402: {}
 
@@ -5417,6 +5443,11 @@ snapshots:
 
   process-warning@5.0.0: {}
 
+  prom-client@15.1.3:
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      tdigest: 0.1.3
+
   punycode@2.3.1: {}
 
   qrcode@1.5.4:
@@ -5563,6 +5594,10 @@ snapshots:
   tailwindcss@4.3.3: {}
 
   tapable@2.3.3: {}
+
+  tdigest@0.1.3:
+    dependencies:
+      bintrees: 1.0.2
 
   text-extensions@2.4.0: {}
 

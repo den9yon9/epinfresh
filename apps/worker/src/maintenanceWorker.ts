@@ -16,11 +16,18 @@ import {
 } from '@epinfresh/order/jobs'
 import { autoCancelStaleOrders } from '@epinfresh/order-cancel'
 import { type PaymentChannel, type PaymentGateway } from '@epinfresh/payment'
-import { createDispatcher, createQueue, createWorker, type Worker } from '@epinfresh/queue'
+import {
+  createDispatcher,
+  createQueue,
+  createWorker,
+  type Queue,
+  type Worker,
+} from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
 
 export interface MaintenanceWorker {
   worker: Worker
+  queue: Queue
   close: () => Promise<void>
 }
 
@@ -108,6 +115,7 @@ export function registerMaintenanceWorker(
 
   return {
     worker,
+    queue,
     close: async () => {
       await queue.close()
       await closeDb(db)

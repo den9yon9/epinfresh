@@ -1,5 +1,5 @@
 import { type ShippingFeeConfig } from '@epinfresh/checkout'
-import { dbPlugin, redisPlugin } from '@epinfresh/http'
+import { type Counter, dbPlugin, type HttpMetricsBundle, redisPlugin } from '@epinfresh/http'
 import { type SendEmailJobData } from '@epinfresh/notifications/jobs'
 import { type PaymentChannel, type PaymentGateway } from '@epinfresh/payment'
 import { type Queue } from '@epinfresh/queue'
@@ -10,6 +10,12 @@ import { Elysia } from 'elysia'
 
 import { type StorefrontAppOptions, type WechatOauthConfig } from './deps'
 
+export interface StorefrontMetrics {
+  http: HttpMetricsBundle
+  // 支付回调验签结果(渠道为标签; result: accepted | rejected)
+  paymentWebhook: Counter<string>
+}
+
 export interface StorefrontPlugins {
   dbPlugin: ReturnType<typeof dbPlugin>
   redisPlugin: ReturnType<typeof redisPlugin>
@@ -19,6 +25,7 @@ export interface StorefrontPlugins {
   paymentGateways: Record<PaymentChannel, PaymentGateway>
   wechatOauth: WechatOauthConfig
   shippingFeeConfig: ShippingFeeConfig
+  metrics: StorefrontMetrics
   isProduction: boolean
   logger: Logger
   authRateLimitPerMinute: number
@@ -36,6 +43,7 @@ function createEmailQueuePlugin(emailQueue: Queue<SendEmailJobData>, queueRedis:
 
 export function createPlugins(
   options: Omit<StorefrontAppOptions, 'corsOrigin'>,
+  metrics: StorefrontMetrics,
 ): StorefrontPlugins {
   const {
     db,
@@ -68,6 +76,7 @@ export function createPlugins(
     paymentGateways,
     wechatOauth,
     shippingFeeConfig,
+    metrics,
     isProduction,
     logger,
     authRateLimitPerMinute: options.authRateLimitPerMinute,

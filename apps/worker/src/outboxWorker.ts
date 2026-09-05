@@ -19,11 +19,19 @@ import {
   OUTBOX_POLL_INTERVAL_MS,
   OUTBOX_QUEUE_NAME,
 } from '@epinfresh/outbox/jobs'
-import { createDispatcher, createQueue, createWorker, type Worker } from '@epinfresh/queue'
+import {
+  createDispatcher,
+  createQueue,
+  createWorker,
+  type Queue,
+  type Worker,
+} from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
 
 export interface OutboxWorker {
   worker: Worker
+  queue: Queue
+  emailQueue: Queue
   close: () => Promise<void>
 }
 
@@ -70,6 +78,8 @@ export function registerOutboxWorker(
 
   return {
     worker,
+    queue,
+    emailQueue,
     close: async () => {
       await queue.close()
       await emailQueue.close()

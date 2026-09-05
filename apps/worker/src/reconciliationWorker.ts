@@ -8,11 +8,18 @@ import {
   reconcilePendingPayments,
   reconcilePendingRefunds,
 } from '@epinfresh/payment-confirm'
-import { createDispatcher, createQueue, createWorker, type Worker } from '@epinfresh/queue'
+import {
+  createDispatcher,
+  createQueue,
+  createWorker,
+  type Queue,
+  type Worker,
+} from '@epinfresh/queue'
 import type { Logger } from '@epinfresh/shared'
 
 export interface ReconciliationWorker {
   worker: Worker
+  queue: Queue
   close: () => Promise<void>
 }
 
@@ -56,6 +63,7 @@ export function registerReconciliationWorker(
 
   return {
     worker,
+    queue,
     close: async () => {
       await queue.close()
       await closeDb(db)

@@ -144,6 +144,17 @@ describe('health', () => {
     expect(res.status).toBe(200)
     expect(res.data).toMatchObject({ status: 'ok', db: true, redis: true })
   })
+
+  test('metrics endpoint exposes prometheus text with http counters', async () => {
+    // 先打一次请求产生 http_requests_total 样本, 再抓取
+    await api.health.get()
+    const res = await app.handle(new Request('http://localhost/metrics'))
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    expect(text).toContain('# TYPE http_requests_total counter')
+    expect(text).toContain('http_requests_total')
+    expect(text).toContain('# TYPE http_request_duration_seconds histogram')
+  })
 })
 
 describe('auth', () => {
