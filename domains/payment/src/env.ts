@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { isAbsolute, resolve } from 'node:path'
 
 import { parseEnv } from '@epinfresh/shared'
 import { type StaticDecode, Type } from '@sinclair/typebox'
@@ -11,6 +12,15 @@ import {
 } from './gateway'
 
 const VALID_CHANNELS = ['mock', 'wechat', 'alipay'] as const
+
+// 密钥路径以仓库根为基准解析: turbo/pnpm 的 CWD 是各包目录(如 apps/storefront-api/),
+// 而 .env 里的 keys/... 是相对仓库根写的——不修正的话相对路径永远指向不存在的位置。
+// 与 apps/pay-mock-server/src/config.ts 的 readKeyFile 同一约定。绝对路径原样保留。
+const REPO_ROOT = resolve(import.meta.dir, '../../..')
+
+function resolveKeyPath(p: string): string {
+  return isAbsolute(p) ? p : resolve(REPO_ROOT, p)
+}
 
 // 支付渠道列表: 逗号分隔多值(如 "wechat,alipay"), 一个部署可同时提供多个渠道
 const paymentGatewayList = Type.Transform(Type.String({ default: 'mock' }))
@@ -96,8 +106,14 @@ function buildConfigs(env: PaymentEnv): PaymentGatewayConfig[] {
             appId: env.WECHAT_APP_ID,
             apiV3Key: env.WECHAT_API_V3_KEY,
             merchantSerialNo: env.WECHAT_MERCHANT_SERIAL_NO,
-            merchantPrivateKey: readFileSync(env.WECHAT_MERCHANT_PRIVATE_KEY_PATH, 'utf8'),
-            platformPublicKey: readFileSync(env.WECHAT_PLATFORM_PUBLIC_KEY_PATH, 'utf8'),
+            merchantPrivateKey: readFileSync(
+              resolveKeyPath(env.WECHAT_MERCHANT_PRIVATE_KEY_PATH),
+              'utf8',
+            ),
+            platformPublicKey: readFileSync(
+              resolveKeyPath(env.WECHAT_PLATFORM_PUBLIC_KEY_PATH),
+              'utf8',
+            ),
             notifyUrl: env.WECHAT_NOTIFY_URL,
           },
         })
@@ -114,8 +130,8 @@ function buildConfigs(env: PaymentEnv): PaymentGatewayConfig[] {
           config: {
             baseUrl: env.ALIPAY_API_BASE,
             appId: env.ALIPAY_APP_ID,
-            appPrivateKey: readFileSync(env.ALIPAY_APP_PRIVATE_KEY_PATH, 'utf8'),
-            alipayPublicKey: readFileSync(env.ALIPAY_PUBLIC_KEY_PATH, 'utf8'),
+            appPrivateKey: readFileSync(resolveKeyPath(env.ALIPAY_APP_PRIVATE_KEY_PATH), 'utf8'),
+            alipayPublicKey: readFileSync(resolveKeyPath(env.ALIPAY_PUBLIC_KEY_PATH), 'utf8'),
             notifyUrl: env.ALIPAY_NOTIFY_URL,
           },
         })
