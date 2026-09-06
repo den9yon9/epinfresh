@@ -1,14 +1,17 @@
-# 本地监控栈: Prometheus + Grafana(独立于业务 compose, 一条命令起)
+# 本地监控栈: Prometheus + Grafana(独立于业务 compose, 一条命令起)。
 #   docker compose -f docker/docker-compose.observability.yml up -d
-# 抓取目标为宿主机上已运行的 storefront-api(3000)/admin-api(3001)/worker(HEALTH_PORT, 默认 3100)
-# Grafana: http://localhost:3005 (admin/admin), 大屏已 provisioning 自动导入
+# 抓取目标: 宿主机上已运行的 storefront-api(3000)/admin-api(3001)/worker(HEALTH_PORT, 默认 3100)。
+# 配置以 monitoring/ 为单一事实源; 本编排仅注入容器网络差异:
+#   - prometheus targets 用 docker/prometheus.docker.yml(host.docker.internal), Prometheus 不支持 ${VAR} 替换
+#   - grafana datasource 覆盖为容器网络 hostname prometheus:9090(原生本机用 monitoring/ 内 localhost 版本)。
+# Grafana: http://localhost:3005 (admin/admin), 大屏已 provisioning 自动导入。
 services:
   prometheus:
     image: prom/prometheus:v2.53.0
     ports:
       - '9090:9090'
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus.docker.yml:/etc/prometheus/prometheus.yml:ro
     # Linux 宿主机也支持 host.docker.internal(Compose 自动写入 host-gateway)
     extra_hosts:
       - 'host.docker.internal:host-gateway'
@@ -21,9 +24,14 @@ services:
     environment:
       # 默认本地账号 admin/admin(配置仅供本地, 生产监控请另见运维口径)
       GF_SECURITY_ADMIN_PASSWORD: admin
+      # dashboards.yml 用 ${EPINFRESH_DASHBOARDS_PATH} 引用绝对路径(容器内挂载点)
+      EPINFRESH_DASHBOARDS_PATH: /var/lib/grafana/dashboards
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      # datasource 用容器网络版(monitoring/ 内是 localhost 原生版, 容器网络需单独覆盖)
+      - ./grafana/datasources.docker.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      # dashboards provider 与面板数据复用 monitoring/ 单一事实源
+      - ../monitoring/grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
     restart: unless-stopped

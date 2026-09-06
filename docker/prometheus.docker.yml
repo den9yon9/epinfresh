@@ -1,0 +1,20 @@
+# Prometheus 抓取配置(Docker 场景专用): 容器内通过 host.docker.internal 访问宿主机上的业务服务。
+# 原生本机运行使用 monitoring/prometheus.yml(targets = localhost)。
+# 由 docker/docker-compose.observability.yml 挂载到 /etc/prometheus/prometheus.yml。
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: storefront-api
+    static_configs:
+      - targets: ['host.docker.internal:3000']
+
+  - job_name: admin-api
+    static_configs:
+      - targets: ['host.docker.internal:3001']
+
+  # worker 需在 .env 启用 HEALTH_PORT(默认 3100)后才暴露 /metrics
+  - job_name: worker
+    static_configs:
+      - targets: ['host.docker.internal:3100']

@@ -64,7 +64,7 @@
     },
     {
       "id": 4,
-      "title": "支付回调验签（每分钟，按渠道/结果）",
+      "title": "支付回调验签（累计，按渠道/结果）",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
@@ -73,7 +73,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(payment_webhook_results_total[1m])) by (channel, result)",
+          "expr": "sum(payment_webhook_results_total) by (channel, result)",
           "legendFormat": "{{channel}} {{result}}",
           "refId": "A"
         }

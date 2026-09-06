@@ -72,25 +72,37 @@ pnpm dev                # 自动迁移 + 全部服务 watch
 
 接入监控平台（Prometheus/Grafana 等）直接抓取即可；`/metrics` 无鉴权，生产建议内网或监控白名单访问。
 
-### 本地监控面板（可选，一条命令起）
+### 本地监控面板（可选，一键起）
 
-仓库内置本地监控栈（Prometheus + Grafana），与业务容器完全独立：
+仓库在 `monitoring/` 维护一套**原生优先**的监控配置（单一事实源：`prometheus.yml` + Grafana provisioning + 大屏 JSON）。本地开发时先确保业务服务在跑（`pnpm dev`），worker 面板需在 .env 启用 `HEALTH_PORT=3100`。
+
+**原生（不用 Docker，推荐）**：
 
 ```bash
-# 本地开发时先确保业务服务在跑(pnpm dev), worker 面板需在 .env 启用 HEALTH_PORT=3100
-docker compose -f docker/docker-compose.observability.yml up -d
+# 一次性安装: brew install prometheus grafana
+scripts/monitoring-up.sh
 # 打开 http://localhost:3005 → 控制台 admin/admin, "epinfresh 总览" 大屏已自动导入
+# Prometheus 自查询: http://localhost:9090/graph  (Ctrl+C 停止 Grafana 并连带停掉 Prometheus)
 ```
 
-- Prometheus 界面（自查询）：http://localhost:9090/graph
+**Docker（可选）**：
+
+```bash
+docker compose -f docker/docker-compose.observability.yml up -d
+# 跑完清理: docker compose -f docker/docker-compose.observability.yml down
+```
+
 - 预设 6 块面板：请求量、错误量、P95 延迟、支付回调验签、BullMQ 队列堆积、进程内存
-- 端口可调：`docker/prometheus.yml` 的 `*_METRICS_TARGET` 环境变量
-- 不用 Docker 的替代：`brew install prometheus && prometheus --config.file docker/prometheus.yml`（本机时 targets 里的 host.docker.internal 换成 localhost），在 9090 手动查询
-- 监控栈不写进 `docker/docker-compose.yml`，避免污染业务编排；跑完删除镜像/容器即可（`docker compose -f docker/docker-compose.observability.yml down`）
+- 监控目标：原生用 `monitoring/prometheus.yml`（`localhost:3000/3001/3100`，改端口直接改这里）；Docker 用 `docker/prometheus.docker.yml`（`host.docker.internal:…`）。Prometheus 配置文件不支持 `${VAR}` 环境变量替换，故原生/容器各一份
+- 原生与 Docker 的 Grafana datasource 地址不同：原生用 `monitoring/grafana/provisioning/datasources/datasources.yml`（`http://localhost:9090`），Docker 用 `docker/grafana/datasources.docker.yml`（`http://prometheus:9090`）。provisioning 文件须放在 `datasources/`、`dashboards/` 子目录下 Grafana 才会扫描；Grafana provisioning 支持 `${VAR}` 插值
+- worker 指标需在 .env 启用 `HEALTH_PORT`（默认 3100）才暴露 `/metrics`
+- Grafana ≥12 只提供 `grafana` 二进制（用 `grafana server` 启动），脚本已自动适配新旧版本；大屏路径经 `${EPINFRESH_DASHBOARDS_PATH}` 环境变量注入，无需依赖工作目录
+- 若 9090/3005 被上次遗留进程占用，脚本会提示 `kill <pid>` 后再跑，不会强行双开
+- 监控栈不写进 `docker/docker-compose.yml`，避免污染业务编排
 
 ### k6 压测（结算下单链路）
 
-前置：本地起 `pnpm dev`，并用验收账号（`buyer@example.com` / `buyer123456`）登录商城往购物车加 1 件商品（脚本默认从购物车读取结算项）。
+前置：本地起 `pnpm dev`，并用验收账号（`buyer@example.com` / `buyer123456`）登录商城往购物车加 1 件商品（脚本默认从购物车读取结算项；买家若无收货地址，脚本会在 setup 阶段自动建一条，避免下单链路空转）。`setup()` 还会**自动补购物车**：若购物车为空（下单结算会删除结算涉及的 SKU），会自动取一个有库存的商品加购，无需每次手动播种。
 
 ```bash
 # 默认 25 并发 1 分钟(错误率<1%, P95<800ms 阈值)
@@ -99,7 +111,7 @@ k6 run scripts/k6/checkout.js
 k6 run --vus 50 --duration 2m scripts/k6/checkout.js
 ```
 
-脚本关键点：每迭代新建 `Idempotency-Key`（订单写入为主）、自动断言 422（幂等漂移）与 409（库存不足）为异常命中。k6 为独立二进制，未写入 devDependencies。
+脚本关键点：**只在 `setup()` 登录一次**，跨 VU 复用同一 session（每个 VU 每迭代才新建 `Idempotency-Key`、专注写入；不逐迭代登录，避免打爆 `AUTH_RATE_LIMIT_PER_MINUTE` 登录限流）；自动断言 422（幂等漂移）与 409（库存不足）为异常命中。注意：压测属写入型，每单逐轮扣库存，建议用高库存 SKU 或缩短 duration，否则会命中 409 库存不足。k6 为独立二进制，未写入 devDependencies。
 
 ## 支付联调
 

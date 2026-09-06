@@ -14,7 +14,9 @@ keys/
 playwright-report/
 test-results/
 .playwright-mcp/
+.grafana-data/
 repomix-output.xml
 AUDIT.md
 .opencode/
 uploads/
+data/

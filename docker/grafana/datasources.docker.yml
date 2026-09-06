@@ -1,0 +1,13 @@
+apiVersion: 1
+
+# Docker 场景专用: 容器内 Grafana 通过 Docker 网络访问 prometheus 容器。
+# 原生本机运行使用 monitoring/grafana/provisioning/datasources/datasources.yml(url: http://localhost:9090)。
+# 由 docker/docker-compose.observability.yml 覆盖挂载到 /etc/grafana/provisioning/datasources/。
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true

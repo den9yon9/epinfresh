@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: epinfresh
+    folder: 'epinfresh'
+    type: file
+    allowUiUpdates: true
+    options:
+      # 用环境变量引用绝对路径(scripts/monitoring-up.sh / docker compose 各自注入),
+      # 避免依赖 Grafana 工作目录/容器路径解析差异。
+      path: ${EPINFRESH_DASHBOARDS_PATH}
