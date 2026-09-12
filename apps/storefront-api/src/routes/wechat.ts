@@ -1,9 +1,10 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 
 import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
 import { type StorefrontPlugins } from '../plugins'
+import { createTicketCache } from '../wechatTicket'
 
 // 公众号网页授权 + JS-SDK: 微信内置浏览器 JSAPI 支付的前置。
 // - /auth/wechat/authorize: 跳微信授权页 → 回跳 callback
@@ -12,7 +13,46 @@ import { type StorefrontPlugins } from '../plugins'
 // 联调期 WECHAT_OAUTH_* 指向 pay-mock-server; 真实指向 open/api.weixin.qq.com。
 
 const OPENID_COOKIE = 'wechat_openid'
+const OAUTH_STATE_COOKIE = 'wechat_oauth_state'
 const OPENID_TTL_SECONDS = 30 * 24 * 60 * 60
+const OAUTH_STATE_TTL_SECONDS = 10 * 60
+const OUTBOUND_TIMEOUT_MS = 5000
+const JSAPI_TICKET_TTL_MS = 7000 * 1000
+
+// state 的安全语义: 随机 nonce 防 CSRF, 跳转目标只允许站内相对路径防开放重定向。
+// 拒绝 //host(协议相对)与反斜杠变体; 非法值统一回退首页。
+function safeRedirectPath(raw: string | undefined): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) return '/'
+  return raw
+}
+
+function timingSafeEqualString(a: string, b: string): boolean {
+  const left = Buffer.from(a, 'utf8')
+  const right = Buffer.from(b, 'utf8')
+  if (left.length !== right.length) return false
+  return timingSafeEqual(left, right)
+}
+
+interface OauthState {
+  nonce: string
+  redirectTo: string
+}
+
+function parseOauthState(raw: unknown): OauthState | null {
+  if (raw === null || raw === undefined) return null
+  let value: unknown = raw
+  if (typeof raw === 'string') {
+    try {
+      value = JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+  if (typeof value !== 'object' || value === null) return null
+  const { nonce, redirectTo } = value as Partial<OauthState>
+  if (typeof nonce !== 'string' || typeof redirectTo !== 'string') return null
+  return { nonce, redirectTo }
+}
 
 function oauthDisabled(enabled: boolean) {
   if (enabled) return null
@@ -46,7 +86,7 @@ export function createWechatRoutes(
     url.searchParams.set('secret', wechatOauth.appSecret)
     url.searchParams.set('code', code)
     url.searchParams.set('grant_type', 'authorization_code')
-    const res = await fetch(url.toString())
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS) })
     const data = (await res.json()) as { openid?: string }
     return data.openid ?? null
   }
@@ -56,31 +96,51 @@ export function createWechatRoutes(
     tokenUrl.searchParams.set('grant_type', 'client_credential')
     tokenUrl.searchParams.set('appid', wechatOauth.appId)
     tokenUrl.searchParams.set('secret', wechatOauth.appSecret)
-    const tokenRes = await fetch(tokenUrl.toString())
+    const tokenRes = await fetch(tokenUrl.toString(), {
+      signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
+    })
     const tokenData = (await tokenRes.json()) as { access_token?: string }
     if (!tokenData.access_token) throw new Error('wechat access_token fetch failed')
     const ticketUrl = new URL('/cgi-bin/ticket/getticket', wechatOauth.apiBase)
     ticketUrl.searchParams.set('access_token', tokenData.access_token)
     ticketUrl.searchParams.set('type', 'jsapi')
-    const ticketRes = await fetch(ticketUrl.toString())
+    const ticketRes = await fetch(ticketUrl.toString(), {
+      signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
+    })
     const ticketData = (await ticketRes.json()) as { ticket?: string }
     if (!ticketData.ticket) throw new Error('wechat jsapi_ticket fetch failed')
     return ticketData.ticket
   }
 
+  // access_token + jsapi_ticket 均为 7200s TTL 的全局配额资源, 缓存复用避免逐请求刷新触发限频
+  const jsapiTicketCache = createTicketCache({
+    ttlMs: JSAPI_TICKET_TTL_MS,
+    load: fetchJsapiTicket,
+  })
+
   return new Elysia({ name: 'wechat-storefront' })
     .get(
       '/auth/wechat/authorize',
-      ({ query, request }) => {
+      ({ query, request, cookie }) => {
         const disabled = oauthDisabled(wechatOauth.enabled)
         if (disabled) return disabled
-        const redirectTo = query.redirectTo ?? '/'
+        const redirectTo = safeRedirectPath(query.redirectTo)
+        const nonce = randomBytes(16).toString('hex')
+        // nonce 交给微信原样回传用于校验; 跳转目标存签名 cookie(不可被 query 篡改)
+        cookie[OAUTH_STATE_COOKIE].set({
+          value: JSON.stringify({ nonce, redirectTo }),
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: 'lax',
+          path: '/',
+          maxAge: OAUTH_STATE_TTL_SECONDS,
+        })
         const url = new URL('/connect/oauth2/authorize', wechatOauth.baseUrl)
         url.searchParams.set('appid', wechatOauth.appId)
         url.searchParams.set('redirect_uri', buildCallbackUrl(request))
         url.searchParams.set('response_type', 'code')
         url.searchParams.set('scope', 'snsapi_base')
-        url.searchParams.set('state', redirectTo)
+        url.searchParams.set('state', nonce)
         return new Response(null, { status: 302, headers: { Location: url.toString() } })
       },
       {
@@ -90,7 +150,7 @@ export function createWechatRoutes(
           tags: ['WeChat'],
           summary: '微信网页授权入口',
           description:
-            '跳转到微信授权页获取 openid(JSAPI 支付前置)。授权完成后回跳 /auth/wechat/callback 并带上 redirectTo。',
+            '跳转到微信授权页获取 openid(JSAPI 支付前置)。授权完成后回跳 /auth/wechat/callback 并带上随机 state。',
         },
       },
     )
@@ -99,6 +159,16 @@ export function createWechatRoutes(
       async ({ query, cookie }) => {
         const disabled = oauthDisabled(wechatOauth.enabled)
         if (disabled) return disabled
+        // state 必须与发起授权时写入的签名 cookie 匹配(防 CSRF); 校验后立即失效
+        const expected = parseOauthState(cookie[OAUTH_STATE_COOKIE].value)
+        cookie[OAUTH_STATE_COOKIE].remove()
+        if (!expected || !query.state || !timingSafeEqualString(expected.nonce, query.state)) {
+          logger.warn({ state: query.state }, 'wechat oauth state mismatch')
+          return status(400, {
+            error: 'WECHAT_OAUTH_STATE_MISMATCH',
+            message: 'Invalid OAuth state',
+          })
+        }
         const openid = await fetchOpenid(query.code)
         if (!openid) {
           logger.warn({ code: query.code }, 'wechat oauth code exchange failed')
@@ -115,7 +185,10 @@ export function createWechatRoutes(
           path: '/',
           maxAge: OPENID_TTL_SECONDS,
         })
-        return new Response(null, { status: 302, headers: { Location: query.state ?? '/' } })
+        return new Response(null, {
+          status: 302,
+          headers: { Location: safeRedirectPath(expected.redirectTo) },
+        })
       },
       {
         query: t.Object({ code: t.String(), state: t.Optional(t.String()) }),
@@ -123,7 +196,8 @@ export function createWechatRoutes(
         detail: {
           tags: ['WeChat'],
           summary: '微信授权回调',
-          description: '用 code 换取 openid 并写入签名 cookie，随后 302 回 redirectTo。',
+          description:
+            '校验 state 后，用 code 换取 openid 并写入签名 cookie，随后 302 回授权时登记的站内路径。',
         },
       },
     )
@@ -159,7 +233,7 @@ export function createWechatRoutes(
           return status(400, { error: 'JSSDK_URL_DENIED', message: 'Origin not allowed' })
         }
         try {
-          const jsapiTicket = await fetchJsapiTicket()
+          const jsapiTicket = await jsapiTicketCache.get()
           const timestamp = String(Math.floor(Date.now() / 1000))
           const nonceStr = randomBytes(8).toString('hex')
           // JS-SDK 配置签名: SHA1(jsapi_ticket\n timestamp\n nonceStr\n url\n)

@@ -37,7 +37,10 @@ export function buildApp(options: StorefrontAppOptions) {
   const plugins = createPlugins(options, { http: httpMetrics, paymentWebhook })
   const enableDocs = !options.isProduction
   return new Elysia({
-    cookie: { secrets: options.sessionSecret, sign: ['session_id', 'wechat_openid'] },
+    cookie: {
+      secrets: options.sessionSecret,
+      sign: ['session_id', 'wechat_openid', 'wechat_oauth_state'],
+    },
   })
     .use(httpMetricsPlugin(httpMetrics))
     .use(requestLogger(options.logger))

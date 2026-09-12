@@ -1160,7 +1160,7 @@ describe('wechat oauth + jssdk', () => {
     const port = oauthApp.server?.port
     if (!port) throw new Error('oauth app did not bind')
 
-    // 1. 授权入口 302 到 oauth base(redirect_uri 指向本应用回调)
+    // 1. 授权入口 302 到 oauth base(redirect_uri 指向本应用回调), 同时种下签名 state cookie
     const auth = await fetch(
       `http://127.0.0.1:${port}/auth/wechat/authorize?redirectTo=${encodeURIComponent('/pay?orderId=abc')}`,
       { redirect: 'manual' },
@@ -1169,17 +1169,23 @@ describe('wechat oauth + jssdk', () => {
     const authLoc = auth.headers.get('location') ?? ''
     expect(authLoc).toContain('/connect/oauth2/authorize')
     expect(authLoc).toContain('redirect_uri=')
+    const stateCookie = (auth.headers.getSetCookie()[0] ?? '').split(';')[0]
+    expect(stateCookie).toContain('wechat_oauth_state=')
 
-    // 2. 模拟微信授权页: 302 回跳本应用回调(code 换 openid), 再取回调响应的 set-cookie
+    // 2. 模拟微信授权页: 302 回跳本应用回调(code 换 openid), 回调需带上 state cookie
     const oauthRedirect = await fetch(authLoc, { redirect: 'manual' })
     expect(oauthRedirect.status).toBe(302)
     const callbackLoc = oauthRedirect.headers.get('location') ?? ''
     expect(callbackLoc).toContain('/auth/wechat/callback')
 
-    const callback = await fetch(callbackLoc, { redirect: 'manual' })
+    const callback = await fetch(callbackLoc, {
+      redirect: 'manual',
+      headers: { cookie: stateCookie },
+    })
     expect(callback.status).toBe(302)
-    const cookieHeader = callback.headers.get('set-cookie') ?? ''
-    expect(cookieHeader).toContain('wechat_openid=')
+    expect(callback.headers.get('location')).toBe('/pay?orderId=abc')
+    const setCookies = callback.headers.getSetCookie()
+    expect(setCookies.some((c) => c.includes('wechat_openid='))).toBe(true)
 
     // 3. JS-SDK 签名
     const js = await oauthApi.wechat.jssdk.get({
@@ -1189,6 +1195,56 @@ describe('wechat oauth + jssdk', () => {
     if (js.error !== null) throw js.error
     expect(js.data.appId).toBe('mock-app-1')
     expect(js.data.signature).toMatch(/^[0-9a-f]{40}$/)
+  })
+
+  test.each(['https://evil.example.com/phish', '//evil.example.com', '/\\evil.example.com'])(
+    'sanitizes external redirectTo %s to /',
+    async (evil) => {
+      const port = oauthApp.server?.port
+      if (!port) throw new Error('oauth app did not bind')
+
+      const auth = await fetch(
+        `http://127.0.0.1:${port}/auth/wechat/authorize?redirectTo=${encodeURIComponent(evil)}`,
+        { redirect: 'manual' },
+      )
+      expect(auth.status).toBe(302)
+      const stateCookie = (auth.headers.getSetCookie()[0] ?? '').split(';')[0]
+      const oauthRedirect = await fetch(auth.headers.get('location') ?? '', { redirect: 'manual' })
+      const callback = await fetch(oauthRedirect.headers.get('location') ?? '', {
+        redirect: 'manual',
+        headers: { cookie: stateCookie },
+      })
+      expect(callback.status).toBe(302)
+      expect(callback.headers.get('location')).toBe('/')
+    },
+  )
+
+  test('rejects the callback when state does not match the signed cookie', async () => {
+    const port = oauthApp.server?.port
+    if (!port) throw new Error('oauth app did not bind')
+
+    const auth = await fetch(`http://127.0.0.1:${port}/auth/wechat/authorize?redirectTo=/pay`, {
+      redirect: 'manual',
+    })
+    const stateCookie = (auth.headers.getSetCookie()[0] ?? '').split(';')[0]
+    const callback = await fetch(
+      `http://127.0.0.1:${port}/auth/wechat/callback?code=whatever&state=forged`,
+      { redirect: 'manual', headers: { cookie: stateCookie } },
+    )
+    expect(callback.status).toBe(400)
+    const body = (await callback.json()) as { error: string }
+    expect(body.error).toBe('WECHAT_OAUTH_STATE_MISMATCH')
+  })
+
+  test('rejects the callback when the state cookie is missing', async () => {
+    const port = oauthApp.server?.port
+    if (!port) throw new Error('oauth app did not bind')
+
+    const callback = await fetch(
+      `http://127.0.0.1:${port}/auth/wechat/callback?code=whatever&state=whatever`,
+      { redirect: 'manual' },
+    )
+    expect(callback.status).toBe(400)
   })
 
   test('jssdk returns 400 when oauth is disabled', async () => {
