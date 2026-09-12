@@ -31,6 +31,9 @@ COPY --from=pruner /app/out/full/ .
 ENV NODE_ENV=production
 EXPOSE 3000
 
+# 上传目录预建并归属 bun: named volume 首次挂载继承镜像内属主, 否则容器内不可写
+RUN mkdir -p /app/uploads && chown bun:bun /app/uploads
+
 USER bun
 
 CMD ["sh", "-c", "exec bun apps/${APP}/src/index.ts"]

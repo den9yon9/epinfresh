@@ -476,6 +476,7 @@ describe('admin upload', () => {
 
     const served = await app.handle(new Request(`http://localhost${body.url}`))
     expect(served.status).toBe(200)
+    expect(served.headers.get('content-type')).toBe('image/png')
   })
 
   test('rejects unsupported file type', async () => {

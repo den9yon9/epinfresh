@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { join, normalize } from 'node:path'
+import { extname, join, normalize } from 'node:path'
 
 import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
@@ -15,6 +15,12 @@ const MIME_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
+}
+// 落盘文件名由 MIME 白名单推导, 读回时按扩展名返回具体 Content-Type(image/* 不是合法值)
+const CONTENT_TYPE_BY_EXT: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
 }
 
 export interface UploadResponse {
@@ -74,7 +80,11 @@ export function createUploadRoutes(plugins: AdminPlugins) {
         try {
           const data = await readFile(join(UPLOAD_DIR, 'images', safe))
           return new Response(new Uint8Array(data), {
-            headers: { 'Content-Type': 'image/*', 'Cache-Control': 'public, max-age=31536000' },
+            headers: {
+              'Content-Type':
+                CONTENT_TYPE_BY_EXT[extname(safe).toLowerCase()] ?? 'application/octet-stream',
+              'Cache-Control': 'public, max-age=31536000',
+            },
           })
         } catch {
           return status(404, { error: 'NOT_FOUND', message: 'Not found' })
