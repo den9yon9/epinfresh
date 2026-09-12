@@ -93,16 +93,23 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
     .post(
       '/payments/:id/confirm',
       async ({ params, session, db }) => {
+        // ponytail: mock 网关回调入口; 仅 mock 渠道配置且支付单本身为 mock 时可用。
+        // 接入真实网关后此端点自动 404, 由 /payments/notify/:channel 替代。
+        if (!paymentGateways.mock) {
+          return status(404, { error: 'PAYMENT_NOT_FOUND', message: 'Payment not found' })
+        }
         const payment = await getPaymentById(params.id, db)
         if (payment.isErr()) {
+          return status(404, { error: 'PAYMENT_NOT_FOUND', message: 'Payment not found' })
+        }
+        if (payment.value.provider !== 'mock') {
           return status(404, { error: 'PAYMENT_NOT_FOUND', message: 'Payment not found' })
         }
         const ownership = await getOrderForUser(session.userId, payment.value.orderId, db)
         if (ownership.isErr()) {
           return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
         }
-        // ponytail: mock 网关回调入口; 模拟渠道成功回调, 走与真实 webhook 相同的幂等管线。
-        // 接入真实网关后此端点废弃, 由 /payments/notify/:channel 替代。
+        // 模拟渠道成功回调, 走与真实 webhook 相同的幂等管线
         const event: WebhookEvent = {
           channel: 'mock',
           eventId: crypto.randomUUID(),

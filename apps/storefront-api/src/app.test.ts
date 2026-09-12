@@ -871,6 +871,52 @@ describe('payments', () => {
     expect(again.data.status).toBe('succeeded')
   })
 
+  test('mock confirm refuses a non-mock payment', async () => {
+    const user = await seedUser('alice@example.com')
+    const address = await seedAddress(user.id)
+    const { sku } = await seedSku('apple', '5.00', 10)
+    const cookie = await loginCookie(user.email)
+
+    const orderRes = await api.orders.post(
+      { addressId: address.id, items: [{ skuId: sku.id, quantity: 1 }] },
+      { fetch: { headers: { cookie } } },
+    )
+    if (orderRes.error !== null) throw orderRes.error
+    const orderId = orderRes.data.id
+
+    const payRes = await api
+      .orders({ id: orderId })
+      .pay.post({ channel: 'mock' }, { fetch: { headers: { cookie } } })
+    if (payRes.error !== null) throw payRes.error
+    const paymentId = payRes.data.payment.id
+    await db
+      .update(schema.payments)
+      .set({ provider: 'wechat' })
+      .where(eq(schema.payments.id, paymentId))
+
+    const confirmRes = await api
+      .payments({ id: paymentId })
+      .confirm.post({} as never, { fetch: { headers: { cookie } } })
+    expect(confirmRes.status).toBe(404)
+  })
+
+  test('mock confirm is hidden when the mock gateway is not configured', async () => {
+    const noMockApp = buildApp({
+      ...createTestDeps({ db, redis, emailQueue }),
+      paymentGateways: createPaymentGateways([]),
+    })
+    const user = await seedUser('alice@example.com')
+    const cookie = await loginCookie(user.email)
+
+    const res = await noMockApp.handle(
+      new Request(`http://localhost/payments/${crypto.randomUUID()}/confirm`, {
+        method: 'POST',
+        headers: { cookie },
+      }),
+    )
+    expect(res.status).toBe(404)
+  })
+
   test('lists payment records of own order', async () => {
     const user = await seedUser('alice@example.com')
     const address = await seedAddress(user.id)
