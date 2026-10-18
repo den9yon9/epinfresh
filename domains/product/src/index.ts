@@ -6,6 +6,7 @@ export {
   getSkuPurchaseInfo,
   getSkusByIds,
   getSkuViewsByIds,
+  InsufficientStockError,
   listAllProducts,
   listCategories,
   listLowStockSkus,

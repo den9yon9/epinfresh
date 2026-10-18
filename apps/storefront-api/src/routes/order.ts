@@ -1,4 +1,4 @@
-import { centsToYuan, checkout } from '@epinfresh/checkout'
+import { centsToYuan, checkout, InsufficientStockError } from '@epinfresh/checkout'
 import { CheckoutErrorResponseSchema, CreateOrderInputSchema } from '@epinfresh/checkout/model'
 import {
   getTrackByOrderId,
@@ -31,18 +31,13 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
         return result.match(
           ({ order, replayed }) => status(replayed ? 200 : 201, order),
           (e) => {
-            if (typeof e !== 'string') {
-              switch (e.code) {
-                case 'INSUFFICIENT_STOCK':
-                  return status(409, {
-                    error: e.code,
-                    message: 'Insufficient stock',
-                    skuId: e.skuId,
-                    available: e.available,
-                  })
-                default:
-                  return assertNever(e.code)
-              }
+            if (e instanceof InsufficientStockError) {
+              return status(409, {
+                error: 'INSUFFICIENT_STOCK',
+                message: 'Insufficient stock',
+                skuId: e.skuId,
+                available: e.available,
+              })
             }
             switch (e) {
               case 'SKU_NOT_FOUND':

@@ -10,3 +10,4 @@ export {
 } from './fee'
 export type { CheckoutError, CheckoutOptions } from './service'
 export { buildBodyHash, checkout, pruneIdempotencyKeys } from './service'
+export { InsufficientStockError } from '@epinfresh/product'

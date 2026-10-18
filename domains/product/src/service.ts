@@ -25,6 +25,18 @@ import type {
   UpdateProductInputSchema,
 } from './model'
 
+// 需要携带数据的错误用具名类(控制器以 instanceof 分流); 普通错误仍用字符串码。
+export class InsufficientStockError extends Error {
+  readonly code = 'INSUFFICIENT_STOCK'
+  constructor(
+    readonly skuId: string,
+    readonly available: number,
+  ) {
+    super('Insufficient stock')
+    this.name = 'InsufficientStockError'
+  }
+}
+
 export async function listAllProducts(
   query: Static<typeof AdminProductListQuerySchema> & { q?: string },
   client: DbClient,
@@ -168,9 +180,7 @@ export async function reduceProductStock(
   skuId: string,
   quantity: number,
   client: DbClient,
-): Promise<
-  Result<void, 'SKU_NOT_FOUND' | { code: 'INSUFFICIENT_STOCK'; skuId: string; available: number }>
-> {
+): Promise<Result<void, 'SKU_NOT_FOUND' | InsufficientStockError>> {
   const updated = await client
     .update(schema.productSkus)
     .set({
@@ -185,7 +195,7 @@ export async function reduceProductStock(
       where: eq(schema.productSkus.id, skuId),
     })
     if (!sku) return err('SKU_NOT_FOUND')
-    return err({ code: 'INSUFFICIENT_STOCK', skuId: sku.id, available: Number(sku.stock) })
+    return err(new InsufficientStockError(sku.id, Number(sku.stock)))
   }
   return ok()
 }

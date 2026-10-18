@@ -4,7 +4,7 @@ import { addressText, getAddressById } from '@epinfresh/address'
 import { removeCartItems } from '@epinfresh/cart'
 import { type DbClient, schema, withTransaction } from '@epinfresh/database'
 import { createOrderRecord, getOrderById, type OrderDetail } from '@epinfresh/order'
-import { getSkusByIds, reduceProductStock } from '@epinfresh/product'
+import { getSkusByIds, type InsufficientStockError, reduceProductStock } from '@epinfresh/product'
 import { err, ok, type Result, toCents } from '@epinfresh/shared'
 import type { Static } from '@sinclair/typebox'
 import { and, eq, lt } from 'drizzle-orm'
@@ -17,7 +17,7 @@ export type CheckoutError =
   | 'PRODUCT_UNAVAILABLE'
   | 'ADDRESS_NOT_FOUND'
   | 'BODY_MISMATCH'
-  | { code: 'INSUFFICIENT_STOCK'; skuId: string; available: number }
+  | InsufficientStockError
 
 export interface CheckoutOptions {
   // 运费策略由 app 层从 env 组装注入; 不传 = 零运费(向后兼容, 测试便捷)
