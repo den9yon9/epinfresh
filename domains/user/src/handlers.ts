@@ -19,15 +19,20 @@ export function createUserEmailHandlers(
 ): Record<string, EmailJobHandler> {
   return {
     [EMAIL_JOB_NAMES.WELCOME]: (data) =>
-      sender.send(EMAIL_JOB_NAMES.WELCOME, data.to, data.payload),
+      sender.send(EMAIL_JOB_NAMES.WELCOME, data.to, data.payload, data.locale),
     [EMAIL_JOB_NAMES.RESET_PASSWORD]: (data) => {
       const token = data.payload.token
       if (typeof token !== 'string' || token.length === 0) {
         throw new InvariantViolation('reset-password job payload requires "token"')
       }
-      return sender.send(EMAIL_JOB_NAMES.RESET_PASSWORD, data.to, {
-        resetLink: `${opts.webBaseUrl}/reset-password?token=${token}`,
-      })
+      return sender.send(
+        EMAIL_JOB_NAMES.RESET_PASSWORD,
+        data.to,
+        {
+          resetLink: `${opts.webBaseUrl}/reset-password?token=${token}`,
+        },
+        data.locale,
+      )
     },
   }
 }

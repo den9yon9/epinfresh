@@ -7,6 +7,7 @@ import { type StorefrontPlugins } from '../plugins'
 
 export function createProductRoutes(plugins: StorefrontPlugins) {
   return new Elysia({ name: 'product-storefront' })
+    .use(plugins.localePlugin)
     .use(plugins.dbPlugin)
     .get('/products', async ({ query, db }) => listPublishedProducts(query, db), {
       query: ProductModel.ProductListQuerySchema,
@@ -19,14 +20,14 @@ export function createProductRoutes(plugins: StorefrontPlugins) {
     })
     .get(
       '/products/:id',
-      async ({ params, db }) => {
+      async ({ params, db, i18n }) => {
         const result = await getProductByIdPublic(params.id, db)
         return result.match(
           (p) => p,
           (e) => {
             switch (e) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: e, message: 'Product not found' })
+                return status(404, { error: e, message: i18n('Product not found') })
               default:
                 return assertNever(e)
             }

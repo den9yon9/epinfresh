@@ -1,4 +1,5 @@
 import { createDb, type Db } from '@epinfresh/database'
+import { type Locale } from '@epinfresh/i18n'
 import {
   createPaymentGatewaysFromEnv,
   type PaymentChannel,
@@ -19,6 +20,7 @@ export interface AdminAppOptions {
   isProduction: boolean
   logger: Logger
   authRateLimitPerMinute: number
+  defaultLocale: Locale
 }
 
 export function createAdminDeps(env: AdminEnv): AdminAppOptions {
@@ -33,5 +35,6 @@ export function createAdminDeps(env: AdminEnv): AdminAppOptions {
     isProduction: env.NODE_ENV === 'production',
     logger: createLogger(env.LOG_LEVEL),
     authRateLimitPerMinute: Number(env.AUTH_RATE_LIMIT_PER_MINUTE),
+    defaultLocale: env.DEFAULT_LOCALE,
   }
 }

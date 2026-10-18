@@ -17,6 +17,7 @@ import { type AdminPlugins } from '../plugins'
 
 export function createProductRoutes(plugins: AdminPlugins) {
   return new Elysia({ name: 'product-admin', prefix: '/admin' })
+    .use(plugins.localePlugin)
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .get('/products', async ({ query, db }) => listAllProducts(query, db), {
@@ -31,14 +32,14 @@ export function createProductRoutes(plugins: AdminPlugins) {
     })
     .get(
       '/products/:id',
-      async ({ params, db }) => {
+      async ({ params, db, i18n }) => {
         const result = await getProductById(params.id, db)
         return result.match(
           (p) => p,
           (e) => {
             switch (e) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: e, message: 'Product not found' })
+                return status(404, { error: e, message: i18n('Product not found') })
               default:
                 return assertNever(e)
             }
@@ -68,16 +69,16 @@ export function createProductRoutes(plugins: AdminPlugins) {
     })
     .put(
       '/products/:id',
-      async ({ params, body, db }) => {
+      async ({ params, body, db, i18n }) => {
         const result = await updateProduct(params.id, body, db)
         return result.match(
           (p) => p,
           (e) => {
             switch (e) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: e, message: 'Product not found' })
+                return status(404, { error: e, message: i18n('Product not found') })
               case 'SKU_NOT_FOUND':
-                return status(404, { error: e, message: 'SKU not found' })
+                return status(404, { error: e, message: i18n('SKU not found') })
               default:
                 return assertNever(e)
             }
@@ -98,14 +99,14 @@ export function createProductRoutes(plugins: AdminPlugins) {
     )
     .delete(
       '/products/:id',
-      async ({ params, db }) => {
+      async ({ params, db, i18n }) => {
         const result = await removeProduct(params.id, db)
         return result.match(
           () => status(204),
           (e) => {
             switch (e) {
               case 'PRODUCT_NOT_FOUND':
-                return status(404, { error: e, message: 'Product not found' })
+                return status(404, { error: e, message: i18n('Product not found') })
               default:
                 return assertNever(e)
             }
@@ -145,16 +146,16 @@ export function createProductRoutes(plugins: AdminPlugins) {
     })
     .delete(
       '/categories/:id',
-      async ({ params, db }) => {
+      async ({ params, db, i18n }) => {
         const result = await removeCategory(params.id, db)
         return result.match(
           () => status(204),
           (e) => {
             switch (e) {
               case 'CATEGORY_NOT_FOUND':
-                return status(404, { error: e, message: 'Category not found' })
+                return status(404, { error: e, message: i18n('Category not found') })
               case 'CATEGORY_HAS_PRODUCTS':
-                return status(409, { error: e, message: 'Category still has products' })
+                return status(409, { error: e, message: i18n('Category still has products') })
               default:
                 return assertNever(e)
             }
@@ -174,18 +175,18 @@ export function createProductRoutes(plugins: AdminPlugins) {
     )
     .patch(
       '/categories/:id',
-      async ({ params, body, db }) => {
+      async ({ params, body, db, i18n }) => {
         const result = await updateCategory(params.id, body, db)
         return result.match(
           (category) => category,
           (e) => {
             switch (e) {
               case 'CATEGORY_NOT_FOUND':
-                return status(404, { error: e, message: 'Category not found' })
+                return status(404, { error: e, message: i18n('Category not found') })
               case 'CATEGORY_PARENT_NOT_FOUND':
-                return status(404, { error: e, message: 'Parent category not found' })
+                return status(404, { error: e, message: i18n('Parent category not found') })
               case 'CATEGORY_CYCLE':
-                return status(409, { error: e, message: 'Cannot set a descendant as parent' })
+                return status(409, { error: e, message: i18n('Cannot set a descendant as parent') })
               default:
                 return assertNever(e)
             }

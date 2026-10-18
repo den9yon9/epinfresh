@@ -9,6 +9,7 @@ import { type StorefrontPlugins } from '../plugins'
 export function createCartRoutes(plugins: StorefrontPlugins) {
   const { dbPlugin, sessionPlugin } = plugins
   return new Elysia({ name: 'cart-storefront' })
+    .use(plugins.localePlugin)
     .use(dbPlugin)
     .use(sessionPlugin)
     .get('/cart', async ({ session, db }) => CartOps.viewCart(session.userId, db), {
@@ -22,16 +23,16 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
     })
     .post(
       '/cart/items',
-      async ({ body, session, db }) => {
+      async ({ body, session, db, i18n }) => {
         const result = await CartOps.addItemToCart(session.userId, body.skuId, body.quantity, db)
         return result.match(
           (item) => status(201, item),
           (e) => {
             switch (e) {
               case 'SKU_NOT_FOUND':
-                return status(404, { error: e, message: 'SKU not found' })
+                return status(404, { error: e, message: i18n('SKU not found') })
               case 'PRODUCT_UNAVAILABLE':
-                return status(409, { error: e, message: 'Product not available' })
+                return status(409, { error: e, message: i18n('Product not available') })
               default:
                 return assertNever(e)
             }
@@ -56,7 +57,7 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
     )
     .put(
       '/cart/items/:skuId',
-      async ({ params, body, session, db }) => {
+      async ({ params, body, session, db, i18n }) => {
         const result = await CartOps.changeCartItemQuantity(
           session.userId,
           params.skuId,
@@ -68,7 +69,7 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
           (e) => {
             switch (e) {
               case 'CART_ITEM_NOT_FOUND':
-                return status(404, { error: e, message: 'Cart item not found' })
+                return status(404, { error: e, message: i18n('Cart item not found') })
               default:
                 return assertNever(e)
             }
@@ -89,14 +90,14 @@ export function createCartRoutes(plugins: StorefrontPlugins) {
     )
     .delete(
       '/cart/items/:skuId',
-      async ({ params, session, db }) => {
+      async ({ params, session, db, i18n }) => {
         const result = await removeCartItem(session.userId, params.skuId, db)
         return result.match(
           () => status(204),
           (e) => {
             switch (e) {
               case 'CART_ITEM_NOT_FOUND':
-                return status(404, { error: e, message: 'Cart item not found' })
+                return status(404, { error: e, message: i18n('Cart item not found') })
               default:
                 return assertNever(e)
             }

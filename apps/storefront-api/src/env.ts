@@ -42,6 +42,8 @@ export const storefrontEnvSchema = Type.Object({
   CORS_ORIGIN: corsOrigin,
   TRUST_PROXY: trustProxy,
   STOREFRONT_PORT: Type.String({ pattern: '^\\d+$' }),
+  // 无请求语言线索时的回退语言(错误响应 message / 限流文案 / 邮件缺省)
+  DEFAULT_LOCALE: Type.Union([Type.Literal('en'), Type.Literal('zh-CN')], { default: 'en' }),
   // 认证接口限流(次/分钟): 注册/登录共用。默认 20 为生产风控口径;
   // e2e 并行 3 项目共享 IP, 由 playwright webServer 行内 env 注入放宽值
   AUTH_RATE_LIMIT_PER_MINUTE: Type.String({ pattern: '^\\d+$', default: '20' }),

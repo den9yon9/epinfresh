@@ -7,6 +7,8 @@ pre-commit:
       stage_fixed: true
     lint:
       run: pnpm lint
+    i18n:
+      run: pnpm i18n:check
 
 commit-msg:
   commands:

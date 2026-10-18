@@ -9,5 +9,6 @@ export {
   requestPasswordReset,
   updateProfile,
   updateUser,
+  updateUserLocale,
 } from './service'
 export type { UserRole } from '@epinfresh/database'

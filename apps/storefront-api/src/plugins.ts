@@ -1,5 +1,12 @@
 import { type ShippingFeeConfig } from '@epinfresh/checkout'
-import { type Counter, dbPlugin, type HttpMetricsBundle, redisPlugin } from '@epinfresh/http'
+import {
+  type Counter,
+  dbPlugin,
+  type HttpMetricsBundle,
+  localePlugin,
+  redisPlugin,
+} from '@epinfresh/http'
+import { type Locale } from '@epinfresh/i18n'
 import { type SendEmailJobData } from '@epinfresh/notifications/jobs'
 import { type PaymentChannel, type PaymentGateway } from '@epinfresh/payment'
 import { type Queue } from '@epinfresh/queue'
@@ -19,6 +26,7 @@ export interface StorefrontMetrics {
 export interface StorefrontPlugins {
   dbPlugin: ReturnType<typeof dbPlugin>
   redisPlugin: ReturnType<typeof redisPlugin>
+  localePlugin: ReturnType<typeof localePlugin>
   sessionPlugin: ReturnType<typeof createSessionPlugin>
   emailQueuePlugin: ReturnType<typeof createEmailQueuePlugin>
   authRateLimit: ReturnType<typeof authRateLimit>
@@ -29,6 +37,7 @@ export interface StorefrontPlugins {
   isProduction: boolean
   logger: Logger
   authRateLimitPerMinute: number
+  defaultLocale: Locale
 }
 
 function createEmailQueuePlugin(emailQueue: Queue<SendEmailJobData>, queueRedis: Redis) {
@@ -61,17 +70,20 @@ export function createPlugins(
   return {
     dbPlugin: dbPlugin(db),
     redisPlugin: redisPlugin(redis, { logger }),
+    localePlugin: localePlugin({ defaultLocale: options.defaultLocale }),
     sessionPlugin: createSessionPlugin({
       redis,
       sessionSecret,
       isProduction,
       logger,
+      defaultLocale: options.defaultLocale,
     }),
     emailQueuePlugin: createEmailQueuePlugin(emailQueue, queueRedis),
     authRateLimit: authRateLimit({
       redis,
       prefix: 'rl:auth',
       trustProxy,
+      defaultLocale: options.defaultLocale,
     }),
     paymentGateways,
     wechatOauth,
@@ -80,5 +92,6 @@ export function createPlugins(
     isProduction,
     logger,
     authRateLimitPerMinute: options.authRateLimitPerMinute,
+    defaultLocale: options.defaultLocale,
   }
 }

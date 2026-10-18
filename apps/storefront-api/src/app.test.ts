@@ -55,6 +55,7 @@ function createTestDeps(deps: {
     isProduction: false,
     logger: createLogger('silent'),
     authRateLimitPerMinute: 40,
+    defaultLocale: 'en',
     queueRedis: redis,
   }
 }
@@ -154,6 +155,44 @@ describe('health', () => {
     expect(text).toContain('# TYPE http_requests_total counter')
     expect(text).toContain('http_requests_total')
     expect(text).toContain('# TYPE http_request_duration_seconds histogram')
+  })
+})
+
+describe('i18n error messages', () => {
+  const missingProductId = '00000000-0000-0000-0000-000000000000'
+
+  test('returns english message by default and localizes via Accept-Language', async () => {
+    const en = await app.handle(new Request(`http://localhost/products/${missingProductId}`))
+    expect(en.status).toBe(404)
+    expect(await en.json()).toMatchObject({
+      error: 'PRODUCT_NOT_FOUND',
+      message: 'Product not found',
+    })
+
+    const zh = await app.handle(
+      new Request(`http://localhost/products/${missingProductId}`, {
+        headers: { 'accept-language': 'zh-CN' },
+      }),
+    )
+    expect(await zh.json()).toMatchObject({ message: '商品不存在' })
+  })
+
+  test('X-Locale header overrides Accept-Language', async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/products/${missingProductId}`, {
+        headers: { 'accept-language': 'en-US,en;q=0.9', 'x-locale': 'zh-CN' },
+      }),
+    )
+    expect(await res.json()).toMatchObject({ message: '商品不存在' })
+  })
+
+  test('falls back to english for unsupported Accept-Language', async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/products/${missingProductId}`, {
+        headers: { 'accept-language': 'fr-FR,fr;q=0.9' },
+      }),
+    )
+    expect(await res.json()).toMatchObject({ message: 'Product not found' })
   })
 })
 

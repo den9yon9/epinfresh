@@ -9,16 +9,20 @@ import { type AdminPlugins } from '../plugins'
 export function createAuthRoutes(plugins: AdminPlugins) {
   const { dbPlugin, sessionPlugin, isProduction, authRateLimitPerMinute } = plugins
   return new Elysia({ name: 'auth-admin', prefix: '/auth' })
+    .use(plugins.localePlugin)
     .use(dbPlugin)
     .use(sessionPlugin)
     .post(
       '/login',
-      async ({ body, cookie, db, sessionStore }) => {
+      async ({ body, cookie, db, sessionStore, i18n }) => {
         const result = await loginUser(body, db)
         return result.match(
           async (user) => {
             if (user.role !== 'admin') {
-              return status(403, { error: 'FORBIDDEN', message: 'Account is not an administrator' })
+              return status(403, {
+                error: 'FORBIDDEN',
+                message: i18n('Account is not an administrator'),
+              })
             }
             const oldSid = cookie.session_id?.value
             if (typeof oldSid === 'string' && oldSid.length > 0) {
@@ -31,9 +35,9 @@ export function createAuthRoutes(plugins: AdminPlugins) {
           (e) => {
             switch (e) {
               case 'LOGIN_FAILED':
-                return status(401, { error: e, message: 'Invalid email or password' })
+                return status(401, { error: e, message: i18n('Invalid email or password') })
               case 'ACCOUNT_DISABLED':
-                return status(403, { error: e, message: 'Account is disabled' })
+                return status(403, { error: e, message: i18n('Account is disabled') })
               default:
                 return assertNever(e)
             }
@@ -77,14 +81,14 @@ export function createAuthRoutes(plugins: AdminPlugins) {
     )
     .get(
       '/me',
-      async ({ session, db }) => {
+      async ({ session, db, i18n }) => {
         const result = await getUserById(session.userId, db)
         return result.match(
           (user) => user,
           (e) => {
             switch (e) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: e, message: 'User not found' })
+                return status(404, { error: e, message: i18n('User not found') })
               default:
                 return assertNever(e)
             }

@@ -30,6 +30,7 @@ const LOW_STOCK_THRESHOLD = 10
 export function createOrderRoutes(plugins: AdminPlugins) {
   const { paymentGateways } = plugins
   return new Elysia({ name: 'order-admin', prefix: '/admin' })
+    .use(plugins.localePlugin)
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .get(
@@ -67,14 +68,14 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     })
     .get(
       '/orders/:id',
-      async ({ params, db }) => {
+      async ({ params, db, i18n }) => {
         const result = await getOrderById(params.id, db)
         return result.match(
           (order) => order,
           (e) => {
             switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e, message: 'Order not found' })
+                return status(404, { error: e, message: i18n('Order not found') })
               default:
                 return assertNever(e)
             }
@@ -95,7 +96,7 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     )
     .patch(
       '/orders/:id/status',
-      async ({ params, body, db }) => {
+      async ({ params, body, db, i18n }) => {
         // 特例分发: cancelled 走取消流程(回滚库存并退款/通知), completed 走
         // completeOrder 同事务写 completed_at; 其余走通用状态机 PATCH。
         const result =
@@ -109,13 +110,13 @@ export function createOrderRoutes(plugins: AdminPlugins) {
           (e) => {
             switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e, message: 'Order not found' })
+                return status(404, { error: e, message: i18n('Order not found') })
               case 'INVALID_TRANSITION':
-                return status(409, { error: e, message: 'Invalid status transition' })
+                return status(409, { error: e, message: i18n('Invalid status transition') })
               case 'GATEWAY_ERROR':
-                return status(502, { error: e, message: 'Refund gateway error' })
+                return status(502, { error: e, message: i18n('Refund gateway error') })
               case 'UNSUPPORTED_CHANNEL':
-                return status(400, { error: e, message: 'Channel does not support refunds' })
+                return status(400, { error: e, message: i18n('Channel does not support refunds') })
               default:
                 return assertNever(e)
             }
@@ -143,7 +144,7 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     )
     .post(
       '/orders/:id/ship',
-      async ({ params, body, db }) => {
+      async ({ params, body, db, i18n }) => {
         // 事件写入由 ship-order 用例固定完成: paid → shipped 真实转变时同事务写 outbox
         const result = await shipOrder(params.id, body.trackingNumber, body.courierCompany, db)
         return result.match(
@@ -151,14 +152,14 @@ export function createOrderRoutes(plugins: AdminPlugins) {
           (e) => {
             switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e, message: 'Order not found' })
+                return status(404, { error: e, message: i18n('Order not found') })
               case 'SHIPMENT_INFO_INCOMPLETE':
                 return status(400, {
                   error: e,
-                  message: '承运商与运单号需同时填写，或都留空（后补）',
+                  message: i18n('Courier and tracking number must both be set or both be empty'),
                 })
               case 'INVALID_TRANSITION':
-                return status(409, { error: e, message: 'Order cannot be shipped' })
+                return status(409, { error: e, message: i18n('Order cannot be shipped') })
               default:
                 return assertNever(e)
             }
@@ -188,10 +189,10 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     )
     .get(
       '/orders/:id/track',
-      async ({ params, db }) => {
+      async ({ params, db, i18n }) => {
         const order = await getOrderById(params.id, db)
         if (order.isErr()) {
-          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+          return status(404, { error: 'ORDER_NOT_FOUND', message: i18n('Order not found') })
         }
         const track = await getTrackByOrderId(params.id, db)
         return { track: track ? toTrackResponse(track) : null }
@@ -213,22 +214,22 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     )
     .post(
       '/orders/:id/refund',
-      async ({ params, db }) => {
+      async ({ params, db, i18n }) => {
         const result = await refundOrderWorkflow(params.id, paymentGateways, db)
         return result.match(
           ({ payment }) => payment,
           (e) => {
             switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e, message: 'Order not found' })
+                return status(404, { error: e, message: i18n('Order not found') })
               case 'NO_REFUNDABLE_PAYMENT':
-                return status(404, { error: e, message: 'No refundable payment' })
+                return status(404, { error: e, message: i18n('No refundable payment') })
               case 'INVALID_PAYMENT_STATE':
-                return status(409, { error: e, message: 'Order cannot be refunded' })
+                return status(409, { error: e, message: i18n('Order cannot be refunded') })
               case 'GATEWAY_ERROR':
-                return status(502, { error: e, message: 'Refund gateway error' })
+                return status(502, { error: e, message: i18n('Refund gateway error') })
               case 'UNSUPPORTED_CHANNEL':
-                return status(400, { error: e, message: 'Channel does not support refunds' })
+                return status(400, { error: e, message: i18n('Channel does not support refunds') })
               default:
                 return assertNever(e)
             }
@@ -255,10 +256,10 @@ export function createOrderRoutes(plugins: AdminPlugins) {
     )
     .get(
       '/orders/:id/payments',
-      async ({ params, db }) => {
+      async ({ params, db, i18n }) => {
         const order = await getOrderById(params.id, db)
         if (order.isErr()) {
-          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+          return status(404, { error: 'ORDER_NOT_FOUND', message: i18n('Order not found') })
         }
         return listPaymentsByOrder(params.id, db)
       },

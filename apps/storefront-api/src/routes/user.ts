@@ -1,3 +1,4 @@
+import { resolveRequestLocale } from '@epinfresh/http'
 import { clearSessionCookie, setSessionCookie } from '@epinfresh/session'
 import { assertNever, ErrorResponse, getRequestId } from '@epinfresh/shared'
 import {
@@ -7,6 +8,7 @@ import {
   registerUser,
   requestPasswordReset,
   updateProfile,
+  updateUserLocale,
 } from '@epinfresh/user'
 import { EMAIL_JOB_NAMES } from '@epinfresh/user/jobs'
 import * as UserModel from '@epinfresh/user/model'
@@ -16,21 +18,27 @@ import { type StorefrontPlugins } from '../plugins'
 
 export function createUserRoutes(plugins: StorefrontPlugins) {
   const { dbPlugin, sessionPlugin, authRateLimit, emailQueuePlugin, isProduction } = plugins
-  const { authRateLimitPerMinute } = plugins
+  const { authRateLimitPerMinute, defaultLocale } = plugins
+  // 请求语言: X-Locale/?lang= → Accept-Language → 默认(env DEFAULT_LOCALE)
+  const requestLocale = (request: Request) => resolveRequestLocale(request, defaultLocale)
   return new Elysia({ name: 'user-storefront', prefix: '/auth' })
+    .use(plugins.localePlugin)
     .use(dbPlugin)
     .use(sessionPlugin)
     .use(authRateLimit)
     .use(emailQueuePlugin)
     .post(
       '/register',
-      async ({ body, db, emailQueue }) => {
-        const user = await registerUser(body, db)
+      async ({ body, db, emailQueue, request }) => {
+        // 语言偏好: 请求线索落库 + 随欢迎邮件任务传递(worker 无请求上下文)
+        const locale = requestLocale(request)
+        const user = await registerUser(body, db, { locale })
         await emailQueue.add(
           EMAIL_JOB_NAMES.WELCOME,
           {
             to: user.email,
             requestId: getRequestId(),
+            locale,
             payload: { userId: user.id, name: user.name },
           },
           { jobId: `welcome-${user.id}` },
@@ -50,13 +58,19 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
     )
     .post(
       '/login',
-      async ({ body, cookie, db, sessionStore }) => {
+      async ({ body, cookie, db, sessionStore, request, i18n }) => {
         const result = await loginUser(body, db)
         return result.match(
           async (user) => {
             const oldSid = cookie.session_id?.value
             if (typeof oldSid === 'string' && oldSid.length > 0) {
               await sessionStore.destroy(oldSid)
+            }
+            // 登录刷新语言偏好(邮件等异步通知据此渲染)
+            const locale = requestLocale(request)
+            if (locale !== user.locale) {
+              await updateUserLocale(user.id, locale, db)
+              user.locale = locale
             }
             const sessionId = await sessionStore.create({ userId: user.id, role: user.role })
             setSessionCookie(cookie.session_id, sessionId, isProduction)
@@ -65,9 +79,9 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
           (e) => {
             switch (e) {
               case 'LOGIN_FAILED':
-                return status(401, { error: e, message: 'Invalid email or password' })
+                return status(401, { error: e, message: i18n('Invalid email or password') })
               case 'ACCOUNT_DISABLED':
-                return status(403, { error: e, message: 'Account is disabled' })
+                return status(403, { error: e, message: i18n('Account is disabled') })
               default:
                 return assertNever(e)
             }
@@ -88,7 +102,7 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
     )
     .post(
       '/forgot-password',
-      async ({ body, db, emailQueue }) => {
+      async ({ body, db, emailQueue, request }) => {
         const result = await requestPasswordReset(body.email, db)
         const token = result.isOk() ? result.value.token : assertNever(result.error)
         await emailQueue.add(
@@ -96,6 +110,7 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
           {
             to: body.email,
             requestId: getRequestId(),
+            locale: requestLocale(request),
             payload: { token },
           },
           { jobId: `reset-${crypto.randomUUID()}` },
@@ -114,16 +129,16 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
     )
     .post(
       '/reset-password',
-      async ({ body, db }) => {
+      async ({ body, db, i18n }) => {
         const result = await consumePasswordResetToken(body.token, body.password, db)
         return result.match(
           () => status(204),
           (e) => {
             switch (e) {
               case 'RESET_TOKEN_INVALID':
-                return status(400, { error: e, message: 'Invalid or already used token' })
+                return status(400, { error: e, message: i18n('Invalid or already used token') })
               case 'RESET_TOKEN_EXPIRED':
-                return status(400, { error: e, message: 'Token expired' })
+                return status(400, { error: e, message: i18n('Token expired') })
               default:
                 return assertNever(e)
             }
@@ -160,14 +175,14 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
     )
     .get(
       '/me',
-      async ({ session, db }) => {
+      async ({ session, db, i18n }) => {
         const result = await getUserById(session.userId, db)
         return result.match(
           (user) => user,
           (e) => {
             switch (e) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: e, message: 'User not found' })
+                return status(404, { error: e, message: i18n('User not found') })
               default:
                 return assertNever(e)
             }
@@ -186,14 +201,14 @@ export function createUserRoutes(plugins: StorefrontPlugins) {
     )
     .patch(
       '/me',
-      async ({ body, session, db }) => {
+      async ({ body, session, db, i18n }) => {
         const result = await updateProfile(session.userId, body, db)
         return result.match(
           (user) => user,
           (e) => {
             switch (e) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: e, message: 'User not found' })
+                return status(404, { error: e, message: i18n('User not found') })
               default:
                 return assertNever(e)
             }

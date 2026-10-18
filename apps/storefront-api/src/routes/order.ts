@@ -18,11 +18,12 @@ import { type StorefrontPlugins } from '../plugins'
 export function createOrderRoutes(plugins: StorefrontPlugins) {
   const { paymentGateways, shippingFeeConfig } = plugins
   return new Elysia({ name: 'order-storefront' })
+    .use(plugins.localePlugin)
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .post(
       '/orders',
-      async ({ body, headers, session, db }) => {
+      async ({ body, headers, session, db, i18n }) => {
         const result = await checkout(
           { ...body, userId: session.userId, idempotencyKey: headers['idempotency-key'] },
           db,
@@ -34,22 +35,24 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
             if (e instanceof InsufficientStockError) {
               return status(409, {
                 error: 'INSUFFICIENT_STOCK',
-                message: 'Insufficient stock',
+                message: i18n('Insufficient stock'),
                 skuId: e.skuId,
                 available: e.available,
               })
             }
             switch (e) {
               case 'SKU_NOT_FOUND':
-                return status(404, { error: e, message: 'SKU not found' })
+                return status(404, { error: e, message: i18n('SKU not found') })
               case 'PRODUCT_UNAVAILABLE':
-                return status(409, { error: e, message: 'Product not available' })
+                return status(409, { error: e, message: i18n('Product not available') })
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: e, message: 'Address not found' })
+                return status(404, { error: e, message: i18n('Address not found') })
               case 'BODY_MISMATCH':
                 return status(422, {
                   error: e,
-                  message: 'Idempotency key reused with a different request body; please resubmit',
+                  message: i18n(
+                    'Idempotency key reused with a different request body; please resubmit',
+                  ),
                 })
               default:
                 return assertNever(e)
@@ -113,14 +116,14 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
     )
     .get(
       '/orders/:id',
-      async ({ params, session, db }) => {
+      async ({ params, session, db, i18n }) => {
         const result = await getOrderForUser(session.userId, params.id, db)
         return result.match(
           (order) => order,
           (e) => {
             switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e, message: 'Order not found' })
+                return status(404, { error: e, message: i18n('Order not found') })
               default:
                 return assertNever(e)
             }
@@ -141,10 +144,10 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
     )
     .post(
       '/orders/:id/cancel',
-      async ({ params, session, db }) => {
+      async ({ params, session, db, i18n }) => {
         const ownership = await getOrderForUser(session.userId, params.id, db)
         if (ownership.isErr()) {
-          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+          return status(404, { error: 'ORDER_NOT_FOUND', message: i18n('Order not found') })
         }
         const result = await cancelOrder(params.id, paymentGateways, db)
         return result.match(
@@ -152,13 +155,13 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           (e) => {
             switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e, message: 'Order not found' })
+                return status(404, { error: e, message: i18n('Order not found') })
               case 'INVALID_TRANSITION':
-                return status(409, { error: e, message: 'Order cannot be cancelled' })
+                return status(409, { error: e, message: i18n('Order cannot be cancelled') })
               case 'GATEWAY_ERROR':
-                return status(502, { error: e, message: 'Refund gateway error' })
+                return status(502, { error: e, message: i18n('Refund gateway error') })
               case 'UNSUPPORTED_CHANNEL':
-                return status(400, { error: e, message: 'Channel does not support refunds' })
+                return status(400, { error: e, message: i18n('Channel does not support refunds') })
               default:
                 return assertNever(e)
             }
@@ -185,10 +188,10 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
     )
     .post(
       '/orders/:id/confirm',
-      async ({ params, session, db }) => {
+      async ({ params, session, db, i18n }) => {
         const ownership = await getOrderForUser(session.userId, params.id, db)
         if (ownership.isErr()) {
-          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+          return status(404, { error: 'ORDER_NOT_FOUND', message: i18n('Order not found') })
         }
         const result = await completeOrder(params.id, db)
         return result.match(
@@ -196,9 +199,9 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
           (e) => {
             switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e, message: 'Order not found' })
+                return status(404, { error: e, message: i18n('Order not found') })
               case 'INVALID_TRANSITION':
-                return status(409, { error: e, message: 'Order cannot be completed' })
+                return status(409, { error: e, message: i18n('Order cannot be completed') })
               default:
                 return assertNever(e)
             }
@@ -223,10 +226,10 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
     )
     .get(
       '/orders/:id/track',
-      async ({ params, session, db }) => {
+      async ({ params, session, db, i18n }) => {
         const ownership = await getOrderForUser(session.userId, params.id, db)
         if (ownership.isErr()) {
-          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+          return status(404, { error: 'ORDER_NOT_FOUND', message: i18n('Order not found') })
         }
         const track = await getTrackByOrderId(params.id, db)
         return { track: track ? toTrackResponse(track) : null }
@@ -248,10 +251,10 @@ export function createOrderRoutes(plugins: StorefrontPlugins) {
     )
     .get(
       '/orders/:id/payments',
-      async ({ params, session, db }) => {
+      async ({ params, session, db, i18n }) => {
         const ownership = await getOrderForUser(session.userId, params.id, db)
         if (ownership.isErr()) {
-          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+          return status(404, { error: 'ORDER_NOT_FOUND', message: i18n('Order not found') })
         }
         const result = await listPaymentsByOrder(params.id, db)
         return result

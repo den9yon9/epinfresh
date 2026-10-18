@@ -42,6 +42,8 @@ export const adminEnvSchema = Type.Object({
   CORS_ORIGIN: corsOrigin,
   TRUST_PROXY: trustProxy,
   ADMIN_PORT: Type.String({ pattern: '^\\d+$' }),
+  // 无请求语言线索时的回退语言(错误响应 message / 限流文案)
+  DEFAULT_LOCALE: Type.Union([Type.Literal('en'), Type.Literal('zh-CN')], { default: 'en' }),
   // 认证接口限流(次/分钟): 管理员登录。默认 20 为生产风控口径; e2e 行内 env 注入放宽值
   AUTH_RATE_LIMIT_PER_MINUTE: Type.String({ pattern: '^\\d+$', default: '20' }),
 })

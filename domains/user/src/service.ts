@@ -69,7 +69,11 @@ async function getDummyHash(): Promise<string> {
   return dummyHash
 }
 
-export async function registerUser(input: Static<typeof RegisterInputSchema>, client: DbClient) {
+export async function registerUser(
+  input: Static<typeof RegisterInputSchema>,
+  client: DbClient,
+  opts: { locale?: string } = {},
+) {
   const passwordHash = await hashPassword(input.password)
   const [user] = await client
     .insert(schema.users)
@@ -78,9 +82,19 @@ export async function registerUser(input: Static<typeof RegisterInputSchema>, cl
       email: input.email,
       passwordHash,
       phone: input.phone ?? null,
+      locale: opts.locale ?? 'en',
     })
     .returning()
   return user
+}
+
+// 语言偏好持久化(注册/登录时从 Accept-Language 落库): 邮件等异步通知按用户语言渲染。
+export async function updateUserLocale(
+  id: string,
+  locale: string,
+  client: DbClient,
+): Promise<void> {
+  await client.update(schema.users).set({ locale }).where(eq(schema.users.id, id))
 }
 
 export async function loginUser(input: Static<typeof LoginInputSchema>, client: DbClient) {

@@ -6,6 +6,7 @@ import simpleImportSort from 'eslint-plugin-simple-import-sort'
 
 import crossDomainRead from './eslint-rules/cross-domain-read.js'
 import errorCodeRule from './eslint-rules/error-code.js'
+import i18nRules from './eslint-rules/i18n.js'
 import invariantThrow from './eslint-rules/invariant-throw.js'
 import tableOwnership from './eslint-rules/table-ownership.js'
 import transactionRule from './eslint-rules/transaction.js'
@@ -35,6 +36,7 @@ export default [
     settings: {
       'boundaries/elements': [
         { type: 'shared', pattern: 'packages/shared' },
+        { type: 'shared', pattern: 'packages/i18n' },
         { type: 'persistence', pattern: 'packages/database' },
         // ponytail: 领域层只允许依赖 persistence/shared(纯逻辑), 一切基础设施接线归 presentation;
         // queue/http/session/redis 均属 infrastructure, 域内禁用
@@ -168,6 +170,30 @@ export default [
     files: ['domains/**/*.ts', 'usecases/**/*.ts'],
     rules: {
       'error-code/screaming-snake': 'error',
+    },
+  },
+  {
+    plugins: { i18n: i18nRules },
+    // 用户可见面: 标记必须字面量 + 禁裸中文(OpenAPI detail 除外)
+    files: [
+      'apps/storefront-api/src/**/*.ts',
+      'apps/admin-api/src/**/*.ts',
+      'apps/worker/src/**/*.ts',
+      'packages/session/src/**/*.ts',
+    ],
+    ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
+    rules: {
+      'i18n/marker-literal': 'error',
+      'i18n/no-cjk-literal': 'error',
+    },
+  },
+  {
+    plugins: { i18n: i18nRules },
+    // 文案是呈现层职责: 核心域/用例禁止 import i18n
+    files: ['domains/**/*.ts', 'usecases/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts', '**/dist/**'],
+    rules: {
+      'i18n/no-core-import': 'error',
     },
   },
   eslintConfigPrettier,

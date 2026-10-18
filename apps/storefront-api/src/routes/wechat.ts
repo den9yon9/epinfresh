@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 
+import { type Translator } from '@epinfresh/i18n'
 import { ErrorResponse } from '@epinfresh/shared'
 import { Elysia, status, t } from 'elysia'
 
@@ -54,9 +55,12 @@ function parseOauthState(raw: unknown): OauthState | null {
   return { nonce, redirectTo }
 }
 
-function oauthDisabled(enabled: boolean) {
+function oauthDisabled(enabled: boolean, i18n: Translator) {
   if (enabled) return null
-  return status(400, { error: 'WECHAT_OAUTH_DISABLED', message: 'WeChat OAuth not configured' })
+  return status(400, {
+    error: 'WECHAT_OAUTH_DISABLED',
+    message: i18n('WeChat OAuth not configured'),
+  })
 }
 
 // JS-SDK 签名只允许本站 origin(防签名滥用); dev 下 corsOrigin=true 放行
@@ -119,10 +123,11 @@ export function createWechatRoutes(
   })
 
   return new Elysia({ name: 'wechat-storefront' })
+    .use(plugins.localePlugin)
     .get(
       '/auth/wechat/authorize',
-      ({ query, request, cookie }) => {
-        const disabled = oauthDisabled(wechatOauth.enabled)
+      ({ query, request, cookie, i18n }) => {
+        const disabled = oauthDisabled(wechatOauth.enabled, i18n)
         if (disabled) return disabled
         const redirectTo = safeRedirectPath(query.redirectTo)
         const nonce = randomBytes(16).toString('hex')
@@ -156,8 +161,8 @@ export function createWechatRoutes(
     )
     .get(
       '/auth/wechat/callback',
-      async ({ query, cookie }) => {
-        const disabled = oauthDisabled(wechatOauth.enabled)
+      async ({ query, cookie, i18n }) => {
+        const disabled = oauthDisabled(wechatOauth.enabled, i18n)
         if (disabled) return disabled
         // state 必须与发起授权时写入的签名 cookie 匹配(防 CSRF); 校验后立即失效
         const expected = parseOauthState(cookie[OAUTH_STATE_COOKIE].value)
@@ -166,7 +171,7 @@ export function createWechatRoutes(
           logger.warn({ state: query.state }, 'wechat oauth state mismatch')
           return status(400, {
             error: 'WECHAT_OAUTH_STATE_MISMATCH',
-            message: 'Invalid OAuth state',
+            message: i18n('Invalid OAuth state'),
           })
         }
         const openid = await fetchOpenid(query.code)
@@ -174,7 +179,7 @@ export function createWechatRoutes(
           logger.warn({ code: query.code }, 'wechat oauth code exchange failed')
           return status(400, {
             error: 'WECHAT_OAUTH_FAILED',
-            message: 'WeChat authorization failed',
+            message: i18n('WeChat authorization failed'),
           })
         }
         cookie[OPENID_COOKIE].set({
@@ -219,18 +224,18 @@ export function createWechatRoutes(
     )
     .get(
       '/wechat/jssdk',
-      async ({ query }) => {
-        const disabled = oauthDisabled(wechatOauth.enabled)
+      async ({ query, i18n }) => {
+        const disabled = oauthDisabled(wechatOauth.enabled, i18n)
         if (disabled) return disabled
         // url 必须属于本站 origin, 否则拒绝签名
         let origin: string
         try {
           origin = new URL(query.url).origin
         } catch {
-          return status(400, { error: 'JSSDK_URL_DENIED', message: 'Invalid url' })
+          return status(400, { error: 'JSSDK_URL_DENIED', message: i18n('Invalid url') })
         }
         if (!isAllowedOrigin(origin, corsOrigin)) {
-          return status(400, { error: 'JSSDK_URL_DENIED', message: 'Origin not allowed' })
+          return status(400, { error: 'JSSDK_URL_DENIED', message: i18n('Origin not allowed') })
         }
         try {
           const jsapiTicket = await jsapiTicketCache.get()
@@ -245,7 +250,10 @@ export function createWechatRoutes(
             { err: caught instanceof Error ? caught.message : String(caught) },
             'jssdk signature failed',
           )
-          return status(502, { error: 'JSSDK_SIGN_FAILED', message: 'JS-SDK signature failed' })
+          return status(502, {
+            error: 'JSSDK_SIGN_FAILED',
+            message: i18n('JS-SDK signature failed'),
+          })
         }
       },
       {

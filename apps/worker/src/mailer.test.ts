@@ -20,33 +20,44 @@ function createEnv(overrides: Partial<WorkerEnv> = {}): WorkerEnv {
 }
 
 describe('renderEmail', () => {
-  test('renders welcome email with name', () => {
-    const email = renderEmail('welcome', { name: '小明' })
+  test('renders welcome email in zh-CN with name', () => {
+    const email = renderEmail('welcome', { name: '小明' }, 'zh-CN')
     expect(email.subject).toContain('欢迎')
     expect(email.html).toContain('小明')
     expect(email.text).toContain('小明')
   })
 
+  test('defaults to English when locale is omitted', () => {
+    const email = renderEmail('welcome', { name: 'Sam' })
+    expect(email.subject).toContain('Welcome')
+    expect(email.html).toContain('Sam')
+    expect(email.html).not.toContain('欢迎')
+  })
+
   test('renders reset-password email with resetLink in subject/body', () => {
     const link = 'http://localhost:5173/reset-password?token=abc'
-    const email = renderEmail('reset-password', { resetLink: link })
+    const email = renderEmail('reset-password', { resetLink: link }, 'zh-CN')
     expect(email.html).toContain(link)
     expect(email.text).toContain(link)
   })
 
   test('throws when reset-password lacks resetLink', () => {
-    expect(() => renderEmail('reset-password', {})).toThrow(/resetLink/)
+    expect(() => renderEmail('reset-password', {}, 'zh-CN')).toThrow(/resetLink/)
   })
 
   test('renders payment-succeeded email with order vars and provider label', () => {
-    const email = renderEmail('payment-succeeded', {
-      name: '小明',
-      orderId: 'order-1',
-      amount: '25.00',
-      currency: 'CNY',
-      provider: 'wechat',
-      paidAt: new Date().toISOString(),
-    })
+    const email = renderEmail(
+      'payment-succeeded',
+      {
+        name: '小明',
+        orderId: 'order-1',
+        amount: '25.00',
+        currency: 'CNY',
+        provider: 'wechat',
+        paidAt: new Date().toISOString(),
+      },
+      'zh-CN',
+    )
     expect(email.subject).toContain('支付成功')
     expect(email.html).toContain('¥25.00')
     expect(email.html).toContain('微信支付')
@@ -54,28 +65,40 @@ describe('renderEmail', () => {
   })
 
   test('renders refund-succeeded email with refund vars', () => {
-    const email = renderEmail('refund-succeeded', {
-      name: '小明',
-      orderId: 'order-1',
-      refundNo: 'rf-1',
-      amount: '25.00',
-      currency: 'CNY',
-    })
+    const email = renderEmail(
+      'refund-succeeded',
+      {
+        name: '小明',
+        orderId: 'order-1',
+        refundNo: 'rf-1',
+        amount: '25.00',
+        currency: 'CNY',
+      },
+      'zh-CN',
+    )
     expect(email.subject).toContain('退款')
     expect(email.html).toContain('¥25.00')
     expect(email.html).toContain('rf-1')
   })
 
   test('renders order-shipped email; trackingNumber is optional', () => {
-    const withTracking = renderEmail('order-shipped', {
-      name: '小明',
-      orderId: 'order-1',
-      trackingNumber: 'SF123',
-    })
+    const withTracking = renderEmail(
+      'order-shipped',
+      {
+        name: '小明',
+        orderId: 'order-1',
+        trackingNumber: 'SF123',
+      },
+      'zh-CN',
+    )
     expect(withTracking.subject).toContain('发货')
     expect(withTracking.html).toContain('SF123')
 
-    const withoutTracking = renderEmail('order-shipped', { name: '小明', orderId: 'order-1' })
+    const withoutTracking = renderEmail(
+      'order-shipped',
+      { name: '小明', orderId: 'order-1' },
+      'zh-CN',
+    )
     expect(withoutTracking.html).not.toContain('运单号')
   })
 

@@ -7,6 +7,7 @@ import { type AdminPlugins } from '../plugins'
 
 export function createUserRoutes(plugins: AdminPlugins) {
   return new Elysia({ name: 'user-admin', prefix: '/admin' })
+    .use(plugins.localePlugin)
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .get('/users', ({ query, db }) => listUsers(query, db), {
@@ -21,14 +22,14 @@ export function createUserRoutes(plugins: AdminPlugins) {
     })
     .get(
       '/users/:id',
-      async ({ params, db }) => {
+      async ({ params, db, i18n }) => {
         const result = await getUserById(params.id, db)
         return result.match(
           (user) => user,
           (e) => {
             switch (e) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: e, message: 'User not found' })
+                return status(404, { error: e, message: i18n('User not found') })
               default:
                 return assertNever(e)
             }
@@ -48,10 +49,13 @@ export function createUserRoutes(plugins: AdminPlugins) {
     )
     .patch(
       '/users/:id',
-      async ({ params, body, session, db, sessionStore }) => {
+      async ({ params, body, session, db, sessionStore, i18n }) => {
         // 禁止操作自己: 防降级/禁用自己导致后台失守
         if (params.id === session.userId) {
-          return status(400, { error: 'SELF_OPERATION', message: 'Cannot modify your own account' })
+          return status(400, {
+            error: 'SELF_OPERATION',
+            message: i18n('Cannot modify your own account'),
+          })
         }
         const result = await updateUser(params.id, body, db)
         return result.match(
@@ -65,7 +69,7 @@ export function createUserRoutes(plugins: AdminPlugins) {
           (e) => {
             switch (e) {
               case 'USER_NOT_FOUND':
-                return status(404, { error: e, message: 'User not found' })
+                return status(404, { error: e, message: i18n('User not found') })
               default:
                 return assertNever(e)
             }

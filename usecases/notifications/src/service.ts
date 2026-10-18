@@ -43,7 +43,7 @@ async function resolveOrderRecipient(
   eventType: string,
   client: DbClient,
   orderId: string,
-): Promise<{ email: string; name: string }> {
+): Promise<{ email: string; name: string; locale: string }> {
   const [order] = await client
     .select()
     .from(schema.orders)
@@ -57,8 +57,8 @@ async function resolveOrderRecipient(
     .where(eq(schema.users.id, order.userId))
     .limit(1)
   if (!user) throw new InvariantViolation(`${eventType} email: user not found (${order.userId})`)
-  // name 列可空: 邮件称呼兜底
-  return { email: user.email, name: user.name ?? '用户' }
+  // name 列可空: 空串交给模板按语言回退称呼; locale 为用户语言偏好(注册/登录时落库)
+  return { email: user.email, name: user.name ?? '', locale: user.locale }
 }
 
 // 编排: 支付成功事件 → 收件人 → 投递邮件任务。
@@ -74,11 +74,16 @@ export async function sendPaymentSucceededEmail(
   const provider = requireString('payment.succeeded', event.payload, 'provider')
   const paidAt = requireString('payment.succeeded', event.payload, 'paidAt')
 
-  const { email, name } = await resolveOrderRecipient('payment.succeeded', deps.client, orderId)
+  const { email, name, locale } = await resolveOrderRecipient(
+    'payment.succeeded',
+    deps.client,
+    orderId,
+  )
   await deps.emailQueue.add(
     EMAIL_JOB_NAMES.PAYMENT_SUCCEEDED,
     {
       to: email,
+      locale,
       payload: { name, orderId, amount, currency, provider, paidAt },
     },
     { jobId: `payment-succeeded-${paymentId}` },
@@ -95,11 +100,16 @@ export async function sendRefundSucceededEmail(
   const amount = requireString('refund.succeeded', event.payload, 'amount')
   const currency = requireString('refund.succeeded', event.payload, 'currency')
 
-  const { email, name } = await resolveOrderRecipient('refund.succeeded', deps.client, orderId)
+  const { email, name, locale } = await resolveOrderRecipient(
+    'refund.succeeded',
+    deps.client,
+    orderId,
+  )
   await deps.emailQueue.add(
     EMAIL_JOB_NAMES.REFUND_SUCCEEDED,
     {
       to: email,
+      locale,
       payload: { name, orderId, refundNo, amount, currency },
     },
     { jobId: `refund-succeeded-${refundNo}` },
@@ -116,11 +126,12 @@ export async function sendOrderShippedEmail(
   const courierCompany = optionalString(event.payload, 'courierCompany')
   requireString('order.shipped', event.payload, 'shippedAt')
 
-  const { email, name } = await resolveOrderRecipient('order.shipped', deps.client, orderId)
+  const { email, name, locale } = await resolveOrderRecipient('order.shipped', deps.client, orderId)
   await deps.emailQueue.add(
     EMAIL_JOB_NAMES.ORDER_SHIPPED,
     {
       to: email,
+      locale,
       payload: { name, orderId, trackingNumber, courierCompany },
     },
     { jobId: `order-shipped-${orderId}` },

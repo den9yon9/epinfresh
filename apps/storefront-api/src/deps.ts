@@ -6,6 +6,7 @@ import {
   yuanToCentsOrZero,
 } from '@epinfresh/checkout'
 import { createDb, type Db } from '@epinfresh/database'
+import { type Locale } from '@epinfresh/i18n'
 import { EMAIL_QUEUE_NAME, type SendEmailJobData } from '@epinfresh/notifications/jobs'
 import {
   createPaymentGatewaysFromEnv,
@@ -45,6 +46,7 @@ export interface StorefrontAppOptions {
   isProduction: boolean
   logger: Logger
   authRateLimitPerMinute: number
+  defaultLocale: Locale
 }
 
 export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
@@ -85,5 +87,6 @@ export function createStorefrontDeps(env: StorefrontEnv): StorefrontAppOptions {
     isProduction: env.NODE_ENV === 'production',
     logger: createLogger(env.LOG_LEVEL),
     authRateLimitPerMinute: Number(env.AUTH_RATE_LIMIT_PER_MINUTE),
+    defaultLocale: env.DEFAULT_LOCALE,
   }
 }

@@ -1,9 +1,20 @@
 import { USER_ROLE, type UserRole } from '@epinfresh/database'
+import { DEFAULT_LOCALE, type Locale, resolveLocale, translate } from '@epinfresh/i18n'
 import type { Redis } from '@epinfresh/redis'
 import { type Logger } from '@epinfresh/shared'
 import { Type } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
 import { type Cookie, Elysia, status } from 'elysia'
+
+// 会话/权限守卫文案也属用户可见: 在守卫处按请求语言取值(不走 controller derive)。
+// 只返回 locale, translate 的字面量留在调用点(便于提取器扫描)。
+function guardLocale(request: Request, fallback: Locale): Locale {
+  return resolveLocale({
+    override: request.headers.get('x-locale'),
+    acceptLanguage: request.headers.get('accept-language'),
+    fallback,
+  })
+}
 
 const SessionSchema = Type.Object({
   userId: Type.String(),
@@ -37,10 +48,13 @@ export interface SessionPluginOptions {
   sessionSecret: string
   isProduction: boolean
   logger: Logger
+  // 无请求语言线索时的回退语言(来自 env DEFAULT_LOCALE)
+  defaultLocale?: Locale
 }
 
 export function createSessionPlugin(options: SessionPluginOptions) {
   const { redis, isProduction, logger } = options
+  const defaultLocale = options.defaultLocale ?? DEFAULT_LOCALE
   // 签名配置在根 app 的 Elysia 构造选项上（session_id 由 Elysia 负责签名/验签）；插件侧只做启动校验
   resolveSecret(options.sessionSecret)
   return new Elysia({ name: 'session' })
@@ -68,16 +82,27 @@ export function createSessionPlugin(options: SessionPluginOptions) {
     })
     .macro({
       isAuth: {
-        resolve({ session }) {
-          if (!session) return status(401, { error: 'UNAUTHORIZED', message: 'Unauthorized' })
+        resolve({ session, request }) {
+          if (!session)
+            return status(401, {
+              error: 'UNAUTHORIZED',
+              message: translate(guardLocale(request, defaultLocale), 'Unauthorized'),
+            })
           return { session }
         },
       },
       isAdmin: {
-        resolve({ session }) {
-          if (!session) return status(401, { error: 'UNAUTHORIZED', message: 'Unauthorized' })
+        resolve({ session, request }) {
+          if (!session)
+            return status(401, {
+              error: 'UNAUTHORIZED',
+              message: translate(guardLocale(request, defaultLocale), 'Unauthorized'),
+            })
           if (session.role !== 'admin')
-            return status(403, { error: 'FORBIDDEN', message: 'Forbidden' })
+            return status(403, {
+              error: 'FORBIDDEN',
+              message: translate(guardLocale(request, defaultLocale), 'Forbidden'),
+            })
           return { session }
         },
       },

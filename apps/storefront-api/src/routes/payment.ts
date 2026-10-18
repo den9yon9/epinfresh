@@ -27,20 +27,21 @@ function getClientIp(request: Request): string {
 export function createPaymentRoutes(plugins: StorefrontPlugins) {
   const { dbPlugin, sessionPlugin, paymentGateways, metrics } = plugins
   return new Elysia({ name: 'payment-storefront' })
+    .use(plugins.localePlugin)
     .use(dbPlugin)
     .use(sessionPlugin)
     .post(
       '/orders/:id/pay',
-      async ({ params, session, body, db, cookie, request }) => {
+      async ({ params, session, body, db, cookie, request, i18n }) => {
         const ownership = await getOrderForUser(session.userId, params.id, db)
         if (ownership.isErr()) {
-          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+          return status(404, { error: 'ORDER_NOT_FOUND', message: i18n('Order not found') })
         }
         const gateway = paymentGateways[body.channel]
         if (!gateway) {
           return status(400, {
             error: 'PAYMENT_CHANNEL_NOT_CONFIGURED',
-            message: 'Payment channel not configured',
+            message: i18n('Payment channel not configured'),
           })
         }
         // 微信渠道上下文由服务端注入: JSAPI 的 openid(授权 cookie) + H5 的真实客户端 IP
@@ -60,11 +61,11 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
           (e) => {
             switch (e) {
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e, message: 'Order not found' })
+                return status(404, { error: e, message: i18n('Order not found') })
               case 'ORDER_NOT_PENDING':
-                return status(409, { error: e, message: 'Order is not payable' })
+                return status(409, { error: e, message: i18n('Order is not payable') })
               case 'GATEWAY_ERROR':
-                return status(502, { error: e, message: 'Payment gateway error' })
+                return status(502, { error: e, message: i18n('Payment gateway error') })
               default:
                 return assertNever(e)
             }
@@ -92,22 +93,22 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
     )
     .post(
       '/payments/:id/confirm',
-      async ({ params, session, db }) => {
+      async ({ params, session, db, i18n }) => {
         // ponytail: mock 网关回调入口; 仅 mock 渠道配置且支付单本身为 mock 时可用。
         // 接入真实网关后此端点自动 404, 由 /payments/notify/:channel 替代。
         if (!paymentGateways.mock) {
-          return status(404, { error: 'PAYMENT_NOT_FOUND', message: 'Payment not found' })
+          return status(404, { error: 'PAYMENT_NOT_FOUND', message: i18n('Payment not found') })
         }
         const payment = await getPaymentById(params.id, db)
         if (payment.isErr()) {
-          return status(404, { error: 'PAYMENT_NOT_FOUND', message: 'Payment not found' })
+          return status(404, { error: 'PAYMENT_NOT_FOUND', message: i18n('Payment not found') })
         }
         if (payment.value.provider !== 'mock') {
-          return status(404, { error: 'PAYMENT_NOT_FOUND', message: 'Payment not found' })
+          return status(404, { error: 'PAYMENT_NOT_FOUND', message: i18n('Payment not found') })
         }
         const ownership = await getOrderForUser(session.userId, payment.value.orderId, db)
         if (ownership.isErr()) {
-          return status(404, { error: 'ORDER_NOT_FOUND', message: 'Order not found' })
+          return status(404, { error: 'ORDER_NOT_FOUND', message: i18n('Order not found') })
         }
         // 模拟渠道成功回调, 走与真实 webhook 相同的幂等管线
         const event: WebhookEvent = {
@@ -125,11 +126,11 @@ export function createPaymentRoutes(plugins: StorefrontPlugins) {
             switch (e) {
               case 'PAYMENT_NOT_FOUND':
               case 'ORDER_NOT_FOUND':
-                return status(404, { error: e, message: 'Payment or order not found' })
+                return status(404, { error: e, message: i18n('Payment or order not found') })
               case 'AMOUNT_MISMATCH':
-                return status(400, { error: e, message: 'Payment amount mismatch' })
+                return status(400, { error: e, message: i18n('Payment amount mismatch') })
               case 'INVALID_PAYMENT_STATE':
-                return status(409, { error: e, message: 'Payment cannot be confirmed' })
+                return status(409, { error: e, message: i18n('Payment cannot be confirmed') })
               default:
                 return assertNever(e)
             }

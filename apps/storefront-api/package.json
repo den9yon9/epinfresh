@@ -23,6 +23,7 @@
     "@epinfresh/checkout": "workspace:*",
     "@epinfresh/database": "workspace:*",
     "@epinfresh/http": "workspace:*",
+    "@epinfresh/i18n": "workspace:*",
     "@epinfresh/logistics": "workspace:*",
     "@epinfresh/notifications": "workspace:*",
     "@epinfresh/order": "workspace:*",

@@ -14,6 +14,7 @@ import { type StorefrontPlugins } from '../plugins'
 export function createAddressRoutes(plugins: StorefrontPlugins) {
   const { dbPlugin, sessionPlugin } = plugins
   return new Elysia({ name: 'address-storefront' })
+    .use(plugins.localePlugin)
     .use(dbPlugin)
     .use(sessionPlugin)
     .post(
@@ -44,14 +45,14 @@ export function createAddressRoutes(plugins: StorefrontPlugins) {
     })
     .get(
       '/addresses/:id',
-      async ({ params, session, db }) => {
+      async ({ params, session, db, i18n }) => {
         const result = await getAddressById(session.userId, params.id, db)
         return result.match(
           (address) => address,
           (e) => {
             switch (e) {
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: e, message: 'Address not found' })
+                return status(404, { error: e, message: i18n('Address not found') })
               default:
                 return assertNever(e)
             }
@@ -72,14 +73,14 @@ export function createAddressRoutes(plugins: StorefrontPlugins) {
     )
     .put(
       '/addresses/:id',
-      async ({ params, body, session, db }) => {
+      async ({ params, body, session, db, i18n }) => {
         const result = await updateAddress(session.userId, params.id, body, db)
         return result.match(
           (address) => address,
           (e) => {
             switch (e) {
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: e, message: 'Address not found' })
+                return status(404, { error: e, message: i18n('Address not found') })
               default:
                 return assertNever(e)
             }
@@ -101,14 +102,14 @@ export function createAddressRoutes(plugins: StorefrontPlugins) {
     )
     .delete(
       '/addresses/:id',
-      async ({ params, session, db }) => {
+      async ({ params, session, db, i18n }) => {
         const result = await deleteAddress(session.userId, params.id, db)
         return result.match(
           () => status(204),
           (e) => {
             switch (e) {
               case 'ADDRESS_NOT_FOUND':
-                return status(404, { error: e, message: 'Address not found' })
+                return status(404, { error: e, message: i18n('Address not found') })
               default:
                 return assertNever(e)
             }

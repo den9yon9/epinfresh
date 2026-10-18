@@ -5,7 +5,15 @@ import { Type } from '@sinclair/typebox'
 export const UserResponseSchema = table.select.user
 
 export const RegisterInputSchema = Type.Intersect([
-  Type.Omit(table.insert.user, ['id', 'passwordHash', 'role', 'avatar', 'createdAt', 'updatedAt']),
+  Type.Omit(table.insert.user, [
+    'id',
+    'passwordHash',
+    'role',
+    'avatar',
+    'locale',
+    'createdAt',
+    'updatedAt',
+  ]),
   Type.Object({
     name: Type.String({ minLength: 1, maxLength: 255 }),
     password: Type.String({ minLength: 8 }),

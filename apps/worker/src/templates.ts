@@ -1,3 +1,9 @@
+import {
+  createTranslator,
+  DEFAULT_LOCALE,
+  type Locale,
+  type TranslateParams,
+} from '@epinfresh/i18n'
 import type { TransactionalEmailTemplate } from '@epinfresh/notifications/jobs'
 import type { UserEmailTemplate } from '@epinfresh/user/jobs'
 
@@ -10,14 +16,16 @@ export interface RenderedEmail {
   text: string
 }
 
-// 极简外层布局: 纯文本为主的中文通知邮件, 不引入模板引擎
-function layout(title: string, bodyHtml: string): string {
+type Translator = (source: string, params?: TranslateParams) => string
+
+// 极简外层布局: 纯文本为主的通知邮件, 不引入模板引擎
+function layout(title: string, bodyHtml: string, i18n: Translator): string {
   return [
     "<div style=\"font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;",
     ' max-width: 480px; margin: 0 auto; padding: 24px; color: #1f2937;">',
     `<h2 style="font-size: 18px; margin: 0 0 16px;">${title}</h2>`,
     bodyHtml,
-    '<p style="margin-top: 24px; font-size: 12px; color: #9ca3af;">epinfresh · 生鲜到家</p>',
+    `<p style="margin-top: 24px; font-size: 12px; color: #9ca3af;">${i18n('epinfresh · Fresh to your door')}</p>`,
     '</div>',
   ].join('')
 }
@@ -26,142 +34,133 @@ function paragraphs(lines: string[]): string {
   return lines.map((line) => `<p style="margin: 0 0 12px; line-height: 1.6;">${line}</p>`).join('')
 }
 
-export interface PaymentSucceededVars {
-  name: string
-  orderId: string
-  amount: string
-  currency: string
-  provider: string
-  paidAt: string
+function nonEmpty(vars: Record<string, unknown>, key: string): string | undefined {
+  const value = vars[key]
+  return typeof value === 'string' && value.length > 0 ? value : undefined
 }
 
-const PROVIDER_LABEL: Record<string, string> = {
-  wechat: '微信支付',
-  alipay: '支付宝',
-  mock: '测试渠道',
-}
-
-// 承运商显示名(与 logistics 域 COURIER_COMPANIES 对应)
-const COURIER_COMPANY_LABELS: Record<string, string> = {
-  sf: '顺丰速运',
-  zto: '中通快递',
-  yto: '圆通速递',
-  jd: '京东物流',
-  ems: 'EMS',
+function requireString(vars: Record<string, unknown>, key: string, template: string): string {
+  const value = nonEmpty(vars, key)
+  if (value === undefined) throw new Error(`${template} email requires "${key}" var`)
+  return value
 }
 
 // 渲染失败 (未知模板/缺 vars) 抛错 → 邮件 job 进 BullMQ 重试
-export function renderEmail(template: EmailTemplate, vars: Record<string, unknown>): RenderedEmail {
+export function renderEmail(
+  template: EmailTemplate,
+  vars: Record<string, unknown>,
+  locale: Locale = DEFAULT_LOCALE,
+): RenderedEmail {
+  const i18n = createTranslator(locale)
+  const name = nonEmpty(vars, 'name') ?? i18n('Friend')
+  const greeting = i18n('Hello, {name}!', { name })
+  // 显示名映射: 字面量在此标记(可被提取器扫描), 再按渠道/承运商码取值
+  const providerLabel: Record<string, string> = {
+    wechat: i18n('WeChat Pay'),
+    alipay: i18n('Alipay'),
+    mock: i18n('Test channel'),
+  }
+  const courierLabel: Record<string, string> = {
+    sf: i18n('SF Express'),
+    zto: i18n('ZTO Express'),
+    yto: i18n('YTO Express'),
+    jd: i18n('JD Logistics'),
+    ems: i18n('EMS'),
+  }
+
   switch (template) {
     case 'welcome': {
-      const name = String(vars.name ?? '朋友')
+      const body = i18n('Your account has been created. Enjoy shopping for fresh groceries.')
       return {
-        subject: '欢迎加入 epinfresh',
-        html: layout(
-          '欢迎加入 epinfresh',
-          paragraphs([`你好，${name}！`, '你的账号已创建成功，欢迎选购新鲜好物。']),
-        ),
-        text: `你好，${name}！你的账号已创建成功，欢迎选购新鲜好物。`,
+        subject: i18n('Welcome to epinfresh'),
+        html: layout(i18n('Welcome to epinfresh'), paragraphs([greeting, body]), i18n),
+        text: `${greeting}${body}`,
       }
     }
     case 'reset-password': {
-      if (typeof vars.resetLink !== 'string' || vars.resetLink.length === 0) {
-        throw new Error('reset-password email requires "resetLink" var')
-      }
-      const resetLink = vars.resetLink
+      const resetLink = requireString(vars, 'resetLink', 'reset-password')
       return {
-        subject: '重置你的密码',
+        subject: i18n('Reset your password'),
         html: layout(
-          '重置你的密码',
+          i18n('Reset your password'),
           paragraphs([
-            '我们收到了你的密码重置请求。点击下面的链接设置新密码：',
+            i18n(
+              'We received your password reset request. Click the link below to set a new password:',
+            ),
             `<a href="${resetLink}">${resetLink}</a>`,
-            '如非本人操作，请忽略本邮件，你的账号不会受影响。',
+            i18n(
+              'If you did not request this, please ignore this email; your account will not be affected.',
+            ),
           ]),
+          i18n,
         ),
-        text: `我们收到了你的密码重置请求。打开链接设置新密码：${resetLink}\n如非本人操作，请忽略本邮件。`,
+        text: [
+          i18n(
+            'We received your password reset request. Open the link to set a new password: {resetLink}',
+            { resetLink },
+          ),
+          i18n('If you did not request this, please ignore this email.'),
+        ].join('\n'),
       }
     }
     case 'payment-succeeded': {
-      const { name, orderId, amount, currency, provider, paidAt } =
-        vars as Partial<PaymentSucceededVars>
-      if (!name || !orderId || !amount || !currency || !provider || !paidAt) {
-        throw new Error(
-          'payment-succeeded email requires name/orderId/amount/currency/provider/paidAt vars',
-        )
-      }
-      const channel = PROVIDER_LABEL[provider] ?? provider
+      const orderId = requireString(vars, 'orderId', 'payment-succeeded')
+      const amount = requireString(vars, 'amount', 'payment-succeeded')
+      const currency = requireString(vars, 'currency', 'payment-succeeded')
+      const provider = requireString(vars, 'provider', 'payment-succeeded')
+      const channel = providerLabel[provider] ?? provider
+      const subject = i18n('Payment successful · Order confirmed')
+      const lines = [
+        greeting,
+        i18n('Your order has been paid successfully:'),
+        i18n('Amount: ¥{amount} ({currency}) · Channel: {channel}', { amount, currency, channel }),
+        i18n('Order number: {orderId}', { orderId }),
+        i18n('We will arrange picking and shipping soon. Track progress in "My Orders".'),
+      ]
       return {
-        subject: '支付成功 · 订单已确认',
-        html: layout(
-          '支付成功 · 订单已确认',
-          paragraphs([
-            `你好，${name}！`,
-            `你的订单已支付成功：`,
-            `金额：¥${amount}（${currency}） · 渠道：${channel}`,
-            `订单编号：${orderId}`,
-            '我们将尽快为你安排拣货发货，可在「我的订单」中查看进度。',
-          ]),
-        ),
-        text: `你好，${name}！你的订单已支付成功：金额 ¥${amount}（${currency}），渠道 ${channel}，订单编号 ${orderId}。我们将尽快为你安排发货。`,
+        subject,
+        html: layout(subject, paragraphs(lines), i18n),
+        text: lines.join('\n'),
       }
     }
     case 'refund-succeeded': {
-      const name = String(vars.name ?? '')
-      const orderId = String(vars.orderId ?? '')
-      const refundNo = String(vars.refundNo ?? '')
-      const amount = String(vars.amount ?? '')
-      const currency = String(vars.currency ?? '')
-      if (!name || !orderId || !refundNo || !amount || !currency) {
-        throw new Error(
-          'refund-succeeded email requires name/orderId/refundNo/amount/currency vars',
-        )
-      }
-      return {
-        subject: '退款成功通知',
-        html: layout(
-          '退款成功通知',
-          paragraphs([
-            `你好，${name}！`,
-            `你的退款已成功：¥${amount}（${currency}）将原路退回。`,
-            `订单编号：${orderId} · 退款单号：${refundNo}`,
-            '到账时间以支付渠道为准，通常 1-3 个工作日内。',
-          ]),
+      const orderId = requireString(vars, 'orderId', 'refund-succeeded')
+      const refundNo = requireString(vars, 'refundNo', 'refund-succeeded')
+      const amount = requireString(vars, 'amount', 'refund-succeeded')
+      const currency = requireString(vars, 'currency', 'refund-succeeded')
+      const subject = i18n('Refund successful')
+      const lines = [
+        greeting,
+        i18n(
+          'Your refund was successful: ¥{amount} ({currency}) will be returned to the original payment method.',
+          { amount, currency },
         ),
-        text: `你好，${name}！你的退款已成功：¥${amount}（${currency}）将原路退回，订单编号 ${orderId}，退款单号 ${refundNo}。到账时间以支付渠道为准。`,
+        i18n('Order number: {orderId} · Refund number: {refundNo}', { orderId, refundNo }),
+        i18n('The arrival time depends on the payment channel, usually within 1-3 business days.'),
+      ]
+      return {
+        subject,
+        html: layout(subject, paragraphs(lines), i18n),
+        text: lines.join('\n'),
       }
     }
     case 'order-shipped': {
-      const name = String(vars.name ?? '')
-      const orderId = String(vars.orderId ?? '')
-      const trackingNumber =
-        typeof vars.trackingNumber === 'string' && vars.trackingNumber.length > 0
-          ? vars.trackingNumber
-          : undefined
-      const courierCompany =
-        typeof vars.courierCompany === 'string' && vars.courierCompany.length > 0
-          ? COURIER_COMPANY_LABELS[vars.courierCompany]
-          : undefined
-      if (!name || !orderId) {
-        throw new Error('order-shipped email requires name/orderId vars')
-      }
+      const orderId = requireString(vars, 'orderId', 'order-shipped')
+      const trackingNumber = nonEmpty(vars, 'trackingNumber')
+      const courier = courierLabel[nonEmpty(vars, 'courierCompany') ?? '']
+      const subject = i18n('Order shipped')
       const lines = [
-        `你好，${name}！`,
-        '你的订单已发货，正在奔向你的餐桌。',
-        `订单编号：${orderId}`,
+        greeting,
+        i18n('Your order has been shipped and is on its way to your table.'),
+        i18n('Order number: {orderId}', { orderId }),
       ]
-      if (courierCompany) lines.push(`承运商：${courierCompany}`)
-      if (trackingNumber) lines.push(`运单号：${trackingNumber}`)
-      lines.push('可在「我的订单」中查看物流进度。')
-      const text = [
-        `你好，${name}！你的订单已发货（订单编号 ${orderId}）`,
-        trackingNumber ? `，运单号 ${trackingNumber}` : '',
-        '，可在「我的订单」中查看物流进度。',
-      ].join('')
+      if (courier) lines.push(i18n('Courier: {courier}', { courier }))
+      if (trackingNumber) lines.push(i18n('Tracking number: {trackingNumber}', { trackingNumber }))
+      lines.push(i18n('You can track logistics progress in "My Orders".'))
       return {
-        subject: '订单已发货',
-        html: layout('订单已发货', paragraphs(lines)),
-        text,
+        subject,
+        html: layout(subject, paragraphs(lines), i18n),
+        text: lines.join('\n'),
       }
     }
     default: {

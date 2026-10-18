@@ -171,6 +171,29 @@ createEnv() → createDeps(env) → buildApp(options) → createPlugins(options)
 2. `pnpm --filter @epinfresh/database db:generate`
 3. 检查生成的 SQL 并提交到 `packages/database/src/migrations/`（CI 会在真实 PG 重放）
 
+### 7. 用户可见文案 i18n
+
+**口径**：只翻译**终端用户可见**的服务端文案（API 错误 `message` / 限流 429 / 会话守卫 / 通知邮件）。面向开发者的一律不译：OpenAPI `summary`/`description`、Elysia 校验错误、日志、`pay-mock-server` 模拟平台协议。
+
+**模型：标记 + 提取（gettext 式）**。用户可见文案必须用标记函数包裹，英文源串即 key、也是默认回退：
+
+- **标记**：`i18n('英文源串', params?)`。controller 经 `localePlugin` 的 `derive` 每请求注入绑定语言的 `i18n`（`packages/http/src/localePlugin.ts`），用法 `message: i18n('Order not found')`；worker 邮件用 `createTranslator(locale)` 得到同名 `i18n`。
+- **基础设施边界**（session 守卫、限流 429，拿不到 controller 上下文）用显式 `translate(locale, '源串')`。
+- **语言协商**：`X-Locale` / `?lang=` → `Accept-Language`（q 值）→ env `DEFAULT_LOCALE`（默认 `en`）。
+- **i18n 是呈现层职责**：domain/usecase 只返回码与数据，禁止 import `@epinfresh/i18n`（eslint `i18n/no-core-import`）。
+
+**catalog 自动生成/校验**（`packages/i18n/src/catalog/{en,zh-CN}.json`，勿手改 en）：
+
+```bash
+pnpm i18n:extract   # 扫描标记, 生成 en.json + 合并 zh-CN.json(保留既有译文)
+pnpm i18n:check     # 漏译/陈旧则退出 1 (pre-commit + CI 门禁)
+```
+
+新增/修改文案的流程：写标记（英文源串）→ `pnpm i18n:extract` → 在 `zh-CN.json` 补译文。漏译会被 `i18n:check` 拦下；漏标记（裸中文）由 eslint `i18n/no-cjk-literal` 拦下；标记实参非字面量由 `i18n/marker-literal` 拦下（保证可扫描）。
+
+- **邮件语言**：`SendEmailJobData.locale` 随任务传递；用户语言在注册/登录时从 `Accept-Language` 落 `users.locale`，`renderEmail(template, vars, locale)` 按此渲染。
+- 新增一种语言：加 `packages/i18n/src/catalog/<locale>.json` + 在 `SUPPORTED_LOCALES`/提取器 `TARGET_LOCALES` 登记即可，无需改路由。
+
 ## 测试
 
 两类集成测试（都需要本地 postgres + redis）：

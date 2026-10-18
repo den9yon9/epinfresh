@@ -34,6 +34,7 @@ function createTestDeps(deps: { db: Db; redis: Redis }): AdminAppOptions {
     isProduction: false,
     logger: createLogger('silent'),
     authRateLimitPerMinute: 20,
+    defaultLocale: 'en',
   }
 }
 

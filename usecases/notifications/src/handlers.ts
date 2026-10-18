@@ -12,10 +12,10 @@ export function createTransactionalEmailHandlers(
 ): Record<string, EmailJobHandler> {
   return {
     [EMAIL_JOB_NAMES.PAYMENT_SUCCEEDED]: (data) =>
-      sender.send(EMAIL_JOB_NAMES.PAYMENT_SUCCEEDED, data.to, data.payload),
+      sender.send(EMAIL_JOB_NAMES.PAYMENT_SUCCEEDED, data.to, data.payload, data.locale),
     [EMAIL_JOB_NAMES.REFUND_SUCCEEDED]: (data) =>
-      sender.send(EMAIL_JOB_NAMES.REFUND_SUCCEEDED, data.to, data.payload),
+      sender.send(EMAIL_JOB_NAMES.REFUND_SUCCEEDED, data.to, data.payload, data.locale),
     [EMAIL_JOB_NAMES.ORDER_SHIPPED]: (data) =>
-      sender.send(EMAIL_JOB_NAMES.ORDER_SHIPPED, data.to, data.payload),
+      sender.send(EMAIL_JOB_NAMES.ORDER_SHIPPED, data.to, data.payload, data.locale),
   }
 }

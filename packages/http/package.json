@@ -6,10 +6,12 @@
   "types": "./src/index.ts",
   "scripts": {
     "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test --parallel=1"
   },
   "dependencies": {
     "@epinfresh/database": "workspace:*",
+    "@epinfresh/i18n": "workspace:*",
     "@epinfresh/redis": "workspace:*",
     "@epinfresh/shared": "workspace:*",
     "elysia": "^1.2.0",

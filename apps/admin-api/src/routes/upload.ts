@@ -29,24 +29,25 @@ export interface UploadResponse {
 
 export function createUploadRoutes(plugins: AdminPlugins) {
   return new Elysia({ name: 'upload-admin' })
+    .use(plugins.localePlugin)
     .use(plugins.dbPlugin)
     .use(plugins.sessionPlugin)
     .post(
       '/admin/upload',
-      async ({ request }) => {
+      async ({ request, i18n }) => {
         const form = await request.formData()
         const file = form.get('file')
         if (!(file instanceof File)) {
-          return status(400, { error: 'INVALID_FILE', message: 'Missing file field' })
+          return status(400, { error: 'INVALID_FILE', message: i18n('Missing file field') })
         }
         if (!ALLOWED_MIME.has(file.type)) {
           return status(400, {
             error: 'UNSUPPORTED_TYPE',
-            message: 'Only image/jpeg, image/png, image/webp allowed',
+            message: i18n('Only image/jpeg, image/png, image/webp allowed'),
           })
         }
         if (file.size > MAX_FILE_BYTES) {
-          return status(400, { error: 'FILE_TOO_LARGE', message: 'File exceeds 5MB limit' })
+          return status(400, { error: 'FILE_TOO_LARGE', message: i18n('File exceeds 5MB limit') })
         }
         const ext = MIME_EXT[file.type] ?? 'bin'
         const name = `${randomUUID()}.${ext}`
@@ -71,11 +72,11 @@ export function createUploadRoutes(plugins: AdminPlugins) {
     )
     .get(
       '/uploads/images/:name',
-      async ({ params }) => {
+      async ({ params, i18n }) => {
         // normalize 防路径穿越: 仅放行纯文件名
         const safe = normalize(params.name)
         if (safe.includes('..') || safe.includes(':')) {
-          return status(404, { error: 'NOT_FOUND', message: 'Not found' })
+          return status(404, { error: 'NOT_FOUND', message: i18n('Not found') })
         }
         try {
           const data = await readFile(join(UPLOAD_DIR, 'images', safe))
@@ -87,7 +88,7 @@ export function createUploadRoutes(plugins: AdminPlugins) {
             },
           })
         } catch {
-          return status(404, { error: 'NOT_FOUND', message: 'Not found' })
+          return status(404, { error: 'NOT_FOUND', message: i18n('Not found') })
         }
       },
       {

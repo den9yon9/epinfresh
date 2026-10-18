@@ -16,6 +16,7 @@
 | 管理后台 | Dashboard、订单发货、商品/分类/用户 CRUD、全额退款                                                                                     |
 | 邮件通知 | outbox 事件 → 邮件队列 → SMTP：欢迎 / 找回密码 / 支付成功 / 退款成功 / 发货（`MAIL_TRANSPORT=console\|smtp`）                          |
 | 用户     | 注册登录（argon2）/ 找回密码 / Redis 会话 / 路由级限流 / 微信公众号 OAuth                                                              |
+| i18n     | 后端用户文案（API 错误 / 限流 / 守卫 / 邮件）标记 + 提取，`Accept-Language` 协商，`en`·`zh-CN`                                         |
 
 ## 架构
 
@@ -54,7 +55,7 @@ pnpm dev                # 自动迁移 + 全部服务 watch
 | admin-web                | http://localhost:5174          |
 | pay-mock-server          | http://localhost:8787          |
 
-常用命令：`pnpm typecheck` / `pnpm lint` / `pnpm test` / `pnpm e2e` / `pnpm build` / `pnpm keys:pay`（生成本地支付密钥对）。
+常用命令：`pnpm typecheck` / `pnpm lint` / `pnpm test` / `pnpm e2e` / `pnpm build` / `pnpm i18n:extract`（生成/更新翻译 catalog，`pnpm i18n:check` 校验）/ `pnpm keys:pay`（生成本地支付密钥对）。
 
 测试需要本地 postgres + redis（`TESTING_*` 配置见 `.env.example`）。
 
@@ -128,6 +129,7 @@ k6 run --vus 50 --duration 2m scripts/k6/checkout.js
 | 文档                                         | 内容                                           |
 | -------------------------------------------- | ---------------------------------------------- |
 | [CONTRIBUTE.md](CONTRIBUTE.md)               | 分层规范、开发模式、动手写（新增域/用例/路由） |
+| [docs/i18n.md](docs/i18n.md)                 | 后端用户文案 i18n：标记 + 提取、语言协商、邮件 |
 | [docs/payment-flow.md](docs/payment-flow.md) | 支付主链路、渠道注册表、退款状态机、对账       |
 | [docs/wechat-pay.md](docs/wechat-pay.md)     | 微信支付联调与本地模拟器                       |
 | [docs/alipay-pay.md](docs/alipay-pay.md)     | 支付宝当面付联调                               |

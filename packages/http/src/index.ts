@@ -1,5 +1,6 @@
 export { dbPlugin } from './dbPlugin'
 export { httpMetricsPlugin } from './httpMetricsPlugin'
+export { localePlugin, type LocalePluginOptions, resolveRequestLocale } from './localePlugin'
 export {
   type Counter,
   createMetrics,
